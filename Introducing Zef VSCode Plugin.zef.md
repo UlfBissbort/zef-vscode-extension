@@ -79,16 +79,35 @@ Or JS
 
 ```javascript
 console.log('Hello from JavaScript!');
-[1, 2, 3, 4, 5].reduce((a, b) => a + b, 0);
+[1, 2, 3, 4, 50].reduce((a, b) => a + b, 0);
 ```
 ````Result
-15
+60
 ````
 ````Side Effects
 [
     ET.UnmanagedEffect(
         what='stdout',
         content='Hello from JavaScript!'
+    )
+]
+````
+Or TS
+
+```typescript
+// console.log('Hello from TypeScript!');
+const numbers: number[] = [10, 20, 30, 40, 1];
+numbers.reduce((a, b) => a + b, 0);
+```
+````Result
+101
+````
+````Side Effects
+[
+    ET.UnmanagedEffect(
+        what='stdout',
+        content='Hello from TypeScript!
+'
     )
 ]
 ````

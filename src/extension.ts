@@ -5,6 +5,7 @@ import { getKernelManager, disposeKernelManager, CellResult } from './kernelMana
 import { getPythonPath, showPythonPicker, showSettingsPanel, setDefaultPython } from './configManager';
 import { executeRust, RustCellResult, isRustAvailable } from './rustExecutor';
 import { executeJs, JsCellResult, isBunAvailable } from './jsExecutor';
+import { executeTs, TsCellResult, isBunAvailable as isTsBunAvailable } from './tsExecutor';
 
 let statusBarItem: vscode.StatusBarItem;
 
@@ -118,6 +119,8 @@ export function activate(context: vscode.ExtensionContext) {
                 await runRustCode(context, code, blockId);
             } else if (language === 'javascript' || language === 'js') {
                 await runJsCode(context, code, blockId);
+            } else if (language === 'typescript' || language === 'ts') {
+                await runTsCode(context, code, blockId);
             } else {
                 await runCodeInKernel(context, code, blockId);
             }
@@ -144,6 +147,8 @@ export function activate(context: vscode.ExtensionContext) {
                     await runRustCode(context, block.code, block.blockId);
                 } else if (block.language === 'javascript' || block.language === 'js') {
                     await runJsCode(context, block.code, block.blockId);
+                } else if (block.language === 'typescript' || block.language === 'ts') {
+                    await runTsCode(context, block.code, block.blockId);
                 } else {
                     await runCodeInKernel(context, block.code, block.blockId);
                 }
@@ -168,6 +173,8 @@ export function activate(context: vscode.ExtensionContext) {
                     runRustCode(context, code, blockId);
                 } else if (language === 'javascript' || language === 'js') {
                     runJsCode(context, code, blockId);
+                } else if (language === 'typescript' || language === 'ts') {
+                    runTsCode(context, code, blockId);
                 } else {
                     runCodeInKernel(context, code, blockId);
                 }
@@ -369,6 +376,56 @@ async function runJsCode(context: vscode.ExtensionContext, code: string, blockId
         }
     } catch (e: any) {
         vscode.window.showErrorMessage(`Zef JS: Execution failed - ${e.message}`);
+    }
+}
+
+async function runTsCode(context: vscode.ExtensionContext, code: string, blockId?: number): Promise<void> {
+    // Check if Bun is available (TS uses bun too)
+    const bunAvailable = await isTsBunAvailable();
+    if (!bunAvailable) {
+        vscode.window.showErrorMessage('Zef: Bun runtime not found. Please install Bun (https://bun.sh)');
+        return;
+    }
+
+    const cellId = `ts-cell-${Date.now()}`;
+
+    try {
+        // Show running indicator
+        vscode.window.setStatusBarMessage('$(sync~spin) Running TypeScript...', 5000);
+        
+        const result = await executeTs(code, cellId);
+        
+        // Convert TsCellResult to CellResult format for compatibility
+        const cellResult: CellResult = {
+            cell_id: result.cell_id,
+            status: result.status,
+            result: result.result,
+            stdout: result.stdout,
+            stderr: result.stderr,
+            side_effects: result.side_effects,
+            error: result.error
+        };
+        
+        // Send result to preview panel
+        if (getPanel() && blockId !== undefined) {
+            sendCellResult(blockId, cellResult);
+        }
+        
+        // Write result to the file as an Output block
+        if (blockId !== undefined) {
+            await writeOutputToFile(blockId, cellResult);
+        }
+        
+        if (result.status === 'error' && result.error) {
+            vscode.window.showErrorMessage(`Zef TS: ${result.error.type}: ${result.error.message}`);
+        } else {
+            // Show brief success message
+            const output = result.result || result.stdout || 'Done';
+            const preview = output.length > 50 ? output.substring(0, 50) + '...' : output;
+            vscode.window.setStatusBarMessage(`$(check) TS: ${preview}`, 3000);
+        }
+    } catch (e: any) {
+        vscode.window.showErrorMessage(`Zef TS: Execution failed - ${e.message}`);
     }
 }
 

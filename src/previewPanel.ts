@@ -73,8 +73,8 @@ export function updatePreview(document: vscode.TextDocument) {
     const existingSideEffects: { [blockId: number]: string } = {};
     let codeBlockIndex = 0;
     
-    // Find all code blocks (Python, Rust, JavaScript) and their associated Result/Side Effects
-    const codeBlockRegex = /```(?:python|rust|javascript|js)\s*\n[\s\S]*?```(\s*\n````(?:Result|Output)\s*\n([\s\S]*?)````)?(\s*\n````Side Effects\s*\n([\s\S]*?)````)?/g;
+    // Find all code blocks (Python, Rust, JavaScript, TypeScript) and their associated Result/Side Effects
+    const codeBlockRegex = /```(?:python|rust|javascript|js|typescript|ts)\s*\n[\s\S]*?```(\s*\n````(?:Result|Output)\s*\n([\s\S]*?)````)?(\s*\n````Side Effects\s*\n([\s\S]*?)````)?/g;
     let match;
     while ((match = codeBlockRegex.exec(text)) !== null) {
         codeBlockIndex++;
@@ -612,7 +612,8 @@ function getWebviewContent(renderedHtml: string, existingOutputs: { [blockId: nu
                 var isPython = (lang === 'python' || lang === 'py');
                 var isRust = (lang === 'rust' || lang === 'rs');
                 var isJs = (lang === 'javascript' || lang === 'js');
-                var isExecutable = isPython || isRust || isJs;
+                var isTs = (lang === 'typescript' || lang === 'ts');
+                var isExecutable = isPython || isRust || isJs || isTs;
                 
                 // Only assign blockId to executable blocks to match the parser
                 var currentBlockId = null;
@@ -624,7 +625,7 @@ function getWebviewContent(renderedHtml: string, existingOutputs: { [blockId: nu
                 var codeElement = pre.querySelector('code');
                 var codeContent = codeElement ? codeElement.textContent || '' : '';
                 
-                // Store the code and language for this block (Python, Rust, and JavaScript)
+                // Store the code and language for this block (Python, Rust, JavaScript, TypeScript)
                 if (currentBlockId !== null) {
                     codeBlocks[currentBlockId] = codeContent;
                     blockLanguages[currentBlockId] = lang;
@@ -672,11 +673,12 @@ function getWebviewContent(renderedHtml: string, existingOutputs: { [blockId: nu
                     tabsBar.appendChild(tab);
                 });
                 
-                // Add Run button for Python, Rust, and JavaScript blocks
+                // Add Run button for Python, Rust, JavaScript, and TypeScript blocks
                 var isPython = (lang === 'python' || lang === 'py');
                 var isRust = (lang === 'rust' || lang === 'rs');
                 var isJs = (lang === 'javascript' || lang === 'js');
-                if (isPython || isRust || isJs) {
+                var isTs = (lang === 'typescript' || lang === 'ts');
+                if (isPython || isRust || isJs || isTs) {
                     var runBtn = document.createElement('button');
                     runBtn.className = 'code-block-run';
                     runBtn.id = 'run-btn-' + currentBlockId;
