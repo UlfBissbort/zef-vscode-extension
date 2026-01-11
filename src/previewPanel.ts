@@ -4,9 +4,14 @@ import { CellResult } from './kernelManager';
 
 let currentPanel: vscode.WebviewPanel | undefined;
 let onRunCodeCallback: ((code: string, blockId: number) => void) | undefined;
+let currentDocumentUri: vscode.Uri | undefined;  // Track which document the preview is showing
 
 export function setOnRunCode(callback: (code: string, blockId: number) => void) {
     onRunCodeCallback = callback;
+}
+
+export function getCurrentDocumentUri(): vscode.Uri | undefined {
+    return currentDocumentUri;
 }
 
 export function createPreviewPanel(context: vscode.ExtensionContext): vscode.WebviewPanel {
@@ -57,6 +62,9 @@ export function updatePreview(document: vscode.TextDocument) {
     if (!currentPanel) {
         return;
     }
+
+    // Track which document we're previewing
+    currentDocumentUri = document.uri;
 
     const text = document.getText();
     

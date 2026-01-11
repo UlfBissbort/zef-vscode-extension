@@ -51,10 +51,10 @@ The function `average` now has a unique hash (e.g., `#a7f2c3`). Same code = same
 Code blocks share state, just like notebooks. But with a key difference: Zef tracks the entire lineage.
 
 ```python
-[4,5 ] + [6,7,9]
+[4,5 ] + [6,7,9,8]
 ```
 ````Output
-[4, 5, 6, ]
+[4, 5, 6, 7, 9, 88]
 ````
 
 Every function and value is tracked by hash. Six months later, you can reproduce this exact result.

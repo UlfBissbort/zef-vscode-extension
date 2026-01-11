@@ -1,6 +1,6 @@
 import * as vscode from 'vscode';
 import { CodeBlockProvider, findCodeBlockAtPosition, findPythonCodeBlocks, findCodeBlockById } from './codeBlockParser';
-import { createPreviewPanel, updatePreview, getPanel, scrollPreviewToLine, sendCellResult, setOnRunCode } from './previewPanel';
+import { createPreviewPanel, updatePreview, getPanel, scrollPreviewToLine, sendCellResult, setOnRunCode, getCurrentDocumentUri } from './previewPanel';
 import { getKernelManager, disposeKernelManager, CellResult } from './kernelManager';
 import { getPythonPath, showPythonPicker, showSettingsPanel, setDefaultPython } from './configManager';
 
@@ -253,17 +253,59 @@ async function runCodeInKernel(context: vscode.ExtensionContext, code: string, b
  * Write the execution result to the file as an Output block after the code block
  */
 async function writeOutputToFile(blockId: number, result: CellResult): Promise<void> {
-    const editor = vscode.window.activeTextEditor;
-    if (!editor || !editor.document.fileName.endsWith('.zef.md')) {
+    console.log('[Zef] writeOutputToFile called with blockId:', blockId);
+    
+    // Try to get the document from the preview panel's tracked URI first
+    let document: vscode.TextDocument | undefined;
+    let editor: vscode.TextEditor | undefined;
+    
+    const previewDocUri = getCurrentDocumentUri();
+    if (previewDocUri) {
+        // Find editor for this document, or open it
+        editor = vscode.window.visibleTextEditors.find(e => e.document.uri.toString() === previewDocUri.toString());
+        if (editor) {
+            document = editor.document;
+            console.log('[Zef] Found editor via preview URI');
+        } else {
+            // Document might be open but not visible, try to get it
+            try {
+                document = await vscode.workspace.openTextDocument(previewDocUri);
+                // We need an editor to make edits, so show the document
+                editor = await vscode.window.showTextDocument(document, vscode.ViewColumn.One, true);
+                console.log('[Zef] Opened document from preview URI');
+            } catch (e) {
+                console.log('[Zef] Failed to open document from preview URI:', e);
+            }
+        }
+    }
+    
+    // Fallback to active editor
+    if (!editor || !document) {
+        editor = vscode.window.activeTextEditor;
+        if (!editor) {
+            console.log('[Zef] No editor available');
+            return;
+        }
+        document = editor.document;
+        console.log('[Zef] Using active editor');
+    }
+    
+    if (!document.fileName.endsWith('.zef.md')) {
+        console.log('[Zef] Document is not a .zef.md file:', document.fileName);
         return;
     }
     
-    const document = editor.document;
     const block = findCodeBlockById(document, blockId);
     
     if (!block) {
+        console.log('[Zef] Block not found for blockId:', blockId);
+        // List all blocks for debugging
+        const allBlocks = findPythonCodeBlocks(document);
+        console.log('[Zef] Available blocks:', allBlocks.map(b => ({ id: b.blockId, code: b.code.substring(0, 30) })));
         return;
     }
+    
+    console.log('[Zef] Found block:', block.blockId, 'hasOutputRange:', !!block.outputRange);
     
     // Format the output content
     let outputContent = '';
@@ -290,7 +332,7 @@ async function writeOutputToFile(blockId: number, result: CellResult): Promise<v
     
     const outputBlock = '\n````Output\n' + outputContent + '\n````';
     
-    await editor.edit(editBuilder => {
+    const success = await editor.edit(editBuilder => {
         if (block.outputRange) {
             // Replace existing output block
             editBuilder.replace(block.outputRange, outputBlock);
@@ -300,6 +342,8 @@ async function writeOutputToFile(blockId: number, result: CellResult): Promise<v
             editBuilder.insert(insertPosition, outputBlock);
         }
     });
+    
+    console.log('[Zef] editor.edit result:', success);
 }
 
 export function deactivate() {
