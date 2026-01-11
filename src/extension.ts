@@ -158,8 +158,12 @@ export function activate(context: vscode.ExtensionContext) {
             }
             
             // Set up callback to run code from preview panel
-            setOnRunCode((code: string, blockId: number) => {
-                runCodeInKernel(context, code, blockId);
+            setOnRunCode((code: string, blockId: number, language: string) => {
+                if (language === 'rust' || language === 'rs') {
+                    runRustCode(context, code, blockId);
+                } else {
+                    runCodeInKernel(context, code, blockId);
+                }
             });
             
             createPreviewPanel(context);

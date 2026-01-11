@@ -18,28 +18,29 @@ This document you're reading? It's executable. Try it:
 In Rust:
 ```rust
 println!("The answer is {}", 40 + 2);
-1.234
+1.2345
 ```
 ````Result
-1.234
+1.2345
 ````
 ````Side Effects
 [
     ET.UnmanagedEffect(
         what='stdout',
-        content='The answer is 42
-The answer is 45'
+        content='The answer is 42'
     )
 ]
 ````
-42
+
+
+we can also add function definitions and call them later.
+```rust
+fn multiply(a: i32, b: i32) -> i32 {
+    a * b
+}
+multiply(6, 7)
 ```
-````Result
-42
-````
-````Side Effects
-[]
-````
+
 
 
 Or Python:

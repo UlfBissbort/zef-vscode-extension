@@ -3,10 +3,10 @@ import { marked } from 'marked';
 import { CellResult } from './kernelManager';
 
 let currentPanel: vscode.WebviewPanel | undefined;
-let onRunCodeCallback: ((code: string, blockId: number) => void) | undefined;
+let onRunCodeCallback: ((code: string, blockId: number, language: string) => void) | undefined;
 let currentDocumentUri: vscode.Uri | undefined;  // Track which document the preview is showing
 
-export function setOnRunCode(callback: (code: string, blockId: number) => void) {
+export function setOnRunCode(callback: (code: string, blockId: number, language: string) => void) {
     onRunCodeCallback = callback;
 }
 
@@ -37,7 +37,7 @@ export function createPreviewPanel(context: vscode.ExtensionContext): vscode.Web
         // Handle messages from the webview
         currentPanel.webview.onDidReceiveMessage(message => {
             if (message.type === 'runCode' && onRunCodeCallback) {
-                onRunCodeCallback(message.code, message.blockId);
+                onRunCodeCallback(message.code, message.blockId, message.language || 'python');
             } else if (message.type === 'scrollToSource') {
                 // Navigate editor to this line
                 const editor = vscode.window.activeTextEditor;
@@ -71,18 +71,18 @@ export function updatePreview(document: vscode.TextDocument) {
     // Extract existing Result and Side Effects blocks before removing them
     const existingResults: { [blockId: number]: string } = {};
     const existingSideEffects: { [blockId: number]: string } = {};
-    let pythonBlockIndex = 0;
+    let codeBlockIndex = 0;
     
-    // Find all Python blocks and their associated Result/Side Effects
-    const pythonBlockRegex = /```python\s*\n[\s\S]*?```(\s*\n````(?:Result|Output)\s*\n([\s\S]*?)````)?(\s*\n````Side Effects\s*\n([\s\S]*?)````)?/g;
+    // Find all code blocks (Python and Rust) and their associated Result/Side Effects
+    const codeBlockRegex = /```(?:python|rust)\s*\n[\s\S]*?```(\s*\n````(?:Result|Output)\s*\n([\s\S]*?)````)?(\s*\n````Side Effects\s*\n([\s\S]*?)````)?/g;
     let match;
-    while ((match = pythonBlockRegex.exec(text)) !== null) {
-        pythonBlockIndex++;
+    while ((match = codeBlockRegex.exec(text)) !== null) {
+        codeBlockIndex++;
         if (match[2]) {  // Has Result block
-            existingResults[pythonBlockIndex] = match[2].trim();
+            existingResults[codeBlockIndex] = match[2].trim();
         }
         if (match[4]) {  // Has Side Effects block
-            existingSideEffects[pythonBlockIndex] = match[4].trim();
+            existingSideEffects[codeBlockIndex] = match[4].trim();
         }
     }
     
@@ -602,27 +602,31 @@ function getWebviewContent(renderedHtml: string, existingOutputs: { [blockId: nu
                 }
             });
             // Transform code blocks to have tabs
-            var pythonBlockId = 0; // Only count Python blocks to match parser
+            var codeBlockId = 0; // Count Python and Rust blocks to match parser
             var codeBlocks = {}; // Store code content for each block
+            var blockLanguages = {}; // Store language for each block
             var vscode = acquireVsCodeApi();
             
             document.querySelectorAll('pre').forEach(function(pre) {
                 var lang = pre.getAttribute('data-lang') || 'code';
                 var isPython = (lang === 'python' || lang === 'py');
+                var isRust = (lang === 'rust' || lang === 'rs');
+                var isExecutable = isPython || isRust;
                 
-                // Only assign blockId to Python blocks to match the parser
+                // Only assign blockId to executable blocks to match the parser
                 var currentBlockId = null;
-                if (isPython) {
-                    pythonBlockId++;
-                    currentBlockId = pythonBlockId;
+                if (isExecutable) {
+                    codeBlockId++;
+                    currentBlockId = codeBlockId;
                 }
                 
                 var codeElement = pre.querySelector('code');
                 var codeContent = codeElement ? codeElement.textContent || '' : '';
                 
-                // Store the code for this block (Python only)
+                // Store the code and language for this block (Python and Rust)
                 if (currentBlockId !== null) {
                     codeBlocks[currentBlockId] = codeContent;
+                    blockLanguages[currentBlockId] = lang;
                 }
                 
                 // Create container
@@ -667,14 +671,15 @@ function getWebviewContent(renderedHtml: string, existingOutputs: { [blockId: nu
                     tabsBar.appendChild(tab);
                 });
                 
-                // Add Run button for Python blocks
+                // Add Run button for Python and Rust blocks
                 var isPython = (lang === 'python' || lang === 'py');
-                if (isPython) {
+                var isRust = (lang === 'rust' || lang === 'rs');
+                if (isPython || isRust) {
                     var runBtn = document.createElement('button');
                     runBtn.className = 'code-block-run';
                     runBtn.id = 'run-btn-' + currentBlockId;
                     runBtn.innerHTML = '▶ Run';
-                    runBtn.onclick = (function(thisBlockId) {
+                    runBtn.onclick = (function(thisBlockId, thisLang) {
                         return function() {
                             var btn = document.getElementById('run-btn-' + thisBlockId);
                             if (btn.classList.contains('running')) return;
@@ -685,10 +690,11 @@ function getWebviewContent(renderedHtml: string, existingOutputs: { [blockId: nu
                             vscode.postMessage({
                                 type: 'runCode',
                                 code: code,
-                                blockId: thisBlockId
+                                blockId: thisBlockId,
+                                language: thisLang
                             });
                         };
-                    })(currentBlockId);
+                    })(currentBlockId, lang);
                     tabsBar.appendChild(runBtn);
                 }
                 
