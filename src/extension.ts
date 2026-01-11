@@ -1,12 +1,13 @@
 import * as vscode from 'vscode';
-import { CodeBlockProvider, findCodeBlockAtPosition, findPythonCodeBlocks, findCodeBlockById } from './codeBlockParser';
+import { CodeBlockProvider, findCodeBlockAtPosition, findCodeBlocks, findCodeBlockById } from './codeBlockParser';
 import { createPreviewPanel, updatePreview, getPanel, scrollPreviewToLine, sendCellResult, setOnRunCode, getCurrentDocumentUri } from './previewPanel';
 import { getKernelManager, disposeKernelManager, CellResult } from './kernelManager';
 import { getPythonPath, showPythonPicker, showSettingsPanel, setDefaultPython } from './configManager';
+import { executeRust, RustCellResult, isRustAvailable } from './rustExecutor';
 
 let statusBarItem: vscode.StatusBarItem;
 
-// Decoration type for highlighting Python code blocks with a gray background
+// Decoration type for highlighting code blocks with a gray background
 const codeBlockDecorationType = vscode.window.createTextEditorDecorationType({
     backgroundColor: 'rgba(128, 128, 128, 0.15)',
     isWholeLine: true,
@@ -18,7 +19,7 @@ function updateDecorations(editor: vscode.TextEditor) {
         return;
     }
 
-    const blocks = findPythonCodeBlocks(editor.document);
+    const blocks = findCodeBlocks(editor.document);
     const decorations: vscode.DecorationOptions[] = blocks.map(block => ({
         range: block.range,
     }));
@@ -111,8 +112,12 @@ export function activate(context: vscode.ExtensionContext) {
 
     // Register command to run a specific code block
     context.subscriptions.push(
-        vscode.commands.registerCommand('zef.runBlock', async (code: string, blockId?: number) => {
-            await runCodeInKernel(context, code, blockId);
+        vscode.commands.registerCommand('zef.runBlock', async (code: string, blockId?: number, language?: string) => {
+            if (language === 'rust') {
+                await runRustCode(context, code, blockId);
+            } else {
+                await runCodeInKernel(context, code, blockId);
+            }
         })
     );
 
@@ -132,9 +137,13 @@ export function activate(context: vscode.ExtensionContext) {
 
             const block = findCodeBlockAtPosition(editor.document, editor.selection.active);
             if (block) {
-                await runCodeInKernel(context, block.code);
+                if (block.language === 'rust') {
+                    await runRustCode(context, block.code, block.blockId);
+                } else {
+                    await runCodeInKernel(context, block.code, block.blockId);
+                }
             } else {
-                vscode.window.showWarningMessage('Zef: Cursor is not inside a Python code block');
+                vscode.window.showWarningMessage('Zef: Cursor is not inside a code block');
             }
         })
     );
@@ -246,6 +255,59 @@ async function runCodeInKernel(context: vscode.ExtensionContext, code: string, b
         }
     } catch (e: any) {
         vscode.window.showErrorMessage(`Zef: Execution failed - ${e.message}`);
+    }
+}
+
+/**
+ * Run Rust code and write results to the file
+ */
+async function runRustCode(context: vscode.ExtensionContext, code: string, blockId?: number): Promise<void> {
+    // Check if Rust is available
+    const rustAvailable = await isRustAvailable();
+    if (!rustAvailable) {
+        vscode.window.showErrorMessage('Zef: Rust compiler (rustc) not found. Please install Rust.');
+        return;
+    }
+
+    const cellId = `rust-cell-${Date.now()}`;
+
+    try {
+        // Show running indicator
+        vscode.window.setStatusBarMessage('$(sync~spin) Compiling Rust...', 5000);
+        
+        const result = await executeRust(code, cellId);
+        
+        // Convert RustCellResult to CellResult format for compatibility
+        const cellResult: CellResult = {
+            cell_id: result.cell_id,
+            status: result.status,
+            result: result.result,
+            stdout: result.stdout,
+            stderr: result.stderr,
+            side_effects: result.side_effects,
+            error: result.error
+        };
+        
+        // Send result to preview panel
+        if (getPanel() && blockId !== undefined) {
+            sendCellResult(blockId, cellResult);
+        }
+        
+        // Write result to the file as an Output block
+        if (blockId !== undefined) {
+            await writeOutputToFile(blockId, cellResult);
+        }
+        
+        if (result.status === 'error' && result.error) {
+            vscode.window.showErrorMessage(`Zef Rust: ${result.error.type}: ${result.error.message}`);
+        } else {
+            // Show brief success message
+            const output = result.result || result.stdout || 'Done';
+            const preview = output.length > 50 ? output.substring(0, 50) + '...' : output;
+            vscode.window.setStatusBarMessage(`$(check) Rust: ${preview}`, 3000);
+        }
+    } catch (e: any) {
+        vscode.window.showErrorMessage(`Zef Rust: Execution failed - ${e.message}`);
     }
 }
 

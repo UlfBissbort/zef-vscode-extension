@@ -3,7 +3,7 @@ import * as vscode from 'vscode';
 export interface CodeBlock {
     range: vscode.Range;
     code: string;
-    language: string;
+    language: string;                 // 'python' or 'rust'
     blockId?: number;
     resultRange?: vscode.Range;       // Range of the associated Result block (if exists)
     resultContent?: string;           // Content of the Result block
@@ -12,15 +12,15 @@ export interface CodeBlock {
 }
 
 /**
- * Find all Python code blocks in a markdown document
+ * Find all code blocks (Python and Rust) in a markdown document
  * Also detects associated ````Result and ````Side Effects blocks
  */
-export function findPythonCodeBlocks(document: vscode.TextDocument): CodeBlock[] {
+export function findCodeBlocks(document: vscode.TextDocument): CodeBlock[] {
     const blocks: CodeBlock[] = [];
     const text = document.getText();
     
-    // Match ```python ... ``` blocks
-    const regex = /```python\s*\n([\s\S]*?)```/g;
+    // Match ```python ... ``` and ```rust ... ``` blocks
+    const regex = /```(python|rust)\s*\n([\s\S]*?)```/g;
     let match;
     let blockId = 0;
     
@@ -28,14 +28,15 @@ export function findPythonCodeBlocks(document: vscode.TextDocument): CodeBlock[]
         blockId++;
         const startOffset = match.index;
         const endOffset = match.index + match[0].length;
+        const language = match[1];  // 'python' or 'rust'
         
         const startPos = document.positionAt(startOffset);
         const endPos = document.positionAt(endOffset);
         
         const block: CodeBlock = {
             range: new vscode.Range(startPos, endPos),
-            code: match[1].trim(),
-            language: 'python',
+            code: match[2].trim(),
+            language: language,
             blockId: blockId
         };
         
@@ -85,7 +86,7 @@ export function findCodeBlockAtPosition(
     document: vscode.TextDocument,
     position: vscode.Position
 ): CodeBlock | undefined {
-    const blocks = findPythonCodeBlocks(document);
+    const blocks = findCodeBlocks(document);
     return blocks.find(block => block.range.contains(position));
 }
 
@@ -96,12 +97,12 @@ export function findCodeBlockById(
     document: vscode.TextDocument,
     blockId: number
 ): CodeBlock | undefined {
-    const blocks = findPythonCodeBlocks(document);
+    const blocks = findCodeBlocks(document);
     return blocks.find(block => block.blockId === blockId);
 }
 
 /**
- * CodeLens provider that adds "▶ Run" above each Python code block
+ * CodeLens provider that adds "▶ Run" above each code block (Python and Rust)
  */
 export class CodeBlockProvider implements vscode.CodeLensProvider {
     private _onDidChangeCodeLenses: vscode.EventEmitter<void> = new vscode.EventEmitter<void>();
@@ -119,14 +120,15 @@ export class CodeBlockProvider implements vscode.CodeLensProvider {
         _token: vscode.CancellationToken
     ): vscode.CodeLens[] {
         const codeLenses: vscode.CodeLens[] = [];
-        const blocks = findPythonCodeBlocks(document);
+        const blocks = findCodeBlocks(document);
 
         for (const block of blocks) {
-            // Place CodeLens at the start of the code block (the ```python line)
+            // Place CodeLens at the start of the code block
+            // Include language in the arguments
             const codeLens = new vscode.CodeLens(block.range, {
                 title: '▶ Run',
                 command: 'zef.runBlock',
-                arguments: [block.code, block.blockId]
+                arguments: [block.code, block.blockId, block.language]
             });
             codeLenses.push(codeLens);
         }

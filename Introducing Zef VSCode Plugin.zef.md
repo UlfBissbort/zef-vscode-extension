@@ -14,6 +14,35 @@ The Zef VSCode Plugin turns `.zef.md` files into executable documents. Write pro
 
 This document you're reading? It's executable. Try it:
 
+
+In Rust:
+```rust
+println!("The answer is {}", 40 + 2);
+1.234
+```
+````Result
+1.234
+````
+````Side Effects
+[
+    ET.UnmanagedEffect(
+        what='stdout',
+        content='The answer is 42
+The answer is 45'
+    )
+]
+````
+42
+```
+````Result
+42
+````
+````Side Effects
+[]
+````
+
+
+Or Python:
 ```python
 from zef import *
 
@@ -40,6 +69,7 @@ sales | sum | collect
 ]
 ````
 
+
 Or
 
 ```python
@@ -51,12 +81,7 @@ ET.Foo(x=41+2)
 ET.Foo(x=43)
 ````
 ````Side Effects
-[
-    ET.UnmanagedEffect(
-        what='stdout',
-        content='6'
-    )
-]
+[]
 ````
 
 
@@ -72,7 +97,6 @@ When you define a function, Zef stores it by its content hash—like git, but fo
 'hello' + ' world!'
 ```
 ````Result
-print('abc')
 'hello world!'
 ````
 ````Side Effects
