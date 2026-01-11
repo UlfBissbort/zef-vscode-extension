@@ -3,6 +3,11 @@ import { marked } from 'marked';
 import { CellResult } from './kernelManager';
 
 let currentPanel: vscode.WebviewPanel | undefined;
+let onRunCodeCallback: ((code: string, blockId: number) => void) | undefined;
+
+export function setOnRunCode(callback: (code: string, blockId: number) => void) {
+    onRunCodeCallback = callback;
+}
 
 export function createPreviewPanel(context: vscode.ExtensionContext): vscode.WebviewPanel {
     const editor = vscode.window.activeTextEditor;
@@ -22,6 +27,22 @@ export function createPreviewPanel(context: vscode.ExtensionContext): vscode.Web
 
         currentPanel.onDidDispose(() => {
             currentPanel = undefined;
+        });
+        
+        // Handle messages from the webview
+        currentPanel.webview.onDidReceiveMessage(message => {
+            if (message.type === 'runCode' && onRunCodeCallback) {
+                onRunCodeCallback(message.code, message.blockId);
+            } else if (message.type === 'scrollToSource') {
+                // Navigate editor to this line
+                const editor = vscode.window.activeTextEditor;
+                if (editor) {
+                    const line = message.line;
+                    const range = new vscode.Range(line, 0, line, 0);
+                    editor.revealRange(range, vscode.TextEditorRevealType.InCenter);
+                    editor.selection = new vscode.Selection(line, 0, line, 0);
+                }
+            }
         });
     }
 
@@ -231,6 +252,48 @@ function getWebviewContent(renderedHtml: string): string {
             display: flex;
             align-items: center;
             gap: 6px;
+        }
+        
+        .code-block-run {
+            padding: 4px 12px;
+            font-size: 0.7rem;
+            letter-spacing: 0.05em;
+            color: #98c379;
+            background: rgba(152, 195, 121, 0.1);
+            border: 1px solid rgba(152, 195, 121, 0.3);
+            border-radius: 4px;
+            cursor: pointer;
+            transition: all 0.2s;
+            margin-left: auto;
+            display: flex;
+            align-items: center;
+            gap: 4px;
+        }
+        
+        .code-block-run:hover {
+            background: rgba(152, 195, 121, 0.2);
+            border-color: rgba(152, 195, 121, 0.5);
+        }
+        
+        .code-block-run.running {
+            color: #d19a66;
+            background: rgba(209, 154, 102, 0.1);
+            border-color: rgba(209, 154, 102, 0.3);
+            cursor: wait;
+        }
+        
+        .code-block-run.running::before {
+            content: '';
+            width: 10px;
+            height: 10px;
+            border: 2px solid transparent;
+            border-top-color: #d19a66;
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+        }
+        
+        @keyframes spin {
+            to { transform: rotate(360deg); }
         }
 
         .code-block-content {
@@ -499,10 +562,18 @@ function getWebviewContent(renderedHtml: string): string {
             });
             // Transform code blocks to have tabs
             var blockId = 0;
+            var codeBlocks = {}; // Store code content for each block
+            var vscode = acquireVsCodeApi();
+            
             document.querySelectorAll('pre').forEach(function(pre) {
                 blockId++;
                 var currentBlockId = blockId; // Capture the current blockId
                 var lang = pre.getAttribute('data-lang') || 'code';
+                var codeElement = pre.querySelector('code');
+                var codeContent = codeElement ? codeElement.textContent || '' : '';
+                
+                // Store the code for this block
+                codeBlocks[currentBlockId] = codeContent;
                 
                 // Create container
                 var container = document.createElement('div');
@@ -542,6 +613,31 @@ function getWebviewContent(renderedHtml: string): string {
                     tabsBar.appendChild(tab);
                 });
                 
+                // Add Run button for Python blocks
+                var isPython = (lang === 'python' || lang === 'py');
+                if (isPython) {
+                    var runBtn = document.createElement('button');
+                    runBtn.className = 'code-block-run';
+                    runBtn.id = 'run-btn-' + currentBlockId;
+                    runBtn.innerHTML = '▶ Run';
+                    runBtn.onclick = (function(thisBlockId) {
+                        return function() {
+                            var btn = document.getElementById('run-btn-' + thisBlockId);
+                            if (btn.classList.contains('running')) return;
+                            btn.classList.add('running');
+                            btn.innerHTML = 'Running...';
+                            
+                            var code = codeBlocks[thisBlockId];
+                            vscode.postMessage({
+                                type: 'runCode',
+                                code: code,
+                                blockId: thisBlockId
+                            });
+                        };
+                    })(currentBlockId);
+                    tabsBar.appendChild(runBtn);
+                }
+                
                 // Add language indicator with emoji on the right
                 var langIndicator = document.createElement('div');
                 langIndicator.className = 'code-block-lang';
@@ -573,7 +669,7 @@ function getWebviewContent(renderedHtml: string): string {
                 outputContent.id = 'content-' + currentBlockId + '-output';
                 outputContent.innerHTML = '<div class="tab-content-output">' +
                     '<div class="output-label">Output</div>' +
-                    '<div class="output-value">42\\nHello, World!\\n[1, 2, 3, 4, 5]</div>' +
+                    '<div class="output-value" id="output-value-' + currentBlockId + '"><span style="color: var(--text-dim); font-style: italic;">No output yet. Click Run to execute.</span></div>' +
                     '</div>';
                 
                 var sideEffectsContent = document.createElement('div');
@@ -597,7 +693,96 @@ function getWebviewContent(renderedHtml: string): string {
                 container.appendChild(codeContent);
                 container.appendChild(outputContent);
                 container.appendChild(sideEffectsContent);
-            });        })();
+            });
+            
+            // Handle messages from the extension
+            window.addEventListener('message', function(event) {
+                var message = event.data;
+                
+                if (message.type === 'cellResult') {
+                    var blockId = message.blockId;
+                    var result = message.result;
+                    
+                    // Reset run button
+                    var runBtn = document.getElementById('run-btn-' + blockId);
+                    if (runBtn) {
+                        runBtn.classList.remove('running');
+                        runBtn.innerHTML = '▶ Run';
+                    }
+                    
+                    // Update output tab
+                    var outputValue = document.getElementById('output-value-' + blockId);
+                    if (outputValue) {
+                        var html = '';
+                        
+                        if (result.status === 'error') {
+                            html = '<span style="color: #e06c75;">' + 
+                                   (result.error ? result.error.type + ': ' + result.error.message : 'Error') +
+                                   '</span>';
+                            if (result.error && result.error.traceback) {
+                                html += '<pre style="color: #e06c75; margin-top: 8px; font-size: 0.75rem; opacity: 0.8;">' + 
+                                        result.error.traceback + '</pre>';
+                            }
+                        } else {
+                            // Show stdout if any
+                            if (result.stdout && result.stdout.trim()) {
+                                html += '<div style="color: var(--text-muted); white-space: pre-wrap;">' + 
+                                        escapeHtml(result.stdout) + '</div>';
+                            }
+                            // Show return value if any
+                            if (result.result !== undefined && result.result !== null && result.result !== 'None') {
+                                if (html) html += '<div style="margin-top: 8px; padding-top: 8px; border-top: 1px solid var(--border-color);">';
+                                html += '<span style="color: #98c379;">' + escapeHtml(String(result.result)) + '</span>';
+                                if (html.includes('margin-top')) html += '</div>';
+                            }
+                            // If nothing to show
+                            if (!html) {
+                                html = '<span style="color: var(--text-dim); font-style: italic;">Executed successfully (no output)</span>';
+                            }
+                        }
+                        
+                        outputValue.innerHTML = html;
+                    }
+                    
+                    // Switch to output tab
+                    var container = document.querySelector('[data-block-id="' + blockId + '"]');
+                    if (container) {
+                        container.querySelectorAll('.code-block-tab').forEach(function(t) {
+                            t.classList.remove('active');
+                            if (t.getAttribute('data-tab') === 'output') {
+                                t.classList.add('active');
+                            }
+                        });
+                        container.querySelectorAll('.code-block-content').forEach(function(c) {
+                            c.classList.remove('active');
+                        });
+                        var outputTab = document.getElementById('content-' + blockId + '-output');
+                        if (outputTab) {
+                            outputTab.classList.add('active');
+                        }
+                    }
+                }
+                
+                if (message.type === 'scrollToLine') {
+                    // Find element with closest data-line attribute
+                    var targetLine = message.line;
+                    var elements = document.querySelectorAll('[data-line]');
+                    var closest = null;
+                    var closestDiff = Infinity;
+                    elements.forEach(function(el) {
+                        var line = parseInt(el.getAttribute('data-line'));
+                        var diff = Math.abs(line - targetLine);
+                        if (diff < closestDiff) {
+                            closestDiff = diff;
+                            closest = el;
+                        }
+                    });
+                    if (closest) {
+                        closest.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                    }
+                }
+            });
+        })();
     </script>
 </body>
 </html>`;

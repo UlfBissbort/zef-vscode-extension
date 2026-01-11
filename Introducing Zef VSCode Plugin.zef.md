@@ -15,9 +15,13 @@ The Zef VSCode Plugin turns `.zef.md` files into executable documents. Write pro
 This document you're reading? It's executable. Try it:
 
 ```python
+from zef import *
+
 sales = [1200, 800, 1500, 950]
 total = sum(sales)
 print(f"Q1 Total: ${total:,}")
+
+first
 ```
 
 Check the tabs above: **Code** | **Output** | **Side Effects**

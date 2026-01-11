@@ -1,6 +1,6 @@
 import * as vscode from 'vscode';
 import { CodeBlockProvider, findCodeBlockAtPosition, findPythonCodeBlocks } from './codeBlockParser';
-import { createPreviewPanel, updatePreview, getPanel, scrollPreviewToLine, sendCellResult } from './previewPanel';
+import { createPreviewPanel, updatePreview, getPanel, scrollPreviewToLine, sendCellResult, setOnRunCode } from './previewPanel';
 import { getKernelManager, disposeKernelManager, CellResult } from './kernelManager';
 import { getPythonPath, showPythonPicker, showSettingsPanel, setDefaultPython } from './configManager';
 
@@ -147,6 +147,12 @@ export function activate(context: vscode.ExtensionContext) {
                 vscode.window.showWarningMessage('Zef: Open a .zef.md file first');
                 return;
             }
+            
+            // Set up callback to run code from preview panel
+            setOnRunCode((code: string, blockId: number) => {
+                runCodeInKernel(context, code, blockId);
+            });
+            
             createPreviewPanel(context);
         })
     );
