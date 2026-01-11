@@ -17,7 +17,7 @@ This document you're reading? It's executable. Try it:
 ```python
 from zef import *
 
-print('🌿 an spurious side effect: printing to stdout 🔥')
+print('🌿 an spurious side effect: printing to stdout 11🌿')
 sales = [1200, 800, 1500, 910]
 
 print('🌿 an spurious side effect: printing to stdout 🔥')
@@ -31,6 +31,10 @@ sales | sum | collect
 [
     ET.UnmanagedEffect(
         what='stdout',
+        content='🌿 an spurious side effect: printing to stdout 11🌿'
+    ),
+    ET.UnmanagedEffect(
+        what='stdout',
         content='🌿 an spurious side effect: printing to stdout 🔥'
     )
 ]
@@ -40,10 +44,19 @@ Or
 
 ```python
 from zef import *
+
 ET.Foo(x=41+2)
 ```
 ````Result
 ET.Foo(x=43)
+````
+````Side Effects
+[
+    ET.UnmanagedEffect(
+        what='stdout',
+        content='6'
+    )
+]
 ````
 
 
@@ -59,8 +72,13 @@ When you define a function, Zef stores it by its content hash—like git, but fo
 'hello' + ' world!'
 ```
 ````Result
+print('abc')
 'hello world!'
 ````
+````Side Effects
+[]
+````
+
 
 The function `average` now has a unique hash (e.g., `#a7f2c3`). Same code = same hash, everywhere, forever.
 

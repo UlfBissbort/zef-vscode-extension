@@ -323,10 +323,13 @@ async function writeOutputToFile(blockId: number, result: CellResult): Promise<v
             return `    ET.UnmanagedEffect(\n        what='${effect.what}',\n        content='${escapedContent}'\n    )`;
         });
         sideEffectsContent = '[\n' + effectStrings.join(',\n') + '\n]';
+    } else {
+        // Always write empty array when no side effects
+        sideEffectsContent = '[]';
     }
     
     const resultBlock = '\n````Result\n' + resultContent + '\n````';
-    const sideEffectsBlock = sideEffectsContent ? '\n````Side Effects\n' + sideEffectsContent + '\n````' : '';
+    const sideEffectsBlock = '\n````Side Effects\n' + sideEffectsContent + '\n````';
     
     // Determine insert position - need to track where to insert side effects
     // Result block comes first, then side effects block
