@@ -83,6 +83,7 @@ function getWebviewContent(renderedHtml: string): string {
         body {
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
             line-height: 1.8;
+            font-size: 0.9rem;
             color: var(--text-color);
             background-color: var(--bg-color);
             padding: 3rem 2rem;
@@ -316,7 +317,7 @@ function getWebviewContent(renderedHtml: string): string {
 
         strong {
             font-weight: 500;
-            color: var(--text-color);
+            color: #aaa;
         }
 
         em {
