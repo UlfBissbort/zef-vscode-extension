@@ -103,13 +103,7 @@ numbers.reduce((a, b) => a + b, 0);
 101
 ````
 ````Side Effects
-[
-    ET.UnmanagedEffect(
-        what='stdout',
-        content='Hello from TypeScript!
-'
-    )
-]
+[]
 ````
 
 

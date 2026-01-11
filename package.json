@@ -52,6 +52,12 @@
         "when": "editorLangId == markdown && resourceFilename =~ /\\.zef\\.md$/"
       },
       {
+        "command": "zef.runBlockAtCursor",
+        "key": "ctrl+enter",
+        "mac": "cmd+enter",
+        "when": "editorLangId == markdown && resourceFilename =~ /\\.zef\\.md$/"
+      },
+      {
         "command": "zef.openPreview",
         "key": "cmd+shift+v",
         "when": "editorLangId == markdown && resourceFilename =~ /\\.zef\\.md$/"
