@@ -169,21 +169,6 @@ function getWebviewContent(renderedHtml: string): string {
         .hl-num { color: #d19a66 !important; }
         .hl-ty { color: #56b6c2 !important; }
 
-        /* Language badge */
-        pre[data-lang]::before {
-            content: attr(data-lang);
-            position: absolute;
-            top: 0;
-            right: 0;
-            padding: 3px 10px;
-            font-size: 0.65rem;
-            letter-spacing: 0.1em;
-            text-transform: uppercase;
-            color: var(--text-dim);
-            background: var(--border-color);
-            border-radius: 0 8px 0 8px;
-        }
-
         /* Code block container with tabs */
         .code-block-container {
             margin: 1.5rem 0;
@@ -218,6 +203,17 @@ function getWebviewContent(renderedHtml: string): string {
         .code-block-tab.active {
             color: var(--text-color);
             background: var(--code-bg);
+        }
+
+        .code-block-lang {
+            margin-left: auto;
+            padding: 8px 16px;
+            font-size: 0.75rem;
+            letter-spacing: 0.05em;
+            color: var(--text-dim);
+            display: flex;
+            align-items: center;
+            gap: 6px;
         }
 
         .code-block-content {
@@ -528,6 +524,27 @@ function getWebviewContent(renderedHtml: string): string {
                     })(container, currentBlockId, tab);
                     tabsBar.appendChild(tab);
                 });
+                
+                // Add language indicator with emoji on the right
+                var langIndicator = document.createElement('div');
+                langIndicator.className = 'code-block-lang';
+                var emoji = '';
+                var langName = lang;
+                if (lang === 'python' || lang === 'py') {
+                    emoji = '🐍';
+                    langName = 'Python';
+                } else if (lang === 'rust' || lang === 'rs') {
+                    emoji = '🦀';
+                    langName = 'Rust';
+                } else if (lang === 'javascript' || lang === 'js') {
+                    emoji = '📜';
+                    langName = 'JavaScript';
+                } else if (lang === 'typescript' || lang === 'ts') {
+                    emoji = '📘';
+                    langName = 'TypeScript';
+                }
+                langIndicator.innerHTML = '<span>' + langName + '</span><span>' + emoji + '</span>';
+                tabsBar.appendChild(langIndicator);
                 
                 // Create content containers
                 var codeContent = document.createElement('div');
