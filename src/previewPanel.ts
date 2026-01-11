@@ -281,7 +281,6 @@ function getWebviewContent(renderedHtml: string, existingOutputs: { [blockId: nu
         }
 
         .code-block-lang {
-            margin-left: auto;
             padding: 8px 16px;
             font-size: 0.75rem;
             letter-spacing: 0.05em;
@@ -302,6 +301,7 @@ function getWebviewContent(renderedHtml: string, existingOutputs: { [blockId: nu
             cursor: pointer;
             transition: all 0.2s;
             margin-left: auto;
+            margin-right: 8px;
             display: flex;
             align-items: center;
             gap: 4px;

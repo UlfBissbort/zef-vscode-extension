@@ -40,6 +40,12 @@ fn multiply(a: i32, b: i32) -> i32 {
 }
 multiply(6, 7)
 ```
+````Result
+42
+````
+````Side Effects
+[]
+````
 
 
 
