@@ -2,7 +2,7 @@
   "name": "zef",
   "displayName": "Zef",
   "description": "Run Python code blocks from .zef.md files",
-  "version": "0.0.2",
+  "version": "0.0.3",
   "publisher": "zef",
   "engines": {
     "vscode": "^1.85.0"
@@ -27,6 +27,22 @@
       {
         "command": "zef.openPreview",
         "title": "Zef: Open Preview to Side"
+      },
+      {
+        "command": "zef.selectPython",
+        "title": "Zef: Select Python Interpreter"
+      },
+      {
+        "command": "zef.settings",
+        "title": "Zef: Settings"
+      },
+      {
+        "command": "zef.restartKernel",
+        "title": "Zef: Restart Kernel"
+      },
+      {
+        "command": "zef.showKernelOutput",
+        "title": "Zef: Show Kernel Output"
       }
     ],
     "keybindings": [
@@ -40,7 +56,22 @@
         "key": "cmd+shift+v",
         "when": "editorLangId == markdown && resourceFilename =~ /\\.zef\\.md$/"
       }
-    ]
+    ],
+    "configuration": {
+      "title": "Zef",
+      "properties": {
+        "zef.defaultPython": {
+          "type": "string",
+          "default": "",
+          "description": "Path to the default Python interpreter for running code blocks"
+        },
+        "zef.notebookVenv": {
+          "type": "string",
+          "default": "",
+          "description": "Path to virtual environment for notebook execution (takes priority over defaultPython)"
+        }
+      }
+    }
   },
   "scripts": {
     "vscode:prepublish": "npm run compile",

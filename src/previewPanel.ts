@@ -1,5 +1,6 @@
 import * as vscode from 'vscode';
 import { marked } from 'marked';
+import { CellResult } from './kernelManager';
 
 let currentPanel: vscode.WebviewPanel | undefined;
 
@@ -42,6 +43,22 @@ export function updatePreview(document: vscode.TextDocument) {
 
 export function getPanel(): vscode.WebviewPanel | undefined {
     return currentPanel;
+}
+
+export function scrollPreviewToLine(line: number) {
+    if (currentPanel) {
+        currentPanel.webview.postMessage({ type: 'scrollToLine', line: line });
+    }
+}
+
+export function sendCellResult(blockId: number, result: CellResult) {
+    if (currentPanel) {
+        currentPanel.webview.postMessage({ 
+            type: 'cellResult', 
+            blockId: blockId,
+            result: result
+        });
+    }
 }
 
 function renderMarkdown(markdown: string): string {
