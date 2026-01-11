@@ -24,3 +24,11 @@ print(f"Current time: {datetime.datetime.now()}")
 ```
 
 
+We can also show Rust code blocks.
+
+```rust
+fn main() {
+    println!("Hello from Rust!");
+    let x = 42;
+}
+```

@@ -132,6 +132,7 @@ function getWebviewContent(renderedHtml: string): string {
             border: 1px solid var(--border-color);
             border-radius: 6px;
             padding: 16px;
+            padding-top: 28px;
             overflow-x: auto;
             position: relative;
         }
@@ -144,17 +145,16 @@ function getWebviewContent(renderedHtml: string): string {
             color: var(--text-color);
         }
 
-        /* Python code block styling */
-        pre code.language-python {
-            color: #d4d4d4;
-        }
-
         /* Basic syntax highlighting */
         .keyword { color: #569cd6; }
         .string { color: #ce9178; }
         .comment { color: #6a9955; }
         .function { color: #dcdcaa; }
         .number { color: #b5cea8; }
+        .type { color: #4ec9b0; }
+        .macro { color: #c586c0; }
+        .lifetime { color: #d7ba7d; }
+        .attribute { color: #9cdcfe; }
 
         blockquote {
             border-left: 4px solid var(--heading-color);
@@ -204,40 +204,122 @@ function getWebviewContent(renderedHtml: string): string {
             height: auto;
         }
 
-        /* Python code block badge */
-        pre:has(code.language-python)::before {
-            content: 'Python';
+        /* Language badge for code blocks */
+        pre[data-lang]::before {
+            content: attr(data-lang);
             position: absolute;
             top: 0;
             right: 0;
-            background: #3572A5;
-            color: white;
             padding: 2px 8px;
             font-size: 0.75em;
             border-radius: 0 6px 0 6px;
+            text-transform: capitalize;
+        }
+
+        /* Python badge */
+        pre[data-lang="python"]::before {
+            background: #3572A5;
+            color: white;
+        }
+
+        /* Rust badge */
+        pre[data-lang="rust"]::before {
+            background: #dea584;
+            color: #1e1e1e;
+        }
+
+        /* JavaScript badge */
+        pre[data-lang="javascript"]::before,
+        pre[data-lang="js"]::before {
+            background: #f7df1e;
+            color: #1e1e1e;
+        }
+
+        /* TypeScript badge */
+        pre[data-lang="typescript"]::before,
+        pre[data-lang="ts"]::before {
+            background: #3178c6;
+            color: white;
+        }
+
+        /* Generic badge for other languages */
+        pre[data-lang]::before {
+            background: #6b7280;
+            color: white;
         }
     </style>
 </head>
 <body>
     ${renderedHtml}
     <script>
-        // Basic syntax highlighting for Python code blocks
+        // Add language data attributes to pre elements
+        document.querySelectorAll('pre code').forEach(block => {
+            const classes = block.className.split(' ');
+            const langClass = classes.find(c => c.startsWith('language-'));
+            if (langClass) {
+                const lang = langClass.replace('language-', '');
+                block.parentElement.setAttribute('data-lang', lang);
+            }
+        });
+
+        // Syntax highlighting for different languages
         document.querySelectorAll('pre code').forEach(block => {
             let html = block.innerHTML;
+            const lang = block.parentElement?.getAttribute('data-lang') || '';
             
-            // Keywords
-            html = html.replace(/\\b(def|class|return|if|else|elif|for|while|import|from|as|try|except|finally|with|in|not|and|or|is|None|True|False|lambda|yield|raise|pass|break|continue|async|await)\\b/g, 
-                '<span class="keyword">$1</span>');
+            if (lang === 'python') {
+                // Python keywords
+                html = html.replace(/\\b(def|class|return|if|else|elif|for|while|import|from|as|try|except|finally|with|in|not|and|or|is|None|True|False|lambda|yield|raise|pass|break|continue|async|await|self)\\b/g, 
+                    '<span class="keyword">$1</span>');
+                
+                // Comments
+                html = html.replace(/(#.*)$/gm, '<span class="comment">$1</span>');
+            } 
+            else if (lang === 'rust') {
+                // Rust keywords
+                html = html.replace(/\\b(fn|let|mut|const|static|if|else|match|for|while|loop|break|continue|return|struct|enum|impl|trait|pub|mod|use|crate|self|super|as|where|unsafe|async|await|move|ref|type|dyn|extern|in)\\b/g, 
+                    '<span class="keyword">$1</span>');
+                
+                // Rust types
+                html = html.replace(/\\b(i8|i16|i32|i64|i128|isize|u8|u16|u32|u64|u128|usize|f32|f64|bool|char|str|String|Vec|Option|Result|Box|Rc|Arc|Self|Some|None|Ok|Err|true|false)\\b/g, 
+                    '<span class="type">$1</span>');
+                
+                // Lifetimes
+                html = html.replace(/'([a-zA-Z_][a-zA-Z0-9_]*)/g, 
+                    '<span class="lifetime">\\'$1</span>');
+                
+                // Macros
+                html = html.replace(/\\b([a-zA-Z_][a-zA-Z0-9_]*)!/g, 
+                    '<span class="macro">$1!</span>');
+                
+                // Attributes
+                html = html.replace(/#\\[([^\\]]+)\\]/g, 
+                    '<span class="attribute">#[$1]</span>');
+                
+                // Comments
+                html = html.replace(/(\\/\\/.*)$/gm, '<span class="comment">$1</span>');
+            }
+            else if (lang === 'javascript' || lang === 'js' || lang === 'typescript' || lang === 'ts') {
+                // JS/TS keywords
+                html = html.replace(/\\b(const|let|var|function|return|if|else|for|while|class|extends|import|export|from|as|new|this|try|catch|finally|throw|async|await|typeof|instanceof|in|of|default|switch|case|break|continue|null|undefined|true|false)\\b/g, 
+                    '<span class="keyword">$1</span>');
+                
+                // TS types
+                if (lang === 'typescript' || lang === 'ts') {
+                    html = html.replace(/\\b(string|number|boolean|any|void|never|unknown|interface|type|enum|namespace|declare|readonly|private|public|protected|abstract|implements)\\b/g, 
+                        '<span class="type">$1</span>');
+                }
+                
+                // Comments
+                html = html.replace(/(\\/\\/.*)$/gm, '<span class="comment">$1</span>');
+            }
             
-            // Strings (simple patterns)
+            // Common patterns for all languages
+            // Strings (double and single quoted)
             html = html.replace(/(["'])(?:(?=(\\\\?))\\2.)*?\\1/g, 
                 '<span class="string">$&</span>');
             
-            // Comments
-            html = html.replace(/(#.*)$/gm, 
-                '<span class="comment">$1</span>');
-            
-            // Function calls
+            // Function calls (before opening paren)
             html = html.replace(/\\b([a-zA-Z_][a-zA-Z0-9_]*)\\s*\\(/g, 
                 '<span class="function">$1</span>(');
             
