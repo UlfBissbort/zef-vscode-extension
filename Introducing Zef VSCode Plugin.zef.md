@@ -1,12 +1,12 @@
 # Introducing the Zef VSCode Plugin
 
-**Jupyter notebooks, evolved. Write Markdown. Run Python. Reproduce anything.**
+**Jupyter notebooks, evolved. Write Markdown. Run Python and Rust. Reproduce anything.**
 
 ---
 
 ## The 10-Second Pitch
 
-The Zef VSCode Plugin turns `.zef.md` files into executable documents. Write prose and Python together. Run code blocks interactively. Every result is automatically tracked and reproducible.
+The Zef VSCode Plugin turns `.zef.md` files into executable documents. Write prose with Python and Rust code together. Run code blocks interactively. Every result is automatically tracked and reproducible.
 
 ---
 
@@ -68,6 +68,7 @@ Every function and value is tracked by hash. Six months later, you can reproduce
 | | Jupyter | Zef |
 |---|---------|-----|
 | **Editor** | Basic web UI | Full VS Code |
+| **Languages** | Python only | Python + Rust |
 | **State** | Hidden, fragile | Tracked, reproducible |
 | **Sharing** | Export files | Share by hash |
 | **Dependencies** | requirements.txt 🙏 | Locked by hash |
@@ -109,6 +110,36 @@ print(result)
 - `result` → hash of the output
 
 The complete provenance is recorded. Need to audit how a result was computed? It's all there.
+
+---
+
+## Seamless Python + Rust Interop
+
+Zef's core is written in Rust. This means you can write performance-critical functions in Rust—directly in your Markdown—and use them immediately from Python.
+
+**Define a Rust function:**
+
+```rust
+fn fast_sum(numbers: Vec<i64>) -> i64 {
+    numbers.iter().sum()
+}
+```
+
+**Call it from Python in the next block:**
+
+```python
+# The Rust function is available immediately
+data = list(range(1_000_000))
+result = fast_sum(data)
+print(f"Sum of 0..999,999: {result:,}")
+```
+
+Why mix languages?
+
+- **Python** for expressiveness: data wrangling, exploration, quick iteration
+- **Rust** for performance: hot loops, heavy computation, type safety
+
+Both are stored by hash. Both track provenance. One seamless workflow.
 
 ---
 
