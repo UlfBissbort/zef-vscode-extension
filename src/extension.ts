@@ -253,8 +253,6 @@ async function runCodeInKernel(context: vscode.ExtensionContext, code: string, b
  * Write the execution result to the file as an Output block after the code block
  */
 async function writeOutputToFile(blockId: number, result: CellResult): Promise<void> {
-    console.log('[Zef] writeOutputToFile called with blockId:', blockId);
-    
     // Try to get the document from the preview panel's tracked URI first
     let document: vscode.TextDocument | undefined;
     let editor: vscode.TextEditor | undefined;
@@ -265,16 +263,14 @@ async function writeOutputToFile(blockId: number, result: CellResult): Promise<v
         editor = vscode.window.visibleTextEditors.find(e => e.document.uri.toString() === previewDocUri.toString());
         if (editor) {
             document = editor.document;
-            console.log('[Zef] Found editor via preview URI');
         } else {
             // Document might be open but not visible, try to get it
             try {
                 document = await vscode.workspace.openTextDocument(previewDocUri);
                 // We need an editor to make edits, so show the document
                 editor = await vscode.window.showTextDocument(document, vscode.ViewColumn.One, true);
-                console.log('[Zef] Opened document from preview URI');
             } catch (e) {
-                console.log('[Zef] Failed to open document from preview URI:', e);
+                // Silently fail, will try fallback
             }
         }
     }
@@ -283,67 +279,56 @@ async function writeOutputToFile(blockId: number, result: CellResult): Promise<v
     if (!editor || !document) {
         editor = vscode.window.activeTextEditor;
         if (!editor) {
-            console.log('[Zef] No editor available');
             return;
         }
         document = editor.document;
-        console.log('[Zef] Using active editor');
     }
     
     if (!document.fileName.endsWith('.zef.md')) {
-        console.log('[Zef] Document is not a .zef.md file:', document.fileName);
         return;
     }
     
     const block = findCodeBlockById(document, blockId);
     
     if (!block) {
-        console.log('[Zef] Block not found for blockId:', blockId);
-        // List all blocks for debugging
-        const allBlocks = findPythonCodeBlocks(document);
-        console.log('[Zef] Available blocks:', allBlocks.map(b => ({ id: b.blockId, code: b.code.substring(0, 30) })));
         return;
     }
     
-    console.log('[Zef] Found block:', block.blockId, 'hasOutputRange:', !!block.outputRange);
-    
-    // Format the output content
-    let outputContent = '';
+    // Format the result content
+    let resultContent = '';
     if (result.status === 'error' && result.error) {
-        outputContent = `Error: ${result.error.type}: ${result.error.message}`;
+        resultContent = `Error: ${result.error.type}: ${result.error.message}`;
         if (result.error.traceback) {
-            outputContent += '\n' + result.error.traceback;
+            resultContent += '\n' + result.error.traceback;
         }
     } else {
         // Include both stdout and return value
         if (result.stdout && result.stdout.trim()) {
-            outputContent += result.stdout.trim();
+            resultContent += result.stdout.trim();
         }
         if (result.result !== undefined && result.result !== null && result.result !== 'None') {
-            if (outputContent) {
-                outputContent += '\n---\n';
+            if (resultContent) {
+                resultContent += '\n---\n';
             }
-            outputContent += result.result;
+            resultContent += result.result;
         }
-        if (!outputContent) {
-            outputContent = '# (no output)';
+        if (!resultContent) {
+            resultContent = '# (no result)';
         }
     }
     
-    const outputBlock = '\n````Output\n' + outputContent + '\n````';
+    const resultBlock = '\n````Result\n' + resultContent + '\n````';
     
-    const success = await editor.edit(editBuilder => {
-        if (block.outputRange) {
-            // Replace existing output block
-            editBuilder.replace(block.outputRange, outputBlock);
+    await editor.edit(editBuilder => {
+        if (block.resultRange) {
+            // Replace existing result block
+            editBuilder.replace(block.resultRange, resultBlock);
         } else {
-            // Insert new output block after the code block
+            // Insert new result block after the code block
             const insertPosition = block.range.end;
-            editBuilder.insert(insertPosition, outputBlock);
+            editBuilder.insert(insertPosition, resultBlock);
         }
     });
-    
-    console.log('[Zef] editor.edit result:', success);
 }
 
 export function deactivate() {

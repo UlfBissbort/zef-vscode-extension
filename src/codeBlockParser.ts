@@ -5,13 +5,13 @@ export interface CodeBlock {
     code: string;
     language: string;
     blockId?: number;
-    outputRange?: vscode.Range;  // Range of the associated output block (if exists)
-    outputContent?: string;      // Content of the output block
+    resultRange?: vscode.Range;  // Range of the associated Result block (if exists)
+    resultContent?: string;      // Content of the Result block
 }
 
 /**
  * Find all Python code blocks in a markdown document
- * Also detects associated ````Output blocks directly after
+ * Also detects associated ````Result blocks directly after
  */
 export function findPythonCodeBlocks(document: vscode.TextDocument): CodeBlock[] {
     const blocks: CodeBlock[] = [];
@@ -37,19 +37,20 @@ export function findPythonCodeBlocks(document: vscode.TextDocument): CodeBlock[]
             blockId: blockId
         };
         
-        // Check for output block directly after (with optional whitespace)
+        // Check for Result block directly after (with optional whitespace)
+        // Also support legacy Output blocks for backwards compatibility
         const afterCodeBlock = text.slice(endOffset);
-        const outputMatch = afterCodeBlock.match(/^\s*\n````Output\s*\n([\s\S]*?)````/);
+        const resultMatch = afterCodeBlock.match(/^\s*\n````(?:Result|Output)\s*\n([\s\S]*?)````/);
         
-        if (outputMatch) {
-            const outputStartOffset = endOffset + outputMatch.index!;
-            const outputEndOffset = outputStartOffset + outputMatch[0].length;
+        if (resultMatch) {
+            const resultStartOffset = endOffset + resultMatch.index!;
+            const resultEndOffset = resultStartOffset + resultMatch[0].length;
             
-            block.outputRange = new vscode.Range(
-                document.positionAt(outputStartOffset),
-                document.positionAt(outputEndOffset)
+            block.resultRange = new vscode.Range(
+                document.positionAt(resultStartOffset),
+                document.positionAt(resultEndOffset)
             );
-            block.outputContent = outputMatch[1].trim();
+            block.resultContent = resultMatch[1].trim();
         }
         
         blocks.push(block);

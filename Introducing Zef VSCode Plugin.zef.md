@@ -17,15 +17,26 @@ This document you're reading? It's executable. Try it:
 ```python
 from zef import *
 
-sales = [1200, 800, 1500, 950]
+sales = [1200, 800, 1500, 91]
 
 
 
 sales | sum | collect
 ```
-````Output
-4450
+````Result
+3591
 ````
+
+Or
+
+```python
+from zef import *
+ET.Foo(x=41+2)
+```
+````Result
+'abcabcabc'
+````
+
 
 Check the tabs above: **Code** | **Output** | **Side Effects**
 
@@ -38,7 +49,7 @@ When you define a function, Zef stores it by its content hash—like git, but fo
 ```python
 'hello' + ' world!'
 ```
-````Output
+````Result
 'hello world!'
 ````
 
@@ -53,9 +64,6 @@ Code blocks share state, just like notebooks. But with a key difference: Zef tra
 ```python
 [4,5 ] + [6,7,9,8]
 ```
-````Output
-[4, 5, 6, 7, 9, 88]
-````
 
 Every function and value is tracked by hash. Six months later, you can reproduce this exact result.
 

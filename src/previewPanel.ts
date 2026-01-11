@@ -73,7 +73,7 @@ export function updatePreview(document: vscode.TextDocument) {
     let pythonBlockIndex = 0;
     
     // Find all Python blocks and their associated outputs
-    const pythonBlockRegex = /```python\s*\n[\s\S]*?```(\s*\n````Output\s*\n([\s\S]*?)````)?/g;
+    const pythonBlockRegex = /```python\s*\n[\s\S]*?```(\s*\n````(?:Result|Output)\s*\n([\s\S]*?)````)?/g;
     let match;
     while ((match = pythonBlockRegex.exec(text)) !== null) {
         pythonBlockIndex++;
@@ -83,7 +83,7 @@ export function updatePreview(document: vscode.TextDocument) {
     }
     
     // Remove output blocks for rendering
-    const cleanText = text.replace(/\n````Output\s*\n[\s\S]*?````/g, '');
+    const cleanText = text.replace(/\n````(?:Result|Output)\s*\n[\s\S]*?````/g, '');
     
     const html = renderMarkdown(cleanText);
     currentPanel.webview.html = getWebviewContent(html, existingOutputs);
@@ -628,7 +628,7 @@ function getWebviewContent(renderedHtml: string, existingOutputs: { [blockId: nu
                 var tabsBar = document.createElement('div');
                 tabsBar.className = 'code-block-tabs';
                 
-                var tabs = ['Code', 'Output', 'Side Effects'];
+                var tabs = ['Code', 'Result', 'Side Effects'];
                 tabs.forEach(function(tabName, index) {
                     var tab = document.createElement('button');
                     tab.className = 'code-block-tab' + (index === 0 ? ' active' : '');
@@ -717,17 +717,17 @@ function getWebviewContent(renderedHtml: string, existingOutputs: { [blockId: nu
                 
                 var outputContent = document.createElement('div');
                 outputContent.className = 'code-block-content';
-                outputContent.id = 'content-' + currentBlockId + '-output';
+                outputContent.id = 'content-' + currentBlockId + '-result';
                 
                 var outputHtml = '<div class="tab-content-output">' +
-                    '<div class="output-label">Output</div>' +
-                    '<div class="output-value" id="output-value-' + currentBlockId + '">';
+                    '<div class="output-label">Result</div>' +
+                    '<div class="output-value" id="result-value-' + currentBlockId + '">';
                     
                 if (existingOutput) {
                     // Show existing output with proper escaping
                     outputHtml += '<span style="color: #98c379; white-space: pre-wrap;">' + escapeHtml(existingOutput) + '</span>';
                 } else {
-                    outputHtml += '<span style="color: var(--text-dim); font-style: italic;">No output yet. Click Run to execute.</span>';
+                    outputHtml += '<span style="color: var(--text-dim); font-style: italic;">No result yet. Click Run to execute.</span>';
                 }
                 outputHtml += '</div></div>';
                 outputContent.innerHTML = outputHtml;
@@ -770,9 +770,9 @@ function getWebviewContent(renderedHtml: string, existingOutputs: { [blockId: nu
                         runBtn.innerHTML = '▶ Run';
                     }
                     
-                    // Update output tab
-                    var outputValue = document.getElementById('output-value-' + blockId);
-                    if (outputValue) {
+                    // Update result tab
+                    var resultValue = document.getElementById('result-value-' + blockId);
+                    if (resultValue) {
                         var html = '';
                         
                         if (result.status === 'error') {
@@ -797,28 +797,28 @@ function getWebviewContent(renderedHtml: string, existingOutputs: { [blockId: nu
                             }
                             // If nothing to show
                             if (!html) {
-                                html = '<span style="color: var(--text-dim); font-style: italic;">Executed successfully (no output)</span>';
+                                html = '<span style="color: var(--text-dim); font-style: italic;">Executed successfully (no result)</span>';
                             }
                         }
                         
-                        outputValue.innerHTML = html;
+                        resultValue.innerHTML = html;
                     }
                     
-                    // Switch to output tab
+                    // Switch to result tab
                     var container = document.querySelector('[data-block-id="' + blockId + '"]');
                     if (container) {
                         container.querySelectorAll('.code-block-tab').forEach(function(t) {
                             t.classList.remove('active');
-                            if (t.getAttribute('data-tab') === 'output') {
+                            if (t.getAttribute('data-tab') === 'result') {
                                 t.classList.add('active');
                             }
                         });
                         container.querySelectorAll('.code-block-content').forEach(function(c) {
                             c.classList.remove('active');
                         });
-                        var outputTab = document.getElementById('content-' + blockId + '-output');
-                        if (outputTab) {
-                            outputTab.classList.add('active');
+                        var resultTab = document.getElementById('content-' + blockId + '-result');
+                        if (resultTab) {
+                            resultTab.classList.add('active');
                         }
                     }
                 }
