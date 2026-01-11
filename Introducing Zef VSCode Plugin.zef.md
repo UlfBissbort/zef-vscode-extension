@@ -75,6 +75,23 @@ sales | sum | collect
     )
 ]
 ````
+Or JS
+
+```javascript
+console.log('Hello from JavaScript!');
+[1, 2, 3, 4, 5].reduce((a, b) => a + b, 0);
+```
+````Result
+15
+````
+````Side Effects
+[
+    ET.UnmanagedEffect(
+        what='stdout',
+        content='Hello from JavaScript!'
+    )
+]
+````
 
 
 Or
@@ -221,7 +238,21 @@ Unlike Jupyter's web editor, you're in VS Code. That means:
 # Use any Python library you'd normally use
 import datetime
 print(f"Document executed: {datetime.datetime.now()}")
+
+[3,4,True,'🔥']*10
+
 ```
+````Result
+[3, 4, True, '🔥', 3, 4, True, '🔥', 3, 4, True, '🔥', 3, 4, True, '🔥', 3, 4, True, '🔥', 3, 4, True, '🔥', 3, 4, True, '🔥', 3, 4, True, '🔥', 3, 4, True, '🔥', 3, 4, True, '🔥']
+````
+````Side Effects
+[
+    ET.UnmanagedEffect(
+        what='stdout',
+        content='Document executed: 2026-01-11 22:20:29.862433'
+    )
+]
+````
 
 ---
 

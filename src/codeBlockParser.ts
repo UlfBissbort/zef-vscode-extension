@@ -3,7 +3,7 @@ import * as vscode from 'vscode';
 export interface CodeBlock {
     range: vscode.Range;
     code: string;
-    language: string;                 // 'python' or 'rust'
+    language: string;                 // 'python', 'rust', 'javascript', or 'js'
     blockId?: number;
     resultRange?: vscode.Range;       // Range of the associated Result block (if exists)
     resultContent?: string;           // Content of the Result block
@@ -12,15 +12,15 @@ export interface CodeBlock {
 }
 
 /**
- * Find all code blocks (Python and Rust) in a markdown document
+ * Find all code blocks (Python, Rust, JavaScript) in a markdown document
  * Also detects associated ````Result and ````Side Effects blocks
  */
 export function findCodeBlocks(document: vscode.TextDocument): CodeBlock[] {
     const blocks: CodeBlock[] = [];
     const text = document.getText();
     
-    // Match ```python ... ``` and ```rust ... ``` blocks
-    const regex = /```(python|rust)\s*\n([\s\S]*?)```/g;
+    // Match ```python ... ```, ```rust ... ```, ```javascript ... ```, and ```js ... ``` blocks
+    const regex = /```(python|rust|javascript|js)\s*\n([\s\S]*?)```/g;
     let match;
     let blockId = 0;
     

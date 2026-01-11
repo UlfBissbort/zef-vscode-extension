@@ -4,6 +4,7 @@ import { createPreviewPanel, updatePreview, getPanel, scrollPreviewToLine, sendC
 import { getKernelManager, disposeKernelManager, CellResult } from './kernelManager';
 import { getPythonPath, showPythonPicker, showSettingsPanel, setDefaultPython } from './configManager';
 import { executeRust, RustCellResult, isRustAvailable } from './rustExecutor';
+import { executeJs, JsCellResult, isBunAvailable } from './jsExecutor';
 
 let statusBarItem: vscode.StatusBarItem;
 
@@ -115,6 +116,8 @@ export function activate(context: vscode.ExtensionContext) {
         vscode.commands.registerCommand('zef.runBlock', async (code: string, blockId?: number, language?: string) => {
             if (language === 'rust') {
                 await runRustCode(context, code, blockId);
+            } else if (language === 'javascript' || language === 'js') {
+                await runJsCode(context, code, blockId);
             } else {
                 await runCodeInKernel(context, code, blockId);
             }
@@ -139,6 +142,8 @@ export function activate(context: vscode.ExtensionContext) {
             if (block) {
                 if (block.language === 'rust') {
                     await runRustCode(context, block.code, block.blockId);
+                } else if (block.language === 'javascript' || block.language === 'js') {
+                    await runJsCode(context, block.code, block.blockId);
                 } else {
                     await runCodeInKernel(context, block.code, block.blockId);
                 }
@@ -161,6 +166,8 @@ export function activate(context: vscode.ExtensionContext) {
             setOnRunCode((code: string, blockId: number, language: string) => {
                 if (language === 'rust' || language === 'rs') {
                     runRustCode(context, code, blockId);
+                } else if (language === 'javascript' || language === 'js') {
+                    runJsCode(context, code, blockId);
                 } else {
                     runCodeInKernel(context, code, blockId);
                 }
@@ -312,6 +319,56 @@ async function runRustCode(context: vscode.ExtensionContext, code: string, block
         }
     } catch (e: any) {
         vscode.window.showErrorMessage(`Zef Rust: Execution failed - ${e.message}`);
+    }
+}
+
+async function runJsCode(context: vscode.ExtensionContext, code: string, blockId?: number): Promise<void> {
+    // Check if Bun is available
+    const bunAvailable = await isBunAvailable();
+    if (!bunAvailable) {
+        vscode.window.showErrorMessage('Zef: Bun runtime not found. Please install Bun (https://bun.sh)');
+        return;
+    }
+
+    const cellId = `js-cell-${Date.now()}`;
+
+    try {
+        // Show running indicator
+        vscode.window.setStatusBarMessage('$(sync~spin) Running JavaScript...', 5000);
+        
+        const result = await executeJs(code, cellId);
+        
+        // Convert JsCellResult to CellResult format for compatibility
+        const cellResult: CellResult = {
+            cell_id: result.cell_id,
+            status: result.status,
+            result: result.result,
+            stdout: result.stdout,
+            stderr: result.stderr,
+            side_effects: result.side_effects,
+            error: result.error
+        };
+        
+        // Send result to preview panel
+        if (getPanel() && blockId !== undefined) {
+            sendCellResult(blockId, cellResult);
+        }
+        
+        // Write result to the file as an Output block
+        if (blockId !== undefined) {
+            await writeOutputToFile(blockId, cellResult);
+        }
+        
+        if (result.status === 'error' && result.error) {
+            vscode.window.showErrorMessage(`Zef JS: ${result.error.type}: ${result.error.message}`);
+        } else {
+            // Show brief success message
+            const output = result.result || result.stdout || 'Done';
+            const preview = output.length > 50 ? output.substring(0, 50) + '...' : output;
+            vscode.window.setStatusBarMessage(`$(check) JS: ${preview}`, 3000);
+        }
+    } catch (e: any) {
+        vscode.window.showErrorMessage(`Zef JS: Execution failed - ${e.message}`);
     }
 }
 
