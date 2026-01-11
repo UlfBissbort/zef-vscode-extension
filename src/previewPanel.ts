@@ -784,16 +784,22 @@ function getWebviewContent(renderedHtml: string, existingOutputs: { [blockId: nu
                                         result.error.traceback + '</pre>';
                             }
                         } else {
-                            // Show stdout if any
-                            if (result.stdout && result.stdout.trim()) {
-                                html += '<div style="color: var(--text-muted); white-space: pre-wrap;">' + 
-                                        escapeHtml(result.stdout) + '</div>';
-                            }
-                            // Show return value if any
+                            // Show return value (the evaluated expression) - this is the primary result
                             if (result.result !== undefined && result.result !== null && result.result !== 'None') {
-                                if (html) html += '<div style="margin-top: 8px; padding-top: 8px; border-top: 1px solid var(--border-color);">';
-                                html += '<span style="color: #98c379;">' + escapeHtml(String(result.result)) + '</span>';
-                                if (html.includes('margin-top')) html += '</div>';
+                                html += '<div style="color: #98c379; white-space: pre-wrap; font-family: monospace;">' + 
+                                        escapeHtml(String(result.result)) + '</div>';
+                            }
+                            // Show stdout if any (as secondary, dimmer output)
+                            if (result.stdout && result.stdout.trim()) {
+                                if (html) {
+                                    html += '<div style="margin-top: 12px; padding-top: 8px; border-top: 1px solid var(--border-color);">';
+                                    html += '<div style="font-size: 0.65rem; text-transform: uppercase; letter-spacing: 0.1em; color: var(--text-dim); margin-bottom: 4px;">stdout</div>';
+                                }
+                                html += '<div style="color: var(--text-dim); white-space: pre-wrap; font-family: monospace; opacity: 0.8;">' + 
+                                        escapeHtml(result.stdout) + '</div>';
+                                if (result.result) {
+                                    html += '</div>';
+                                }
                             }
                             // If nothing to show
                             if (!html) {

@@ -294,7 +294,7 @@ async function writeOutputToFile(blockId: number, result: CellResult): Promise<v
         return;
     }
     
-    // Format the result content
+    // Format the result content - only the evaluated value, NOT stdout
     let resultContent = '';
     if (result.status === 'error' && result.error) {
         resultContent = `Error: ${result.error.type}: ${result.error.message}`;
@@ -302,15 +302,9 @@ async function writeOutputToFile(blockId: number, result: CellResult): Promise<v
             resultContent += '\n' + result.error.traceback;
         }
     } else {
-        // Include both stdout and return value
-        if (result.stdout && result.stdout.trim()) {
-            resultContent += result.stdout.trim();
-        }
+        // Only store the evaluated return value (not stdout)
         if (result.result !== undefined && result.result !== null && result.result !== 'None') {
-            if (resultContent) {
-                resultContent += '\n---\n';
-            }
-            resultContent += result.result;
+            resultContent = result.result;
         }
         if (!resultContent) {
             resultContent = '# (no result)';

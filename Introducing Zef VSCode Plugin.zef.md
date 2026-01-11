@@ -19,7 +19,7 @@ from zef import *
 
 sales = [1200, 800, 1500, 91]
 
-
+print('🌿 an spurious side effect: printing to stdout 🔥')
 
 sales | sum | collect
 ```
@@ -34,7 +34,7 @@ from zef import *
 ET.Foo(x=41+2)
 ```
 ````Result
-'abcabcabc'
+ET.Foo(x=43)
 ````
 
 
