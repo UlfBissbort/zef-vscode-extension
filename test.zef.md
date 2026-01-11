@@ -10,6 +10,20 @@ x = 42
 
 Some more text here.
 
+### Subheading 2
+
+- a
+- b
+
+some text
+
+1. First item
+2. Second item 
+3. Third item
+    - Nested item
+    - Another nested item
+
+
 ```python
 print(f"The answer is {x}")
 y = x * 2
