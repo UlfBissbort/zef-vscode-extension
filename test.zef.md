@@ -1,6 +1,6 @@
 # Test Zef Markdown
 
-This is a test file for the Zef extension.
+This is a test file for the Zef extension. This is a longer paragraph to ensure that the extension can handle multiple lines of text before and after code blocks. And it goes on to add even more text to simulate a real-world scenario where documentation might be extensive.
 
 
 ```python
@@ -22,3 +22,5 @@ And a final block:
 import datetime
 print(f"Current time: {datetime.datetime.now()}")
 ```
+
+

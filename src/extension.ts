@@ -1,5 +1,6 @@
 import * as vscode from 'vscode';
 import { CodeBlockProvider, findCodeBlockAtPosition, findPythonCodeBlocks } from './codeBlockParser';
+import { createPreviewPanel, updatePreview, getPanel } from './previewPanel';
 
 let terminal: vscode.Terminal | undefined;
 
@@ -55,6 +56,10 @@ export function activate(context: vscode.ExtensionContext) {
             const editor = vscode.window.activeTextEditor;
             if (editor && event.document === editor.document) {
                 updateDecorations(editor);
+                // Also update preview panel if open
+                if (getPanel() && editor.document.fileName.endsWith('.zef.md')) {
+                    updatePreview(editor.document);
+                }
             }
         })
     );
@@ -86,6 +91,18 @@ export function activate(context: vscode.ExtensionContext) {
             } else {
                 vscode.window.showWarningMessage('Zef: Cursor is not inside a Python code block');
             }
+        })
+    );
+
+    // Register command to open preview panel
+    context.subscriptions.push(
+        vscode.commands.registerCommand('zef.openPreview', () => {
+            const editor = vscode.window.activeTextEditor;
+            if (!editor || !editor.document.fileName.endsWith('.zef.md')) {
+                vscode.window.showWarningMessage('Zef: Open a .zef.md file first');
+                return;
+            }
+            createPreviewPanel(context);
         })
     );
 }
