@@ -3,12 +3,18 @@ import * as path from 'path';
 import * as readline from 'readline';
 import { spawn, ChildProcess } from 'child_process';
 
+export interface SideEffect {
+    what: string;      // e.g., 'stdout', 'stderr', 'file_write', etc.
+    content: string;   // The content of the side effect
+}
+
 export interface CellResult {
     cell_id: string;
     status: 'ok' | 'error';
     result: string | null;
     stdout: string;
     stderr: string;
+    side_effects: SideEffect[];
     error: {
         type: string;
         message: string;

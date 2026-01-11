@@ -311,18 +311,49 @@ async function writeOutputToFile(blockId: number, result: CellResult): Promise<v
         }
     }
     
-    const resultBlock = '\n````Result\n' + resultContent + '\n````';
+    // Format side effects as ET.UnmanagedEffect entries
+    let sideEffectsContent = '';
+    const sideEffects = result.side_effects || [];
+    if (sideEffects.length > 0) {
+        const effectStrings = sideEffects.map(effect => {
+            // Escape the content for Python string representation
+            const escapedContent = effect.content
+                .replace(/\\/g, '\\\\')
+                .replace(/'/g, "\\'");
+            return `    ET.UnmanagedEffect(\n        what='${effect.what}',\n        content='${escapedContent}'\n    )`;
+        });
+        sideEffectsContent = '[\n' + effectStrings.join(',\n') + '\n]';
+    }
     
+    const resultBlock = '\n````Result\n' + resultContent + '\n````';
+    const sideEffectsBlock = sideEffectsContent ? '\n````Side Effects\n' + sideEffectsContent + '\n````' : '';
+    
+    // Determine insert position - need to track where to insert side effects
+    // Result block comes first, then side effects block
     await editor.edit(editBuilder => {
+        // Handle result block
         if (block.resultRange) {
-            // Replace existing result block
             editBuilder.replace(block.resultRange, resultBlock);
         } else {
-            // Insert new result block after the code block
-            const insertPosition = block.range.end;
-            editBuilder.insert(insertPosition, resultBlock);
+            editBuilder.insert(block.range.end, resultBlock);
         }
     });
+    
+    // Re-fetch block after first edit to get updated positions
+    if (sideEffectsContent) {
+        const updatedBlock = findCodeBlockById(document, blockId);
+        if (updatedBlock) {
+            await editor.edit(editBuilder => {
+                if (updatedBlock.sideEffectsRange) {
+                    editBuilder.replace(updatedBlock.sideEffectsRange, sideEffectsBlock);
+                } else {
+                    // Insert after result block
+                    const insertPos = updatedBlock.resultRange ? updatedBlock.resultRange.end : updatedBlock.range.end;
+                    editBuilder.insert(insertPos, sideEffectsBlock);
+                }
+            });
+        }
+    }
 }
 
 export function deactivate() {

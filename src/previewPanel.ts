@@ -68,25 +68,31 @@ export function updatePreview(document: vscode.TextDocument) {
 
     const text = document.getText();
     
-    // Extract existing output blocks before removing them
-    const existingOutputs: { [blockId: number]: string } = {};
+    // Extract existing Result and Side Effects blocks before removing them
+    const existingResults: { [blockId: number]: string } = {};
+    const existingSideEffects: { [blockId: number]: string } = {};
     let pythonBlockIndex = 0;
     
-    // Find all Python blocks and their associated outputs
-    const pythonBlockRegex = /```python\s*\n[\s\S]*?```(\s*\n````(?:Result|Output)\s*\n([\s\S]*?)````)?/g;
+    // Find all Python blocks and their associated Result/Side Effects
+    const pythonBlockRegex = /```python\s*\n[\s\S]*?```(\s*\n````(?:Result|Output)\s*\n([\s\S]*?)````)?(\s*\n````Side Effects\s*\n([\s\S]*?)````)?/g;
     let match;
     while ((match = pythonBlockRegex.exec(text)) !== null) {
         pythonBlockIndex++;
-        if (match[2]) {  // Has output block
-            existingOutputs[pythonBlockIndex] = match[2].trim();
+        if (match[2]) {  // Has Result block
+            existingResults[pythonBlockIndex] = match[2].trim();
+        }
+        if (match[4]) {  // Has Side Effects block
+            existingSideEffects[pythonBlockIndex] = match[4].trim();
         }
     }
     
-    // Remove output blocks for rendering
-    const cleanText = text.replace(/\n````(?:Result|Output)\s*\n[\s\S]*?````/g, '');
+    // Remove Result and Side Effects blocks for rendering
+    const cleanText = text
+        .replace(/\n````(?:Result|Output)\s*\n[\s\S]*?````/g, '')
+        .replace(/\n````Side Effects\s*\n[\s\S]*?````/g, '');
     
     const html = renderMarkdown(cleanText);
-    currentPanel.webview.html = getWebviewContent(html, existingOutputs);
+    currentPanel.webview.html = getWebviewContent(html, existingResults, existingSideEffects);
 }
 
 export function getPanel(): vscode.WebviewPanel | undefined {
@@ -118,9 +124,10 @@ function renderMarkdown(markdown: string): string {
     return marked.parse(markdown) as string;
 }
 
-function getWebviewContent(renderedHtml: string, existingOutputs: { [blockId: number]: string } = {}): string {
-    // Serialize existing outputs as JSON for the webview
+function getWebviewContent(renderedHtml: string, existingOutputs: { [blockId: number]: string } = {}, existingSideEffects: { [blockId: number]: string } = {}): string {
+    // Serialize existing outputs and side effects as JSON for the webview
     const outputsJson = JSON.stringify(existingOutputs);
+    const sideEffectsJson = JSON.stringify(existingSideEffects);
     
     return `<!DOCTYPE html>
 <html lang="en">
@@ -436,8 +443,9 @@ function getWebviewContent(renderedHtml: string, existingOutputs: { [blockId: nu
     ${renderedHtml}
     <script>
         (function() {
-            // Existing outputs loaded from file
+            // Existing outputs and side effects loaded from file
             var existingOutputs = ${outputsJson};
+            var existingSideEffects = ${sideEffectsJson};
             
             // Add language data attributes to pre elements
             document.querySelectorAll('pre code').forEach(function(block) {
@@ -735,12 +743,25 @@ function getWebviewContent(renderedHtml: string, existingOutputs: { [blockId: nu
                 var sideEffectsContent = document.createElement('div');
                 sideEffectsContent.className = 'code-block-content';
                 sideEffectsContent.id = 'content-' + currentBlockId + '-side-effects';
-                sideEffectsContent.innerHTML = '<div class="tab-content-side-effects">' +
+                
+                // Check for existing side effects from file
+                var existingSideEffect = (currentBlockId !== null && existingSideEffects[currentBlockId]) 
+                    ? existingSideEffects[currentBlockId] 
+                    : null;
+                
+                var sideEffectsHtml = '<div class="tab-content-side-effects">' +
                     '<div class="effects-label">Side Effects</div>' +
-                    '<div class="effect-item">→ Wrote to file: output.txt</div>' +
-                    '<div class="effect-item">→ HTTP GET: https://api.example.com/data</div>' +
-                    '<div class="effect-item">→ Modified: global_counter</div>' +
-                    '</div>';
+                    '<div id="side-effects-value-' + currentBlockId + '">';
+                
+                if (existingSideEffect) {
+                    // Parse the side effects list and display
+                    sideEffectsHtml += '<pre style="color: #d19a66; white-space: pre-wrap; margin: 0; font-size: 0.8rem;">' + escapeHtml(existingSideEffect) + '</pre>';
+                } else {
+                    sideEffectsHtml += '<span style="color: var(--text-dim); font-style: italic;">No side effects recorded.</span>';
+                }
+                
+                sideEffectsHtml += '</div></div>';
+                sideEffectsContent.innerHTML = sideEffectsHtml;
                 
                 // Insert container before pre
                 pre.parentNode.insertBefore(container, pre);
@@ -808,6 +829,24 @@ function getWebviewContent(renderedHtml: string, existingOutputs: { [blockId: nu
                         }
                         
                         resultValue.innerHTML = html;
+                    }
+                    
+                    // Update side effects tab if we have side effects
+                    var sideEffectsValue = document.getElementById('side-effects-value-' + blockId);
+                    if (sideEffectsValue && result.side_effects && result.side_effects.length > 0) {
+                        var effectsHtml = '<pre style="color: #d19a66; white-space: pre-wrap; margin: 0; font-size: 0.8rem;">[\\n';
+                        result.side_effects.forEach(function(effect, idx) {
+                            var escapedContent = escapeHtml(effect.content).replace(/\\n/g, '\\\\n');
+                            effectsHtml += '    ET.UnmanagedEffect(what=\\'' + effect.what + '\\', content=\\'' + escapedContent + '\\')';
+                            if (idx < result.side_effects.length - 1) {
+                                effectsHtml += ',';
+                            }
+                            effectsHtml += '\\n';
+                        });
+                        effectsHtml += ']</pre>';
+                        sideEffectsValue.innerHTML = effectsHtml;
+                    } else if (sideEffectsValue) {
+                        sideEffectsValue.innerHTML = '<span style="color: var(--text-dim); font-style: italic;">No side effects recorded.</span>';
                     }
                     
                     // Switch to result tab

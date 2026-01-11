@@ -13,6 +13,7 @@ Protocol:
     "result": "repr of last expression or null",
     "stdout": "captured stdout",
     "stderr": "captured stderr", 
+    "side_effects": [{"what": "stdout", "content": "..."}, ...],
     "error": {"type": "...", "message": "...", "traceback": "..."} (if status is error)
   }
 """
@@ -23,6 +24,33 @@ import traceback
 import io
 from contextlib import redirect_stdout, redirect_stderr
 from code import InteractiveInterpreter
+
+
+class SideEffectCapture(io.StringIO):
+    """
+    A StringIO-like object that captures each write as a separate side effect.
+    This allows us to track individual print() calls rather than just the final output.
+    """
+    def __init__(self, effect_type: str):
+        super().__init__()
+        self.effect_type = effect_type
+        self.effects: list = []
+        
+    def write(self, s: str) -> int:
+        # Don't capture empty strings or pure newlines between prints
+        if s and s != '\n':
+            # Strip trailing newline that print() adds
+            content = s.rstrip('\n')
+            if content:
+                self.effects.append({
+                    "what": self.effect_type,
+                    "content": s  # Keep the original with newline
+                })
+        # Also write to underlying StringIO for backwards compatibility
+        return super().write(s)
+    
+    def get_effects(self) -> list:
+        return self.effects
 
 
 class ZefKernel:
@@ -40,12 +68,13 @@ class ZefKernel:
             "result": None,
             "stdout": "",
             "stderr": "",
+            "side_effects": [],
             "error": None
         }
         
-        # Capture stdout and stderr
-        stdout_capture = io.StringIO()
-        stderr_capture = io.StringIO()
+        # Capture stdout and stderr with side effect tracking
+        stdout_capture = SideEffectCapture("stdout")
+        stderr_capture = SideEffectCapture("stderr")
         
         try:
             with redirect_stdout(stdout_capture), redirect_stderr(stderr_capture):
@@ -73,6 +102,9 @@ class ZefKernel:
         
         result["stdout"] = stdout_capture.getvalue()
         result["stderr"] = stderr_capture.getvalue()
+        
+        # Collect all side effects (stdout and stderr events)
+        result["side_effects"] = stdout_capture.get_effects() + stderr_capture.get_effects()
         
         return result
     

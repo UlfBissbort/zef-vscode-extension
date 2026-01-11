@@ -5,13 +5,15 @@ export interface CodeBlock {
     code: string;
     language: string;
     blockId?: number;
-    resultRange?: vscode.Range;  // Range of the associated Result block (if exists)
-    resultContent?: string;      // Content of the Result block
+    resultRange?: vscode.Range;       // Range of the associated Result block (if exists)
+    resultContent?: string;           // Content of the Result block
+    sideEffectsRange?: vscode.Range;  // Range of the Side Effects block (if exists)
+    sideEffectsContent?: string;      // Content of the Side Effects block
 }
 
 /**
  * Find all Python code blocks in a markdown document
- * Also detects associated ````Result blocks directly after
+ * Also detects associated ````Result and ````Side Effects blocks
  */
 export function findPythonCodeBlocks(document: vscode.TextDocument): CodeBlock[] {
     const blocks: CodeBlock[] = [];
@@ -37,11 +39,13 @@ export function findPythonCodeBlocks(document: vscode.TextDocument): CodeBlock[]
             blockId: blockId
         };
         
-        // Check for Result block directly after (with optional whitespace)
-        // Also support legacy Output blocks for backwards compatibility
+        // Look for Result and Side Effects blocks after the code block
+        // They can appear in any order, both are optional
+        let searchOffset = endOffset;
         const afterCodeBlock = text.slice(endOffset);
-        const resultMatch = afterCodeBlock.match(/^\s*\n````(?:Result|Output)\s*\n([\s\S]*?)````/);
         
+        // Check for Result block (with optional whitespace before)
+        const resultMatch = afterCodeBlock.match(/^\s*\n````(?:Result|Output)\s*\n([\s\S]*?)````/);
         if (resultMatch) {
             const resultStartOffset = endOffset + resultMatch.index!;
             const resultEndOffset = resultStartOffset + resultMatch[0].length;
@@ -51,6 +55,21 @@ export function findPythonCodeBlocks(document: vscode.TextDocument): CodeBlock[]
                 document.positionAt(resultEndOffset)
             );
             block.resultContent = resultMatch[1].trim();
+            searchOffset = resultEndOffset;
+        }
+        
+        // Check for Side Effects block (after Result block if present)
+        const afterResult = text.slice(searchOffset);
+        const sideEffectsMatch = afterResult.match(/^\s*\n````Side Effects\s*\n([\s\S]*?)````/);
+        if (sideEffectsMatch) {
+            const seStartOffset = searchOffset + sideEffectsMatch.index!;
+            const seEndOffset = seStartOffset + sideEffectsMatch[0].length;
+            
+            block.sideEffectsRange = new vscode.Range(
+                document.positionAt(seStartOffset),
+                document.positionAt(seEndOffset)
+            );
+            block.sideEffectsContent = sideEffectsMatch[1].trim();
         }
         
         blocks.push(block);

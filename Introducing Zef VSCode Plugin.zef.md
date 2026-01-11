@@ -17,14 +17,23 @@ This document you're reading? It's executable. Try it:
 ```python
 from zef import *
 
-sales = [1200, 800, 1500, 91]
+print('🌿 an spurious side effect: printing to stdout 🔥')
+sales = [1200, 800, 1500, 910]
 
 print('🌿 an spurious side effect: printing to stdout 🔥')
 
 sales | sum | collect
 ```
 ````Result
-3591
+4410
+````
+````Side Effects
+[
+    ET.UnmanagedEffect(
+        what='stdout',
+        content='🌿 an spurious side effect: printing to stdout 🔥'
+    )
+]
 ````
 
 Or
