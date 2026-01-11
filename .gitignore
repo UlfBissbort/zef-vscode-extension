@@ -1,0 +1,20 @@
+# Dependencies
+node_modules/
+
+# Build output
+out/
+
+# Packaged extension
+*.vsix
+
+# macOS
+.DS_Store
+
+# VS Code settings (optional, but typically local)
+.vscode/
+
+# TypeScript incremental compilation
+*.tsbuildinfo
+
+# npm debug logs
+npm-debug.log*
