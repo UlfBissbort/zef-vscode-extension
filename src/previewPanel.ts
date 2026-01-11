@@ -445,18 +445,18 @@ function getWebviewContent(renderedHtml: string): string {
                             else if (lang === 'rust') { keywords = rsKw; types = rsTypes; }
                             else if (lang === 'javascript' || lang === 'js' || lang === 'typescript' || lang === 'ts') keywords = jsKw;
                             
-                            // Check if followed by ( for function
-                            var nextChar = j < line.length ? line[j] : '';
-                            while (nextChar === ' ' && j < line.length) {
-                                j++;
-                                nextChar = j < line.length ? line[j] : '';
+                            // Check if followed by ( for function (lookahead without consuming)
+                            var lookAhead = j;
+                            while (lookAhead < line.length && line[lookAhead] === ' ') {
+                                lookAhead++;
                             }
+                            var isFunction = lookAhead < line.length && line[lookAhead] === '(';
                             
                             if (keywords.indexOf(ident) >= 0) {
                                 highlighted += '<span class="hl-kw">' + ident + '</span>';
                             } else if (types.indexOf(ident) >= 0) {
                                 highlighted += '<span class="hl-ty">' + ident + '</span>';
-                            } else if (line[j] === '(') {
+                            } else if (isFunction) {
                                 highlighted += '<span class="hl-fn">' + ident + '</span>';
                             } else {
                                 highlighted += ident;
