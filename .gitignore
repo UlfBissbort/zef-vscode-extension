@@ -18,3 +18,5 @@ out/
 
 # npm debug logs
 npm-debug.log*
+
+claude.py

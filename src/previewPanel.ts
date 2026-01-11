@@ -183,6 +183,84 @@ function getWebviewContent(renderedHtml: string): string {
             border-radius: 0 8px 0 8px;
         }
 
+        /* Code block container with tabs */
+        .code-block-container {
+            margin: 1.5rem 0;
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            overflow: hidden;
+        }
+
+        .code-block-tabs {
+            display: flex;
+            background: var(--border-color);
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        .code-block-tab {
+            padding: 8px 16px;
+            font-size: 0.75rem;
+            letter-spacing: 0.05em;
+            color: var(--text-dim);
+            background: transparent;
+            border: none;
+            cursor: pointer;
+            transition: color 0.2s, background 0.2s;
+            text-transform: uppercase;
+        }
+
+        .code-block-tab:hover {
+            color: var(--text-muted);
+            background: rgba(255, 255, 255, 0.05);
+        }
+
+        .code-block-tab.active {
+            color: var(--text-color);
+            background: var(--code-bg);
+        }
+
+        .code-block-content {
+            display: none;
+        }
+
+        .code-block-content.active {
+            display: block;
+        }
+
+        .code-block-content pre {
+            margin: 0;
+            border: none;
+            border-radius: 0;
+        }
+
+        .tab-content-output,
+        .tab-content-side-effects {
+            padding: 1.5rem;
+            background: var(--code-bg);
+            color: var(--text-muted);
+            font-family: 'SF Mono', 'Fira Code', Consolas, 'Courier New', monospace;
+            font-size: 0.8rem;
+            line-height: 1.6;
+        }
+
+        .tab-content-output .output-label,
+        .tab-content-side-effects .effects-label {
+            font-size: 0.65rem;
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+            color: var(--text-dim);
+            margin-bottom: 0.5rem;
+        }
+
+        .tab-content-output .output-value {
+            color: #98c379;
+        }
+
+        .tab-content-side-effects .effect-item {
+            padding: 4px 0;
+            color: #d19a66;
+        }
+
         blockquote {
             border-left: 2px solid var(--border-color);
             margin: 1.5em 0;
@@ -405,7 +483,86 @@ function getWebviewContent(renderedHtml: string): string {
                     block.innerHTML = highlightCode(code, lang);
                 }
             });
-        })();
+            // Transform code blocks to have tabs
+            var blockId = 0;
+            document.querySelectorAll('pre').forEach(function(pre) {
+                blockId++;
+                var currentBlockId = blockId; // Capture the current blockId
+                var lang = pre.getAttribute('data-lang') || 'code';
+                
+                // Create container
+                var container = document.createElement('div');
+                container.className = 'code-block-container';
+                container.setAttribute('data-block-id', currentBlockId);
+                
+                // Create tabs bar
+                var tabsBar = document.createElement('div');
+                tabsBar.className = 'code-block-tabs';
+                
+                var tabs = ['Code', 'Output', 'Side Effects'];
+                tabs.forEach(function(tabName, index) {
+                    var tab = document.createElement('button');
+                    tab.className = 'code-block-tab' + (index === 0 ? ' active' : '');
+                    tab.textContent = tabName;
+                    tab.setAttribute('data-tab', tabName.toLowerCase().replace(' ', '-'));
+                    tab.setAttribute('data-block', currentBlockId);
+                    tab.onclick = (function(thisContainer, thisBlockId, thisTab) {
+                        return function() {
+                            // Deactivate all tabs in this container
+                            thisContainer.querySelectorAll('.code-block-tab').forEach(function(t) {
+                                t.classList.remove('active');
+                            });
+                            // Activate this tab
+                            thisTab.classList.add('active');
+                            // Show corresponding content
+                            thisContainer.querySelectorAll('.code-block-content').forEach(function(c) {
+                                c.classList.remove('active');
+                            });
+                            var targetId = 'content-' + thisBlockId + '-' + thisTab.getAttribute('data-tab');
+                            var targetContent = document.getElementById(targetId);
+                            if (targetContent) {
+                                targetContent.classList.add('active');
+                            }
+                        };
+                    })(container, currentBlockId, tab);
+                    tabsBar.appendChild(tab);
+                });
+                
+                // Create content containers
+                var codeContent = document.createElement('div');
+                codeContent.className = 'code-block-content active';
+                codeContent.id = 'content-' + currentBlockId + '-code';
+                
+                var outputContent = document.createElement('div');
+                outputContent.className = 'code-block-content';
+                outputContent.id = 'content-' + currentBlockId + '-output';
+                outputContent.innerHTML = '<div class="tab-content-output">' +
+                    '<div class="output-label">Output</div>' +
+                    '<div class="output-value">42\\nHello, World!\\n[1, 2, 3, 4, 5]</div>' +
+                    '</div>';
+                
+                var sideEffectsContent = document.createElement('div');
+                sideEffectsContent.className = 'code-block-content';
+                sideEffectsContent.id = 'content-' + currentBlockId + '-side-effects';
+                sideEffectsContent.innerHTML = '<div class="tab-content-side-effects">' +
+                    '<div class="effects-label">Side Effects</div>' +
+                    '<div class="effect-item">→ Wrote to file: output.txt</div>' +
+                    '<div class="effect-item">→ HTTP GET: https://api.example.com/data</div>' +
+                    '<div class="effect-item">→ Modified: global_counter</div>' +
+                    '</div>';
+                
+                // Insert container before pre
+                pre.parentNode.insertBefore(container, pre);
+                
+                // Move pre into code content
+                codeContent.appendChild(pre);
+                
+                // Assemble container
+                container.appendChild(tabsBar);
+                container.appendChild(codeContent);
+                container.appendChild(outputContent);
+                container.appendChild(sideEffectsContent);
+            });        })();
     </script>
 </body>
 </html>`;
