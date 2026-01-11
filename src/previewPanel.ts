@@ -157,16 +157,16 @@ function getWebviewContent(renderedHtml: string): string {
             padding: 0;
             font-size: 0.8rem;
             line-height: 1.6;
-            color: var(--text-muted);
+            color: #aaa;
         }
 
         /* Syntax highlighting - subtle and elegant */
-        .kw { color: #b4b4b4; }
-        .str { color: #7a9f7a; }
-        .cmt { color: #555; font-style: italic; }
-        .fn { color: #c9c9c9; }
-        .num { color: #a0a0c0; }
-        .ty { color: #909090; }
+        .hl-kw { color: #c9a0dc !important; }
+        .hl-str { color: #98c379 !important; }
+        .hl-cmt { color: #555 !important; font-style: italic; }
+        .hl-fn { color: #61afef !important; }
+        .hl-num { color: #d19a66 !important; }
+        .hl-ty { color: #56b6c2 !important; }
 
         /* Language badge */
         pre[data-lang]::before {
@@ -250,61 +250,162 @@ function getWebviewContent(renderedHtml: string): string {
 <body>
     ${renderedHtml}
     <script>
-        // Add language data attributes to pre elements
-        document.querySelectorAll('pre code').forEach(block => {
-            const classes = block.className.split(' ');
-            const langClass = classes.find(c => c.startsWith('language-'));
-            if (langClass) {
-                const lang = langClass.replace('language-', '');
-                block.parentElement.setAttribute('data-lang', lang);
-            }
-        });
+        (function() {
+            // Add language data attributes to pre elements
+            document.querySelectorAll('pre code').forEach(function(block) {
+                var classes = block.className.split(' ');
+                for (var i = 0; i < classes.length; i++) {
+                    if (classes[i].indexOf('language-') === 0) {
+                        var lang = classes[i].replace('language-', '');
+                        block.parentElement.setAttribute('data-lang', lang);
+                        break;
+                    }
+                }
+            });
 
-        // Syntax highlighting - careful to use proper HTML escaping
-        document.querySelectorAll('pre code').forEach(block => {
-            let html = block.innerHTML;
-            const lang = block.parentElement?.getAttribute('data-lang') || '';
+            // Python keywords
+            var pyKw = ['def', 'class', 'return', 'if', 'else', 'elif', 'for', 'while', 
+                        'import', 'from', 'as', 'try', 'except', 'finally', 'with', 
+                        'in', 'not', 'and', 'or', 'is', 'None', 'True', 'False', 
+                        'lambda', 'yield', 'raise', 'pass', 'break', 'continue', 
+                        'async', 'await', 'self'];
             
-            // Process comments first (before other replacements can break them)
-            if (lang === 'python') {
-                html = html.replace(/(#[^<]*)$/gm, '<span class="cmt">$1</span>');
-            } else if (lang === 'rust' || lang === 'javascript' || lang === 'js' || lang === 'typescript' || lang === 'ts') {
-                html = html.replace(/(\\/\\/[^<]*)$/gm, '<span class="cmt">$1</span>');
-            }
-            
-            // Strings - be careful with already-escaped quotes
-            html = html.replace(/(&quot;[^&]*&quot;|"[^"<]*")/g, '<span class="str">$1</span>');
-            html = html.replace(/('[^'<]*')/g, '<span class="str">$1</span>');
-            
-            // Keywords based on language
-            const pythonKeywords = 'def|class|return|if|else|elif|for|while|import|from|as|try|except|finally|with|in|not|and|or|is|None|True|False|lambda|yield|raise|pass|break|continue|async|await|self';
-            const rustKeywords = 'fn|let|mut|const|static|if|else|match|for|while|loop|break|continue|return|struct|enum|impl|trait|pub|mod|use|crate|self|super|as|where|unsafe|async|await|move|ref|type|dyn|extern|in';
-            const jsKeywords = 'const|let|var|function|return|if|else|for|while|class|extends|import|export|from|as|new|this|try|catch|finally|throw|async|await|typeof|instanceof|in|of|default|switch|case|break|continue|null|undefined|true|false';
-            
-            let keywords = '';
-            if (lang === 'python') keywords = pythonKeywords;
-            else if (lang === 'rust') keywords = rustKeywords;
-            else if (lang === 'javascript' || lang === 'js' || lang === 'typescript' || lang === 'ts') keywords = jsKeywords;
-            
-            if (keywords) {
-                const kwRegex = new RegExp('\\\\b(' + keywords + ')\\\\b', 'g');
-                html = html.replace(kwRegex, '<span class="kw">$1</span>');
-            }
+            // Rust keywords
+            var rsKw = ['fn', 'let', 'mut', 'const', 'static', 'if', 'else', 'match',
+                        'for', 'while', 'loop', 'break', 'continue', 'return',
+                        'struct', 'enum', 'impl', 'trait', 'pub', 'mod', 'use',
+                        'crate', 'self', 'super', 'as', 'where', 'unsafe',
+                        'async', 'await', 'move', 'ref', 'type', 'dyn', 'extern', 'in'];
             
             // Rust types
-            if (lang === 'rust') {
-                html = html.replace(/\\b(i8|i16|i32|i64|i128|isize|u8|u16|u32|u64|u128|usize|f32|f64|bool|char|str|String|Vec|Option|Result|Box|Rc|Arc|Self|Some|None|Ok|Err)\\b/g, 
-                    '<span class="ty">$1</span>');
+            var rsTypes = ['i8', 'i16', 'i32', 'i64', 'i128', 'isize',
+                           'u8', 'u16', 'u32', 'u64', 'u128', 'usize',
+                           'f32', 'f64', 'bool', 'char', 'str', 'String',
+                           'Vec', 'Option', 'Result', 'Box', 'Rc', 'Arc',
+                           'Self', 'Some', 'None', 'Ok', 'Err'];
+            
+            // JS keywords
+            var jsKw = ['const', 'let', 'var', 'function', 'return', 'if', 'else',
+                        'for', 'while', 'class', 'extends', 'import', 'export',
+                        'from', 'as', 'new', 'this', 'try', 'catch', 'finally',
+                        'throw', 'async', 'await', 'typeof', 'instanceof', 'in',
+                        'of', 'default', 'switch', 'case', 'break', 'continue',
+                        'null', 'undefined', 'true', 'false'];
+
+            function escapeHtml(text) {
+                return text.replace(/&/g, '&amp;')
+                           .replace(/</g, '&lt;')
+                           .replace(/>/g, '&gt;');
             }
-            
-            // Function-like calls
-            html = html.replace(/\\b([a-zA-Z_][a-zA-Z0-9_]*)\\s*\\(/g, '<span class="fn">$1</span>(');
-            
-            // Numbers
-            html = html.replace(/\\b(\\d+\\.?\\d*)\\b/g, '<span class="num">$1</span>');
-            
-            block.innerHTML = html;
-        });
+
+            function highlightCode(code, lang) {
+                var lines = code.split('\\n');
+                var result = [];
+                
+                for (var i = 0; i < lines.length; i++) {
+                    var line = lines[i];
+                    var highlighted = '';
+                    var j = 0;
+                    
+                    while (j < line.length) {
+                        // Check for comments
+                        if (lang === 'python' && line[j] === '#') {
+                            highlighted += '<span class="hl-cmt">' + escapeHtml(line.slice(j)) + '</span>';
+                            break;
+                        }
+                        if ((lang === 'rust' || lang === 'javascript' || lang === 'typescript') && 
+                            line[j] === '/' && line[j+1] === '/') {
+                            highlighted += '<span class="hl-cmt">' + escapeHtml(line.slice(j)) + '</span>';
+                            break;
+                        }
+                        
+                        // Check for strings
+                        if (line[j] === '"' || line[j] === "'") {
+                            var quote = line[j];
+                            var str = quote;
+                            j++;
+                            while (j < line.length && line[j] !== quote) {
+                                if (line[j] === '\\\\' && j + 1 < line.length) {
+                                    str += line[j] + line[j+1];
+                                    j += 2;
+                                } else {
+                                    str += line[j];
+                                    j++;
+                                }
+                            }
+                            if (j < line.length) {
+                                str += line[j];
+                                j++;
+                            }
+                            highlighted += '<span class="hl-str">' + escapeHtml(str) + '</span>';
+                            continue;
+                        }
+                        
+                        // Check for numbers
+                        if (/[0-9]/.test(line[j])) {
+                            var num = '';
+                            while (j < line.length && /[0-9.]/.test(line[j])) {
+                                num += line[j];
+                                j++;
+                            }
+                            highlighted += '<span class="hl-num">' + num + '</span>';
+                            continue;
+                        }
+                        
+                        // Check for identifiers/keywords
+                        if (/[a-zA-Z_]/.test(line[j])) {
+                            var ident = '';
+                            while (j < line.length && /[a-zA-Z0-9_]/.test(line[j])) {
+                                ident += line[j];
+                                j++;
+                            }
+                            
+                            var keywords = [];
+                            var types = [];
+                            if (lang === 'python') keywords = pyKw;
+                            else if (lang === 'rust') { keywords = rsKw; types = rsTypes; }
+                            else if (lang === 'javascript' || lang === 'js' || lang === 'typescript' || lang === 'ts') keywords = jsKw;
+                            
+                            // Check if followed by ( for function
+                            var nextChar = j < line.length ? line[j] : '';
+                            while (nextChar === ' ' && j < line.length) {
+                                j++;
+                                nextChar = j < line.length ? line[j] : '';
+                            }
+                            
+                            if (keywords.indexOf(ident) >= 0) {
+                                highlighted += '<span class="hl-kw">' + ident + '</span>';
+                            } else if (types.indexOf(ident) >= 0) {
+                                highlighted += '<span class="hl-ty">' + ident + '</span>';
+                            } else if (line[j] === '(') {
+                                highlighted += '<span class="hl-fn">' + ident + '</span>';
+                            } else {
+                                highlighted += ident;
+                            }
+                            continue;
+                        }
+                        
+                        // Default: just add the character
+                        highlighted += escapeHtml(line[j]);
+                        j++;
+                    }
+                    
+                    result.push(highlighted);
+                }
+                
+                return result.join('\\n');
+            }
+
+            // Apply syntax highlighting
+            document.querySelectorAll('pre code').forEach(function(block) {
+                var lang = block.parentElement.getAttribute('data-lang') || '';
+                if (lang === 'python' || lang === 'rust' || lang === 'javascript' || 
+                    lang === 'js' || lang === 'typescript' || lang === 'ts') {
+                    var code = block.textContent || '';
+                    block.innerHTML = highlightCode(code, lang);
+                }
+            });
+        })();
     </script>
 </body>
 </html>`;
