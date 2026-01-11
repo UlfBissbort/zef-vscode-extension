@@ -1,5 +1,5 @@
 import * as vscode from 'vscode';
-import { CodeBlockProvider, findCodeBlockAtPosition, findPythonCodeBlocks } from './codeBlockParser';
+import { CodeBlockProvider, findCodeBlockAtPosition, findPythonCodeBlocks, findCodeBlockById } from './codeBlockParser';
 import { createPreviewPanel, updatePreview, getPanel, scrollPreviewToLine, sendCellResult, setOnRunCode } from './previewPanel';
 import { getKernelManager, disposeKernelManager, CellResult } from './kernelManager';
 import { getPythonPath, showPythonPicker, showSettingsPanel, setDefaultPython } from './configManager';
@@ -231,6 +231,11 @@ async function runCodeInKernel(context: vscode.ExtensionContext, code: string, b
             sendCellResult(blockId, result);
         }
         
+        // Write result to the file as an Output block
+        if (blockId !== undefined) {
+            await writeOutputToFile(blockId, result);
+        }
+        
         if (result.status === 'error' && result.error) {
             vscode.window.showErrorMessage(`Zef: ${result.error.type}: ${result.error.message}`);
         } else {
@@ -242,6 +247,59 @@ async function runCodeInKernel(context: vscode.ExtensionContext, code: string, b
     } catch (e: any) {
         vscode.window.showErrorMessage(`Zef: Execution failed - ${e.message}`);
     }
+}
+
+/**
+ * Write the execution result to the file as an Output block after the code block
+ */
+async function writeOutputToFile(blockId: number, result: CellResult): Promise<void> {
+    const editor = vscode.window.activeTextEditor;
+    if (!editor || !editor.document.fileName.endsWith('.zef.md')) {
+        return;
+    }
+    
+    const document = editor.document;
+    const block = findCodeBlockById(document, blockId);
+    
+    if (!block) {
+        return;
+    }
+    
+    // Format the output content
+    let outputContent = '';
+    if (result.status === 'error' && result.error) {
+        outputContent = `Error: ${result.error.type}: ${result.error.message}`;
+        if (result.error.traceback) {
+            outputContent += '\n' + result.error.traceback;
+        }
+    } else {
+        // Include both stdout and return value
+        if (result.stdout && result.stdout.trim()) {
+            outputContent += result.stdout.trim();
+        }
+        if (result.result !== undefined && result.result !== null && result.result !== 'None') {
+            if (outputContent) {
+                outputContent += '\n---\n';
+            }
+            outputContent += result.result;
+        }
+        if (!outputContent) {
+            outputContent = '# (no output)';
+        }
+    }
+    
+    const outputBlock = '\n````Output\n' + outputContent + '\n````';
+    
+    await editor.edit(editBuilder => {
+        if (block.outputRange) {
+            // Replace existing output block
+            editBuilder.replace(block.outputRange, outputBlock);
+        } else {
+            // Insert new output block after the code block
+            const insertPosition = block.range.end;
+            editBuilder.insert(insertPosition, outputBlock);
+        }
+    });
 }
 
 export function deactivate() {

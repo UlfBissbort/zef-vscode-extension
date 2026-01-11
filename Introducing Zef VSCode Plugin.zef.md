@@ -18,11 +18,14 @@ This document you're reading? It's executable. Try it:
 from zef import *
 
 sales = [1200, 800, 1500, 950]
-total = sum(sales)
-print(f"Q1 Total: ${total:,}")
 
-first
+
+
+sales | sum | collect
 ```
+````Output
+4450
+````
 
 Check the tabs above: **Code** | **Output** | **Side Effects**
 
@@ -33,14 +36,11 @@ Check the tabs above: **Code** | **Output** | **Side Effects**
 When you define a function, Zef stores it by its content hash—like git, but for functions:
 
 ```python
-def average(numbers):
-    """Calculate the arithmetic mean."""
-    return sum(numbers) / len(numbers)
-
-# Try it out
-avg = average(sales)
-print(f"Average sale: ${avg:.2f}")
+'hello' + ' world!'
 ```
+````Output
+'hello world!'
+````
 
 The function `average` now has a unique hash (e.g., `#a7f2c3`). Same code = same hash, everywhere, forever.
 
@@ -51,17 +51,11 @@ The function `average` now has a unique hash (e.g., `#a7f2c3`). Same code = same
 Code blocks share state, just like notebooks. But with a key difference: Zef tracks the entire lineage.
 
 ```python
-# Build on 'sales' from above
-growth_target = total * 1.2
-print(f"Next quarter target: ${growth_target:,.0f}")
-
-# Define a reusable function
-def calculate_growth(current, target):
-    return ((target - current) / current) * 100
-
-growth = calculate_growth(total, growth_target)
-print(f"Required growth: {growth:.0f}%")
+[4,5 ] + [6,7,9]
 ```
+````Output
+[4, 5, 6, ]
+````
 
 Every function and value is tracked by hash. Six months later, you can reproduce this exact result.
 

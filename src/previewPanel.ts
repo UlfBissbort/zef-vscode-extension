@@ -58,8 +58,27 @@ export function updatePreview(document: vscode.TextDocument) {
         return;
     }
 
-    const html = renderMarkdown(document.getText());
-    currentPanel.webview.html = getWebviewContent(html);
+    const text = document.getText();
+    
+    // Extract existing output blocks before removing them
+    const existingOutputs: { [blockId: number]: string } = {};
+    let pythonBlockIndex = 0;
+    
+    // Find all Python blocks and their associated outputs
+    const pythonBlockRegex = /```python\s*\n[\s\S]*?```(\s*\n````Output\s*\n([\s\S]*?)````)?/g;
+    let match;
+    while ((match = pythonBlockRegex.exec(text)) !== null) {
+        pythonBlockIndex++;
+        if (match[2]) {  // Has output block
+            existingOutputs[pythonBlockIndex] = match[2].trim();
+        }
+    }
+    
+    // Remove output blocks for rendering
+    const cleanText = text.replace(/\n````Output\s*\n[\s\S]*?````/g, '');
+    
+    const html = renderMarkdown(cleanText);
+    currentPanel.webview.html = getWebviewContent(html, existingOutputs);
 }
 
 export function getPanel(): vscode.WebviewPanel | undefined {
@@ -91,7 +110,10 @@ function renderMarkdown(markdown: string): string {
     return marked.parse(markdown) as string;
 }
 
-function getWebviewContent(renderedHtml: string): string {
+function getWebviewContent(renderedHtml: string, existingOutputs: { [blockId: number]: string } = {}): string {
+    // Serialize existing outputs as JSON for the webview
+    const outputsJson = JSON.stringify(existingOutputs);
+    
     return `<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -406,6 +428,9 @@ function getWebviewContent(renderedHtml: string): string {
     ${renderedHtml}
     <script>
         (function() {
+            // Existing outputs loaded from file
+            var existingOutputs = ${outputsJson};
+            
             // Add language data attributes to pre elements
             document.querySelectorAll('pre code').forEach(function(block) {
                 var classes = block.className.split(' ');
@@ -561,24 +586,35 @@ function getWebviewContent(renderedHtml: string): string {
                 }
             });
             // Transform code blocks to have tabs
-            var blockId = 0;
+            var pythonBlockId = 0; // Only count Python blocks to match parser
             var codeBlocks = {}; // Store code content for each block
             var vscode = acquireVsCodeApi();
             
             document.querySelectorAll('pre').forEach(function(pre) {
-                blockId++;
-                var currentBlockId = blockId; // Capture the current blockId
                 var lang = pre.getAttribute('data-lang') || 'code';
+                var isPython = (lang === 'python' || lang === 'py');
+                
+                // Only assign blockId to Python blocks to match the parser
+                var currentBlockId = null;
+                if (isPython) {
+                    pythonBlockId++;
+                    currentBlockId = pythonBlockId;
+                }
+                
                 var codeElement = pre.querySelector('code');
                 var codeContent = codeElement ? codeElement.textContent || '' : '';
                 
-                // Store the code for this block
-                codeBlocks[currentBlockId] = codeContent;
+                // Store the code for this block (Python only)
+                if (currentBlockId !== null) {
+                    codeBlocks[currentBlockId] = codeContent;
+                }
                 
                 // Create container
                 var container = document.createElement('div');
                 container.className = 'code-block-container';
-                container.setAttribute('data-block-id', currentBlockId);
+                if (currentBlockId !== null) {
+                    container.setAttribute('data-block-id', currentBlockId);
+                }
                 
                 // Create tabs bar
                 var tabsBar = document.createElement('div');
@@ -590,7 +626,9 @@ function getWebviewContent(renderedHtml: string): string {
                     tab.className = 'code-block-tab' + (index === 0 ? ' active' : '');
                     tab.textContent = tabName;
                     tab.setAttribute('data-tab', tabName.toLowerCase().replace(' ', '-'));
-                    tab.setAttribute('data-block', currentBlockId);
+                    if (currentBlockId !== null) {
+                        tab.setAttribute('data-block', currentBlockId);
+                    }
                     tab.onclick = (function(thisContainer, thisBlockId, thisTab) {
                         return function() {
                             // Deactivate all tabs in this container
@@ -664,13 +702,27 @@ function getWebviewContent(renderedHtml: string): string {
                 codeContent.className = 'code-block-content active';
                 codeContent.id = 'content-' + currentBlockId + '-code';
                 
+                // Check for existing output from file
+                var existingOutput = (currentBlockId !== null && existingOutputs[currentBlockId]) 
+                    ? existingOutputs[currentBlockId] 
+                    : null;
+                
                 var outputContent = document.createElement('div');
                 outputContent.className = 'code-block-content';
                 outputContent.id = 'content-' + currentBlockId + '-output';
-                outputContent.innerHTML = '<div class="tab-content-output">' +
+                
+                var outputHtml = '<div class="tab-content-output">' +
                     '<div class="output-label">Output</div>' +
-                    '<div class="output-value" id="output-value-' + currentBlockId + '"><span style="color: var(--text-dim); font-style: italic;">No output yet. Click Run to execute.</span></div>' +
-                    '</div>';
+                    '<div class="output-value" id="output-value-' + currentBlockId + '">';
+                    
+                if (existingOutput) {
+                    // Show existing output with proper escaping
+                    outputHtml += '<span style="color: #98c379; white-space: pre-wrap;">' + escapeHtml(existingOutput) + '</span>';
+                } else {
+                    outputHtml += '<span style="color: var(--text-dim); font-style: italic;">No output yet. Click Run to execute.</span>';
+                }
+                outputHtml += '</div></div>';
+                outputContent.innerHTML = outputHtml;
                 
                 var sideEffectsContent = document.createElement('div');
                 sideEffectsContent.className = 'code-block-content';
