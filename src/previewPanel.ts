@@ -961,9 +961,8 @@ function getWebviewContent(renderedHtml: string, existingOutputs: { [blockId: nu
                     '<div class="output-value" id="result-value-' + currentBlockId + '">';
                     
                 if (existingOutput) {
-                    // Show existing output with syntax highlighting (same as code tab)
-                    var resultLang = blockLanguages[currentBlockId] || 'python';
-                    outputHtml += '<pre style="margin: 0; background: transparent;"><code>' + highlightCode(existingOutput, resultLang) + '</code></pre>';
+                    // Show existing output with Python syntax highlighting (results are always Python/zef expressions)
+                    outputHtml += '<pre style="margin: 0; background: transparent;"><code>' + highlightCode(existingOutput, 'python') + '</code></pre>';
                 } else {
                     outputHtml += '<span style="color: var(--text-dim); font-style: italic;">No result yet. Click Run to execute.</span>';
                 }
@@ -984,8 +983,8 @@ function getWebviewContent(renderedHtml: string, existingOutputs: { [blockId: nu
                     '<div id="side-effects-value-' + currentBlockId + '">';
                 
                 if (existingSideEffect) {
-                    // Parse the side effects list and display
-                    sideEffectsHtml += '<pre style="color: #d19a66; white-space: pre-wrap; margin: 0; font-size: 0.8rem;">' + escapeHtml(existingSideEffect) + '</pre>';
+                    // Parse the side effects list and display with Python syntax highlighting
+                    sideEffectsHtml += '<pre style="margin: 0; background: transparent;"><code>' + highlightCode(existingSideEffect, 'python') + '</code></pre>';
                 } else {
                     sideEffectsHtml += '<span style="color: var(--text-dim); font-style: italic;">No side effects recorded.</span>';
                 }
@@ -1037,9 +1036,9 @@ function getWebviewContent(renderedHtml: string, existingOutputs: { [blockId: nu
                         } else {
                             // Show return value (the evaluated expression) - this is the primary result
                             if (result.result !== undefined && result.result !== null && result.result !== 'None') {
-                                var resultLang = blockLanguages[blockId] || 'python';
+                                // Always use Python highlighting for results (zef expressions are Python-like)
                                 html += '<pre style="margin: 0; background: transparent;"><code>' + 
-                                        highlightCode(String(result.result), resultLang) + '</code></pre>';
+                                        highlightCode(String(result.result), 'python') + '</code></pre>';
                             }
                             // Show stdout if any (as secondary, dimmer output)
                             if (result.stdout && result.stdout.trim()) {
@@ -1065,16 +1064,17 @@ function getWebviewContent(renderedHtml: string, existingOutputs: { [blockId: nu
                     // Update side effects tab if we have side effects
                     var sideEffectsValue = document.getElementById('side-effects-value-' + blockId);
                     if (sideEffectsValue && result.side_effects && result.side_effects.length > 0) {
-                        var effectsHtml = '<pre style="color: #d19a66; white-space: pre-wrap; margin: 0; font-size: 0.8rem;">[\\n';
+                        var effectsText = '[\\n';
                         result.side_effects.forEach(function(effect, idx) {
-                            var escapedContent = escapeHtml(effect.content).replace(/\\n/g, '\\\\n');
-                            effectsHtml += '    ET.UnmanagedEffect(what=\\'' + effect.what + '\\', content=\\'' + escapedContent + '\\')';
+                            var escapedContent = effect.content.replace(/\\n/g, '\\\\n');
+                            effectsText += '    ET.UnmanagedEffect(what=\\'' + effect.what + '\\', content=\\'' + escapedContent + '\\')';
                             if (idx < result.side_effects.length - 1) {
-                                effectsHtml += ',';
+                                effectsText += ',';
                             }
-                            effectsHtml += '\\n';
+                            effectsText += '\\n';
                         });
-                        effectsHtml += ']</pre>';
+                        effectsText += ']';
+                        var effectsHtml = '<pre style="margin: 0; background: transparent;"><code>' + highlightCode(effectsText, 'python') + '</code></pre>';
                         sideEffectsValue.innerHTML = effectsHtml;
                     } else if (sideEffectsValue) {
                         sideEffectsValue.innerHTML = '<span style="color: var(--text-dim); font-style: italic;">No side effects recorded.</span>';
