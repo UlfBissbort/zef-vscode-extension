@@ -420,7 +420,7 @@ function getWebviewContent(renderedHtml: string, existingOutputs: { [blockId: nu
         }
         .svelte-preview-frame {
             width: 100%;
-            min-height: 150px;
+            min-height: 700px;
             border: none;
             background: #1e1e1e;
         }
@@ -1430,7 +1430,6 @@ function getWebviewContent(renderedHtml: string, existingOutputs: { [blockId: nu
                         
                         if (iframe) {
                             if (result.success && result.html) {
-                                // Use the result.html directly - it's already a complete HTML document from the compiler
                                 iframe.srcdoc = result.html;
                             } else {
                                 var errorHtml = '<!DOCTYPE html><html><head><style>body { margin: 0; padding: 16px; font-family: monospace; background: #1e1e1e; color: #e06c75; }</style></head><body><pre>' + escapeHtml(result.error || 'Unknown error') + '</pre></body></html>';
