@@ -424,6 +424,21 @@ function getWebviewContent(renderedHtml: string, existingOutputs: { [blockId: nu
             border: none;
             background: #1e1e1e;
         }
+        .svelte-placeholder {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 150px;
+            text-align: center;
+            padding: 24px;
+        }
+        .svelte-placeholder .placeholder-text {
+            font-size: 1.25rem;
+            color: var(--text-dim);
+            opacity: 0.4;
+            font-weight: 400;
+        }
         .compile-time {
             font-size: 0.65rem;
             margin-left: 4px;
@@ -1093,17 +1108,24 @@ function getWebviewContent(renderedHtml: string, existingOutputs: { [blockId: nu
                     // Create "Rendered" content (active if we have rendered output)
                     var svelteRenderedContent = document.createElement('div');
                     svelteRenderedContent.className = 'code-block-content svelte-rendered' + (hasRenderedOutput ? ' active' : '');
-                    var svelteIframe = document.createElement('iframe');
-                    svelteIframe.className = 'svelte-preview-frame';
-                    svelteIframe.setAttribute('sandbox', 'allow-scripts');
-                    svelteIframe.setAttribute('data-block-id', currentBlockId);
                     
                     // Check for existing rendered HTML for this block
                     if (hasRenderedOutput) {
+                        // Show iframe with rendered content
+                        var svelteIframe = document.createElement('iframe');
+                        svelteIframe.className = 'svelte-preview-frame';
+                        svelteIframe.setAttribute('sandbox', 'allow-scripts');
+                        svelteIframe.setAttribute('data-block-id', currentBlockId);
                         svelteIframe.srcdoc = existingRenderedHtml[currentBlockId];
+                        svelteRenderedContent.appendChild(svelteIframe);
+                    } else {
+                        // Show placeholder message
+                        var placeholder = document.createElement('div');
+                        placeholder.className = 'svelte-placeholder';
+                        placeholder.setAttribute('data-block-id', currentBlockId);
+                        placeholder.innerHTML = '<div class="placeholder-text">Not yet compiled</div>';
+                        svelteRenderedContent.appendChild(placeholder);
                     }
-                    
-                    svelteRenderedContent.appendChild(svelteIframe);
                     
                     // Insert container
                     pre.parentNode.insertBefore(svelteContainer, pre);
@@ -1389,15 +1411,31 @@ function getWebviewContent(renderedHtml: string, existingOutputs: { [blockId: nu
                         }
                     }
                     
-                    // Update the iframe with rendered HTML
-                    var iframe = document.querySelector('.svelte-preview-frame[data-block-id="' + blockId + '"]');
-                    if (iframe) {
-                        if (result.success && result.html) {
-                            var iframeHtml = '<!DOCTYPE html><html><head><style>body { margin: 0; padding: 16px; font-family: system-ui, sans-serif; background: #1e1e1e; color: #d4d4d4; }</style></head><body>' + result.html + '</body></html>';
-                            iframe.srcdoc = iframeHtml;
-                        } else {
-                            var errorHtml = '<!DOCTYPE html><html><head><style>body { margin: 0; padding: 16px; font-family: monospace; background: #1e1e1e; color: #e06c75; }</style></head><body><pre>' + escapeHtml(result.error || 'Unknown error') + '</pre></body></html>';
-                            iframe.srcdoc = errorHtml;
+                    // Update the rendered content - replace placeholder with iframe if needed
+                    var renderedContent = document.querySelector('.svelte-container[data-block-id="' + blockId + '"] .svelte-rendered');
+                    if (renderedContent) {
+                        // Check if there's a placeholder to replace
+                        var placeholder = renderedContent.querySelector('.svelte-placeholder');
+                        var iframe = renderedContent.querySelector('.svelte-preview-frame');
+                        
+                        if (placeholder && !iframe) {
+                            // Create iframe to replace placeholder
+                            iframe = document.createElement('iframe');
+                            iframe.className = 'svelte-preview-frame';
+                            iframe.setAttribute('sandbox', 'allow-scripts');
+                            iframe.setAttribute('data-block-id', blockId);
+                            renderedContent.removeChild(placeholder);
+                            renderedContent.appendChild(iframe);
+                        }
+                        
+                        if (iframe) {
+                            if (result.success && result.html) {
+                                // Use the result.html directly - it's already a complete HTML document from the compiler
+                                iframe.srcdoc = result.html;
+                            } else {
+                                var errorHtml = '<!DOCTYPE html><html><head><style>body { margin: 0; padding: 16px; font-family: monospace; background: #1e1e1e; color: #e06c75; }</style></head><body><pre>' + escapeHtml(result.error || 'Unknown error') + '</pre></body></html>';
+                                iframe.srcdoc = errorHtml;
+                            }
                         }
                     }
                     
