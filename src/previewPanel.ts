@@ -859,6 +859,7 @@ function getWebviewContent(renderedHtml: string, existingOutputs: { [blockId: nu
                 var isRust = (lang === 'rust' || lang === 'rs');
                 var isJs = (lang === 'javascript' || lang === 'js');
                 var isTs = (lang === 'typescript' || lang === 'ts');
+                var isMermaid = (lang === 'mermaid');
                 var isExecutable = isPython || isRust || isJs || isTs;
                 
                 // Only assign blockId to executable blocks to match the parser
@@ -875,6 +876,73 @@ function getWebviewContent(renderedHtml: string, existingOutputs: { [blockId: nu
                 if (currentBlockId !== null) {
                     codeBlocks[currentBlockId] = codeContent;
                     blockLanguages[currentBlockId] = lang;
+                }
+                
+                // Handle mermaid blocks specially
+                if (isMermaid) {
+                    // Create container for mermaid with tabs
+                    var mermaidContainer = document.createElement('div');
+                    mermaidContainer.className = 'code-block-container mermaid-container';
+                    
+                    // Create tabs bar
+                    var mermaidTabsBar = document.createElement('div');
+                    mermaidTabsBar.className = 'code-block-tabs';
+                    
+                    var mermaidTabs = ['Rendered', 'Source Code'];
+                    mermaidTabs.forEach(function(tabName, index) {
+                        var tab = document.createElement('button');
+                        tab.className = 'code-block-tab' + (index === 0 ? ' active' : '');
+                        tab.textContent = tabName;
+                        tab.setAttribute('data-tab', tabName.toLowerCase().replace(' ', '-'));
+                        tab.onclick = (function(thisContainer, thisTab) {
+                            return function() {
+                                thisContainer.querySelectorAll('.code-block-tab').forEach(function(t) {
+                                    t.classList.remove('active');
+                                });
+                                thisTab.classList.add('active');
+                                thisContainer.querySelectorAll('.code-block-content').forEach(function(c) {
+                                    c.classList.remove('active');
+                                });
+                                var tabId = thisTab.getAttribute('data-tab');
+                                thisContainer.querySelector('.mermaid-' + tabId).classList.add('active');
+                            };
+                        })(mermaidContainer, tab);
+                        mermaidTabsBar.appendChild(tab);
+                    });
+                    
+                    // Add language indicator
+                    var mermaidLangIndicator = document.createElement('div');
+                    mermaidLangIndicator.className = 'code-block-lang';
+                    mermaidLangIndicator.innerHTML = '<span class="lang-emoji">📊</span> Mermaid';
+                    mermaidTabsBar.appendChild(mermaidLangIndicator);
+                    
+                    // Create "Rendered" content (the diagram)
+                    var renderedContent = document.createElement('div');
+                    renderedContent.className = 'code-block-content mermaid-rendered active';
+                    var mermaidDiv = document.createElement('div');
+                    mermaidDiv.className = 'mermaid';
+                    mermaidDiv.textContent = codeContent;
+                    renderedContent.appendChild(mermaidDiv);
+                    
+                    // Create "Source Code" content
+                    var sourceContent = document.createElement('div');
+                    sourceContent.className = 'code-block-content mermaid-source-code';
+                    var sourceCode = document.createElement('pre');
+                    sourceCode.setAttribute('data-lang', 'mermaid');
+                    var sourceCodeInner = document.createElement('code');
+                    sourceCodeInner.textContent = codeContent;
+                    sourceCode.appendChild(sourceCodeInner);
+                    sourceContent.appendChild(sourceCode);
+                    
+                    // Insert container
+                    pre.parentNode.insertBefore(mermaidContainer, pre);
+                    mermaidContainer.appendChild(mermaidTabsBar);
+                    mermaidContainer.appendChild(renderedContent);
+                    mermaidContainer.appendChild(sourceContent);
+                    
+                    // Remove original pre
+                    pre.parentNode.removeChild(pre);
+                    return; // Skip the rest of the loop for mermaid
                 }
                 
                 // Create container
@@ -1156,18 +1224,7 @@ function getWebviewContent(renderedHtml: string, existingOutputs: { [blockId: nu
                 startOnLoad: false,
                 securityLevel: 'loose'
             });
-            // Find all mermaid code blocks and convert them
-            document.querySelectorAll('pre[data-lang="mermaid"]').forEach(function(pre) {
-                var codeElement = pre.querySelector('code');
-                if (codeElement) {
-                    var mermaidCode = codeElement.textContent || '';
-                    var mermaidDiv = document.createElement('div');
-                    mermaidDiv.className = 'mermaid';
-                    mermaidDiv.textContent = mermaidCode;
-                    pre.parentNode.replaceChild(mermaidDiv, pre);
-                }
-            });
-            // Render all mermaid diagrams
+            // Render all mermaid diagrams (already created by the tab handling code)
             mermaid.run({ nodes: document.querySelectorAll('.mermaid') });
         }
     </script>` : ''}
