@@ -281,9 +281,11 @@ function convertImagePaths(html: string, docDir: string, webview: vscode.Webview
 
 function getWebviewContent(renderedHtml: string, existingOutputs: { [blockId: number]: string } = {}, existingSideEffects: { [blockId: number]: string } = {}, mermaidUri: string = '', existingRenderedHtml: { [blockId: number]: string } = {}): string {
     // Serialize existing outputs, side effects, and rendered HTML as JSON for the webview
-    const outputsJson = JSON.stringify(existingOutputs);
-    const sideEffectsJson = JSON.stringify(existingSideEffects);
-    const renderedHtmlJson = JSON.stringify(existingRenderedHtml);
+    // Escape </script> to prevent premature script tag termination in HTML
+    const escapeForScript = (json: string) => json.replace(/<\/script>/gi, '<\\/script>');
+    const outputsJson = escapeForScript(JSON.stringify(existingOutputs));
+    const sideEffectsJson = escapeForScript(JSON.stringify(existingSideEffects));
+    const renderedHtmlJson = escapeForScript(JSON.stringify(existingRenderedHtml));
     
     return `<!DOCTYPE html>
 <html lang="en">
