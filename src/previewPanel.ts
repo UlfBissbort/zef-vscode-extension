@@ -6,6 +6,7 @@ import { CellResult } from './kernelManager';
 // Map of document URI string to its panel
 const panels: Map<string, vscode.WebviewPanel> = new Map();
 let onRunCodeCallback: ((code: string, blockId: number, language: string) => void) | undefined;
+let extensionPath: string | undefined;
 
 export function setOnRunCode(callback: (code: string, blockId: number, language: string) => void) {
     onRunCodeCallback = callback;
@@ -50,6 +51,9 @@ export function createPreviewPanel(context: vscode.ExtensionContext): vscode.Web
     const fileName = path.basename(editor.document.fileName, '.zef.md');
     const panelTitle = `${fileName} - Zef View`;
     
+    // Store extension path for use in webview
+    extensionPath = context.extensionPath;
+    
     // Get local resource roots (workspace folders)
     const localResourceRoots: vscode.Uri[] = [];
     if (vscode.workspace.workspaceFolders) {
@@ -60,6 +64,10 @@ export function createPreviewPanel(context: vscode.ExtensionContext): vscode.Web
     // Also add the current document's folder if available
     const docDir = vscode.Uri.joinPath(docUri, '..');
     localResourceRoots.push(docDir);
+    
+    // Add extension assets folder for mermaid.js
+    const extensionAssetsUri = vscode.Uri.file(path.join(context.extensionPath, 'assets'));
+    localResourceRoots.push(extensionAssetsUri);
 
     const panel = vscode.window.createWebviewPanel(
         'zefView',
@@ -142,7 +150,14 @@ export function updatePreview(document: vscode.TextDocument) {
     const docDir = path.dirname(document.uri.fsPath);
     html = convertImagePaths(html, docDir, panel.webview);
     
-    panel.webview.html = getWebviewContent(html, existingResults, existingSideEffects);
+    // Get mermaid script URI if extension path is available
+    let mermaidUri = '';
+    if (extensionPath) {
+        const mermaidPath = vscode.Uri.file(path.join(extensionPath, 'assets', 'mermaid.min.js'));
+        mermaidUri = panel.webview.asWebviewUri(mermaidPath).toString();
+    }
+    
+    panel.webview.html = getWebviewContent(html, existingResults, existingSideEffects, mermaidUri);
 }
 
 /**
@@ -233,7 +248,7 @@ function convertImagePaths(html: string, docDir: string, webview: vscode.Webview
     });
 }
 
-function getWebviewContent(renderedHtml: string, existingOutputs: { [blockId: number]: string } = {}, existingSideEffects: { [blockId: number]: string } = {}): string {
+function getWebviewContent(renderedHtml: string, existingOutputs: { [blockId: number]: string } = {}, existingSideEffects: { [blockId: number]: string } = {}, mermaidUri: string = ''): string {
     // Serialize existing outputs and side effects as JSON for the webview
     const outputsJson = JSON.stringify(existingOutputs);
     const sideEffectsJson = JSON.stringify(existingSideEffects);
@@ -352,6 +367,18 @@ function getWebviewContent(renderedHtml: string, existingOutputs: { [blockId: nu
         .hl-fn { color: #61afef !important; }
         .hl-num { color: #d19a66 !important; }
         .hl-ty { color: #56b6c2 !important; }
+        
+        /* Mermaid diagrams */
+        .mermaid {
+            background: transparent;
+            text-align: center;
+            padding: 1.5rem 0;
+            margin: 1.5rem 0;
+        }
+        .mermaid svg {
+            max-width: 100%;
+            height: auto;
+        }
 
         /* Code block container with tabs */
         .code-block-container {
@@ -1120,6 +1147,30 @@ function getWebviewContent(renderedHtml: string, existingOutputs: { [blockId: nu
             });
         })();
     </script>
+    ${mermaidUri ? `<script src="${mermaidUri}"></script>
+    <script>
+        // Initialize and render mermaid diagrams
+        if (typeof mermaid !== 'undefined') {
+            mermaid.initialize({ 
+                theme: 'dark',
+                startOnLoad: false,
+                securityLevel: 'loose'
+            });
+            // Find all mermaid code blocks and convert them
+            document.querySelectorAll('pre[data-lang="mermaid"]').forEach(function(pre) {
+                var codeElement = pre.querySelector('code');
+                if (codeElement) {
+                    var mermaidCode = codeElement.textContent || '';
+                    var mermaidDiv = document.createElement('div');
+                    mermaidDiv.className = 'mermaid';
+                    mermaidDiv.textContent = mermaidCode;
+                    pre.parentNode.replaceChild(mermaidDiv, pre);
+                }
+            });
+            // Render all mermaid diagrams
+            mermaid.run({ nodes: document.querySelectorAll('.mermaid') });
+        }
+    </script>` : ''}
 </body>
 </html>`;
 }

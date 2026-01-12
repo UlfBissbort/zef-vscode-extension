@@ -10,6 +10,27 @@ The Zef VSCode Plugin turns `.zef.md` files into executable documents. Write pro
 
 ---
 
+
+
+```mermaid
+sequenceDiagram
+    participant C1 as Client 1
+    participant S as Server
+    participant T as Topic
+    participant C2 as Client 2
+    
+    C1->>S: WS Connect
+    C2->>S: WS Connect
+    S->>T: Subscribe both
+    
+    C1->>S: "Hello!"
+    S->>T: Push message
+    T->>S: Broadcast
+    S-->>C1: "Hello!"
+    S-->>C2: "Hello!"    
+```
+
+
 ## See It in Action
 
 This document you're reading? It's executable. Try it:
@@ -112,10 +133,10 @@ Or
 ```python
 from zef import *
 
-ET.Foo(x=41+2)
+ET.Foo(x=41+12)
 ```
 ````Result
-ET.Foo(x=43)
+ET.Foo(x=53)
 ````
 ````Side Effects
 []
