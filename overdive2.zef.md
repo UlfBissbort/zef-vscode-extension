@@ -1,953 +1,493 @@
 # Overdive 2.0 🌊
 
-**The Ultimate Training Companion for Competitive Freedivers**
+**The Freediver's Companion** — Track. Analyze. Transcend.
 
 ---
 
-## About Overdive
+## Philosophy
 
-Overdive is the premier digital training platform designed specifically for freedivers who take their craft seriously. Whether you're chasing personal records in **Static Apnea (STA)**, pushing your limits in **Dynamic Apnea (DYN/DNF)**, or exploring the depths in **Constant Weight (CWT)**, Overdive provides the insights, tracking, and motivation you need.
+Overdive is built for freedivers who understand that progress happens in silence. Every breath hold tells a story. Every meter of depth is earned through presence, not force.
 
-### Why Overdive?
-
-| Feature | Benefit |
-|---------|---------|
-| **Precision Timing** | Sub-second accuracy for STA with contraction markers |
-| **Depth Integration** | Connect dive computers for automatic depth logging |
-| **Bradycardia Tracking** | Monitor heart rate adaptation over training cycles |
-| **Hypoxia Awareness** | AI-powered safety alerts based on your patterns |
-| **Progressive Overload** | Structured training tables with recovery optimization |
+Whether you're pushing your static apnea limits, exploring dynamic distances, or descending into the blue, Overdive captures the data that matters — so you can focus on the dive.
 
 ---
 
-## Technical Architecture
+## Component Showcase
 
-```mermaid
-flowchart LR
-    subgraph Edge
-        A[Apple Watch] --> B[iOS App]
-        C[Dive Computer] --> B
-    end
-    
-    subgraph Cloud
-        B --> D[API Gateway]
-        D --> E[Analytics Engine]
-        D --> F[User Data Store]
-        E --> G[ML Models]
-    end
-    
-    subgraph Insights
-        G --> H[Training Recommendations]
-        G --> I[Safety Predictions]
-    end
-    
-    style A fill:#0a0a0a,stroke:#3b82f6,color:#f1f5f9
-    style B fill:#0a0a0a,stroke:#3b82f6,color:#f1f5f9
-    style D fill:#0a0a0a,stroke:#22c55e,color:#f1f5f9
-    style E fill:#0a0a0a,stroke:#22c55e,color:#f1f5f9
-    style G fill:#0a0a0a,stroke:#a855f7,color:#f1f5f9
-```
+Below are 10 meticulously crafted UI components. Each embodies the Overdive design ethos: **dark, minimal, breathing space, maximum clarity.**
 
 ---
 
-## Component Library
+### 1. Hero Metric Card
 
-All components use **Svelte 5** with modern runes syntax (`$state`, `$derived`, `$effect`).
-
----
-
-### 1. Metric Card
-
-A minimal stat display with micro-animations:
+A bold, centered display for your primary achievement:
 
 ```svelte
 <script>
-  let { label = "Personal Best", value = "5:42", unit = "mm:ss", delta = "+0:18" } = $props();
-  let isPositive = $derived(delta.startsWith('+'));
-</script>
-
-<div class="metric-card">
-  <span class="label">{label}</span>
-  <div class="value-row">
-    <span class="value">{value}</span>
-    <span class="unit">{unit}</span>
-  </div>
-  <span class="delta" class:positive={isPositive} class:negative={!isPositive}>
-    {delta}
-  </span>
-</div>
-
-<style>
-  .metric-card {
-    background: #09090b;
-    border: 1px solid rgba(255, 255, 255, 0.06);
-    border-radius: 16px;
-    padding: 24px;
-    display: flex;
-    flex-direction: column;
-    gap: 8px;
-    min-width: 180px;
-    transition: border-color 0.3s ease;
-  }
-  .metric-card:hover {
-    border-color: rgba(255, 255, 255, 0.12);
-  }
-  .label {
-    font-size: 11px;
-    font-weight: 500;
-    color: #71717a;
-    text-transform: uppercase;
-    letter-spacing: 0.08em;
-  }
-  .value-row {
-    display: flex;
-    align-items: baseline;
-    gap: 6px;
-  }
-  .value {
-    font-size: 36px;
-    font-weight: 300;
-    color: #fafafa;
-    font-family: 'SF Mono', ui-monospace, monospace;
-    letter-spacing: -0.02em;
-  }
-  .unit {
-    font-size: 12px;
-    color: #52525b;
-  }
-  .delta {
-    font-size: 13px;
-    font-weight: 500;
-  }
-  .delta.positive { color: #22c55e; }
-  .delta.negative { color: #ef4444; }
-</style>
-```
-
----
-
-### 2. Breath Hold Timer
-
-Full-featured STA timer with phase indicators:
-
-```svelte
-<script>
-  let elapsed = $state(0);
-  let phase = $state('idle'); // idle, breathup, hold, recovery
-  let intervalId = $state(null);
-  
-  let formatted = $derived(() => {
-    const mins = Math.floor(elapsed / 60);
-    const secs = elapsed % 60;
-    return `${mins}:${secs.toString().padStart(2, '0')}`;
+  let metric = $state({
+    value: "5:42",
+    label: "Personal Best",
+    subtitle: "Static Apnea",
+    achievedAt: "Dec 28, 2025"
   });
-  
-  let phaseColor = $derived({
-    'idle': '#71717a',
-    'breathup': '#3b82f6',
-    'hold': '#22c55e',
-    'recovery': '#f59e0b'
-  }[phase]);
-  
-  function startHold() {
-    phase = 'hold';
-    elapsed = 0;
-    intervalId = setInterval(() => elapsed++, 1000);
-  }
-  
-  function stop() {
-    clearInterval(intervalId);
-    phase = 'recovery';
-  }
-  
-  function reset() {
-    clearInterval(intervalId);
-    phase = 'idle';
-    elapsed = 0;
-  }
 </script>
 
-<div class="timer-container">
-  <div class="phase-indicator" style="--phase-color: {phaseColor}">
-    <span class="phase-dot"></span>
-    <span class="phase-label">{phase.toUpperCase()}</span>
-  </div>
-  
-  <div class="time-display">{formatted()}</div>
-  
-  <div class="controls">
-    {#if phase === 'idle'}
-      <button class="btn primary" onclick={startHold}>Begin Hold</button>
-    {:else if phase === 'hold'}
-      <button class="btn warning" onclick={stop}>Surface</button>
-    {:else}
-      <button class="btn ghost" onclick={reset}>Reset</button>
-    {/if}
-  </div>
+<div class="hero-card">
+  <div class="glow"></div>
+  <span class="subtitle">{metric.subtitle}</span>
+  <div class="value">{metric.value}</div>
+  <span class="label">{metric.label}</span>
+  <span class="date">{metric.achievedAt}</span>
 </div>
 
 <style>
-  .timer-container {
-    background: linear-gradient(180deg, #09090b 0%, #0a0a0a 100%);
-    border: 1px solid rgba(255, 255, 255, 0.04);
-    border-radius: 24px;
-    padding: 48px;
-    text-align: center;
-    max-width: 360px;
-  }
-  .phase-indicator {
-    display: inline-flex;
-    align-items: center;
-    gap: 8px;
-    padding: 6px 14px;
-    background: rgba(255, 255, 255, 0.03);
-    border-radius: 100px;
-    margin-bottom: 32px;
-  }
-  .phase-dot {
-    width: 8px;
-    height: 8px;
-    border-radius: 50%;
-    background: var(--phase-color);
-    animation: pulse 2s infinite;
-  }
-  @keyframes pulse {
-    0%, 100% { opacity: 1; }
-    50% { opacity: 0.5; }
-  }
-  .phase-label {
-    font-size: 11px;
-    font-weight: 600;
-    color: #a1a1aa;
-    letter-spacing: 0.1em;
-  }
-  .time-display {
-    font-size: 96px;
-    font-weight: 200;
-    color: #fafafa;
-    font-family: 'SF Mono', ui-monospace, monospace;
-    letter-spacing: -0.02em;
-    line-height: 1;
-    margin-bottom: 40px;
-  }
-  .controls {
-    display: flex;
-    justify-content: center;
-  }
-  .btn {
-    padding: 14px 32px;
-    font-size: 14px;
-    font-weight: 500;
-    border: none;
-    border-radius: 12px;
-    cursor: pointer;
-    transition: all 0.2s;
-  }
-  .btn.primary {
-    background: #fafafa;
-    color: #09090b;
-  }
-  .btn.primary:hover { background: #e4e4e7; }
-  .btn.warning {
-    background: #f59e0b;
-    color: #09090b;
-  }
-  .btn.warning:hover { background: #d97706; }
-  .btn.ghost {
-    background: transparent;
-    color: #71717a;
-    border: 1px solid rgba(255, 255, 255, 0.1);
-  }
-  .btn.ghost:hover { 
-    background: rgba(255, 255, 255, 0.05);
-    color: #a1a1aa;
-  }
-</style>
-```
-
----
-
-### 3. Depth Profile Chart
-
-A minimal SVG-based depth visualization:
-
-```svelte
-<script>
-  let { maxDepth = 32, targetDepth = 40 } = $props();
-  
-  const depthData = [0, 5, 12, 22, 28, 32, 32, 30, 24, 16, 8, 0];
-  let points = $derived(depthData.map((d, i) => ({
-    x: (i / (depthData.length - 1)) * 280 + 10,
-    y: (d / 50) * 120 + 20
-  })));
-  
-  let pathD = $derived('M ' + points.map(p => `${p.x},${p.y}`).join(' L '));
-  let percentage = $derived(Math.round((maxDepth / targetDepth) * 100));
-</script>
-
-<div class="depth-chart">
-  <div class="header">
-    <div class="title-group">
-      <span class="title">Depth Profile</span>
-      <span class="subtitle">Today's deepest dive</span>
-    </div>
-    <div class="depth-value">
-      <span class="num">{maxDepth}</span>
-      <span class="unit">m</span>
-    </div>
-  </div>
-  
-  <svg viewBox="0 0 300 160" class="chart">
-    <defs>
-      <linearGradient id="depthGrad" x1="0" y1="0" x2="0" y2="1">
-        <stop offset="0%" stop-color="#3b82f6" stop-opacity="0.3"/>
-        <stop offset="100%" stop-color="#3b82f6" stop-opacity="0"/>
-      </linearGradient>
-    </defs>
-    
-    <!-- Grid lines -->
-    <line x1="10" y1="50" x2="290" y2="50" stroke="#27272a" stroke-dasharray="4"/>
-    <line x1="10" y1="100" x2="290" y2="100" stroke="#27272a" stroke-dasharray="4"/>
-    
-    <!-- Area fill -->
-    <path d="{pathD} L 290,20 L 10,20 Z" fill="url(#depthGrad)"/>
-    
-    <!-- Line -->
-    <path d={pathD} fill="none" stroke="#3b82f6" stroke-width="2"/>
-    
-    <!-- Max depth point -->
-    <circle cx="160" cy="97" r="4" fill="#3b82f6"/>
-  </svg>
-  
-  <div class="progress-bar">
-    <div class="track">
-      <div class="fill" style="width: {percentage}%"></div>
-    </div>
-    <span class="progress-label">{percentage}% of target ({targetDepth}m)</span>
-  </div>
-</div>
-
-<style>
-  .depth-chart {
+  .hero-card {
+    position: relative;
     background: #09090b;
     border: 1px solid rgba(255, 255, 255, 0.06);
-    border-radius: 20px;
-    padding: 24px;
-    max-width: 360px;
+    border-radius: 24px;
+    padding: 48px 64px;
+    text-align: center;
+    overflow: hidden;
   }
-  .header {
-    display: flex;
-    justify-content: space-between;
-    align-items: flex-start;
-    margin-bottom: 20px;
-  }
-  .title-group {
-    display: flex;
-    flex-direction: column;
-    gap: 2px;
-  }
-  .title {
-    font-size: 15px;
-    font-weight: 500;
-    color: #fafafa;
+  .glow {
+    position: absolute;
+    top: -50%;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 200px;
+    height: 200px;
+    background: radial-gradient(circle, rgba(59, 130, 246, 0.15) 0%, transparent 70%);
+    pointer-events: none;
   }
   .subtitle {
+    font-size: 11px;
+    font-weight: 500;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    color: #3b82f6;
+  }
+  .value {
+    font-size: 80px;
+    font-weight: 200;
+    font-family: 'SF Pro Display', -apple-system, sans-serif;
+    color: #fafafa;
+    letter-spacing: -0.02em;
+    line-height: 1;
+    margin: 16px 0;
+  }
+  .label {
+    display: block;
+    font-size: 14px;
+    font-weight: 500;
+    color: #71717a;
+    margin-bottom: 8px;
+  }
+  .date {
     font-size: 12px;
     color: #52525b;
   }
-  .depth-value {
+</style>
+```
+
+---
+
+### 2. Breath Phase Indicator
+
+Visual feedback during a breath hold showing current phase:
+
+```svelte
+<script>
+  let phase = $state("relax");
+  let phases = [
+    { id: "breathe", label: "Breathe Up", icon: "○" },
+    { id: "hold", label: "Final Breath", icon: "●" },
+    { id: "relax", label: "Relaxation", icon: "◐" },
+    { id: "struggle", label: "Contractions", icon: "◉" }
+  ];
+</script>
+
+<div class="phase-indicator">
+  {#each phases as p}
+    <div class="phase" class:active={phase === p.id}>
+      <span class="icon">{p.icon}</span>
+      <span class="name">{p.label}</span>
+    </div>
+  {/each}
+</div>
+
+<style>
+  .phase-indicator {
     display: flex;
-    align-items: baseline;
     gap: 2px;
+    background: #09090b;
+    border-radius: 16px;
+    padding: 6px;
+    border: 1px solid rgba(255, 255, 255, 0.04);
   }
-  .num {
-    font-size: 28px;
-    font-weight: 300;
-    color: #3b82f6;
-    font-family: 'SF Mono', monospace;
-  }
-  .unit {
-    font-size: 14px;
-    color: #52525b;
-  }
-  .chart {
-    width: 100%;
-    height: auto;
-    margin-bottom: 16px;
-  }
-  .progress-bar {
+  .phase {
+    flex: 1;
     display: flex;
     flex-direction: column;
+    align-items: center;
     gap: 8px;
+    padding: 20px 16px;
+    border-radius: 12px;
+    background: transparent;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    cursor: pointer;
   }
-  .track {
-    height: 4px;
-    background: #27272a;
-    border-radius: 2px;
+  .phase:hover {
+    background: rgba(255, 255, 255, 0.02);
+  }
+  .phase.active {
+    background: linear-gradient(180deg, rgba(59, 130, 246, 0.12) 0%, rgba(59, 130, 246, 0.04) 100%);
+  }
+  .icon {
+    font-size: 20px;
+    color: #52525b;
+    transition: color 0.3s;
+  }
+  .phase.active .icon {
+    color: #3b82f6;
+  }
+  .name {
+    font-size: 11px;
+    font-weight: 500;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    color: #52525b;
+    transition: color 0.3s;
+  }
+  .phase.active .name {
+    color: #a1a1aa;
+  }
+</style>
+```
+
+---
+
+### 3. Depth Gauge
+
+A vertical depth visualization with current position:
+
+```svelte
+<script>
+  let currentDepth = $state(32);
+  let maxDepth = $state(45);
+  let targetDepth = $state(40);
+  
+  let percentage = $derived((currentDepth / maxDepth) * 100);
+</script>
+
+<div class="depth-gauge">
+  <div class="scale">
+    <div class="fill" style="height: {percentage}%">
+      <div class="current-marker">
+        <span class="depth-value">{currentDepth}m</span>
+      </div>
+    </div>
+    <div class="target-line" style="bottom: {(targetDepth / maxDepth) * 100}%">
+      <span class="target-label">Target {targetDepth}m</span>
+    </div>
+  </div>
+  <div class="labels">
+    <span class="surface">Surface</span>
+    <span class="max">{maxDepth}m</span>
+  </div>
+</div>
+
+<style>
+  .depth-gauge {
+    display: flex;
+    gap: 16px;
+    padding: 24px;
+    background: #09090b;
+    border: 1px solid rgba(255, 255, 255, 0.04);
+    border-radius: 20px;
+    height: 320px;
+  }
+  .scale {
+    position: relative;
+    width: 48px;
+    background: linear-gradient(180deg, #0c4a6e 0%, #0369a1 50%, #0284c7 100%);
+    border-radius: 24px;
     overflow: hidden;
   }
   .fill {
-    height: 100%;
-    background: linear-gradient(90deg, #3b82f6, #60a5fa);
-    border-radius: 2px;
-    transition: width 0.5s ease;
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    background: linear-gradient(180deg, #1e3a5f 0%, #172554 100%);
+    transition: height 0.6s cubic-bezier(0.4, 0, 0.2, 1);
   }
-  .progress-label {
+  .current-marker {
+    position: absolute;
+    top: 0;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    background: #fafafa;
+    color: #09090b;
+    padding: 6px 12px;
+    border-radius: 20px;
+    font-size: 13px;
+    font-weight: 600;
+    white-space: nowrap;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+  }
+  .target-line {
+    position: absolute;
+    left: -8px;
+    right: -8px;
+    height: 2px;
+    background: rgba(251, 191, 36, 0.6);
+  }
+  .target-label {
+    position: absolute;
+    left: 60px;
+    top: 50%;
+    transform: translateY(-50%);
     font-size: 11px;
+    color: #fbbf24;
+    white-space: nowrap;
+  }
+  .labels {
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    padding: 4px 0;
+  }
+  .surface, .max {
+    font-size: 11px;
+    font-weight: 500;
     color: #52525b;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
   }
 </style>
 ```
 
 ---
 
-### 4. Training Table Card
+### 4. Training Partner Card
 
-CO2/O2 table display with interval tracking:
+An elegant card showing a training buddy with invite capability:
 
 ```svelte
 <script>
-  let { type = "CO2" } = $props();
-  let currentInterval = $state(3);
+  let partner = $state({
+    name: "Maya Chen",
+    avatar: null,
+    role: "Safety Buddy",
+    lastSession: "2 days ago",
+    sessionsShared: 24
+  });
   
-  const co2Table = [
-    { hold: '2:00', rest: '2:00' },
-    { hold: '2:00', rest: '1:45' },
-    { hold: '2:00', rest: '1:30' },
-    { hold: '2:00', rest: '1:15' },
-    { hold: '2:00', rest: '1:00' },
-    { hold: '2:00', rest: '0:45' },
-    { hold: '2:00', rest: '0:30' },
-    { hold: '2:00', rest: '0:15' },
-  ];
-  
-  let progress = $derived(Math.round((currentInterval / co2Table.length) * 100));
+  let initials = $derived(partner.name.split(' ').map(n => n[0]).join(''));
 </script>
 
-<div class="table-card">
-  <div class="card-header">
-    <div class="badge">{type} TABLE</div>
-    <span class="progress-text">{currentInterval}/{co2Table.length}</span>
+<div class="partner-card">
+  <div class="partner-info">
+    <div class="avatar">
+      {#if partner.avatar}
+        <img src={partner.avatar} alt={partner.name} />
+      {:else}
+        <span class="initials">{initials}</span>
+      {/if}
+      <div class="status-dot"></div>
+    </div>
+    <div class="details">
+      <h3 class="name">{partner.name}</h3>
+      <span class="role">{partner.role}</span>
+    </div>
   </div>
-  
-  <div class="intervals">
-    {#each co2Table as interval, i}
-      <div class="interval" class:completed={i < currentInterval} class:active={i === currentInterval}>
-        <span class="interval-num">{i + 1}</span>
-        <div class="interval-times">
-          <span class="hold">{interval.hold}</span>
-          <span class="divider">·</span>
-          <span class="rest">{interval.rest}</span>
-        </div>
-        {#if i < currentInterval}
-          <span class="check">✓</span>
-        {/if}
-      </div>
-    {/each}
+  <div class="stats">
+    <div class="stat">
+      <span class="stat-value">{partner.sessionsShared}</span>
+      <span class="stat-label">Sessions</span>
+    </div>
+    <div class="divider"></div>
+    <div class="stat">
+      <span class="stat-value">{partner.lastSession}</span>
+      <span class="stat-label">Last Active</span>
+    </div>
   </div>
-  
-  <div class="progress-track">
-    <div class="progress-fill" style="width: {progress}%"></div>
-  </div>
+  <button class="invite-btn">
+    <span class="plus">+</span>
+    Invite to Session
+  </button>
 </div>
 
 <style>
-  .table-card {
+  .partner-card {
     background: #09090b;
     border: 1px solid rgba(255, 255, 255, 0.06);
     border-radius: 20px;
     padding: 24px;
-    max-width: 320px;
-  }
-  .card-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin-bottom: 20px;
-  }
-  .badge {
-    font-size: 10px;
-    font-weight: 600;
-    color: #22c55e;
-    background: rgba(34, 197, 94, 0.1);
-    padding: 4px 10px;
-    border-radius: 100px;
-    letter-spacing: 0.05em;
-  }
-  .progress-text {
-    font-size: 13px;
-    color: #52525b;
-    font-family: 'SF Mono', monospace;
-  }
-  .intervals {
     display: flex;
     flex-direction: column;
-    gap: 2px;
-    margin-bottom: 20px;
+    gap: 24px;
   }
-  .interval {
-    display: flex;
-    align-items: center;
-    gap: 12px;
-    padding: 10px 12px;
-    border-radius: 8px;
-    transition: all 0.2s;
-  }
-  .interval.completed {
-    opacity: 0.4;
-  }
-  .interval.active {
-    background: rgba(255, 255, 255, 0.03);
-  }
-  .interval-num {
-    font-size: 11px;
-    color: #52525b;
-    font-family: 'SF Mono', monospace;
-    width: 16px;
-  }
-  .interval-times {
-    display: flex;
-    gap: 8px;
-    flex: 1;
-  }
-  .hold {
-    font-size: 14px;
-    color: #fafafa;
-    font-family: 'SF Mono', monospace;
-  }
-  .divider {
-    color: #3f3f46;
-  }
-  .rest {
-    font-size: 14px;
-    color: #71717a;
-    font-family: 'SF Mono', monospace;
-  }
-  .check {
-    font-size: 12px;
-    color: #22c55e;
-  }
-  .progress-track {
-    height: 3px;
-    background: #27272a;
-    border-radius: 2px;
-    overflow: hidden;
-  }
-  .progress-fill {
-    height: 100%;
-    background: #22c55e;
-    transition: width 0.4s ease;
-  }
-</style>
-```
-
----
-
-### 5. Session Summary Row
-
-Compact session display with swipe actions:
-
-```svelte
-<script>
-  let { 
-    date = "Today",
-    discipline = "STA",
-    bestTime = "4:52",
-    attempts = 6,
-    avgComfort = 4
-  } = $props();
-  
-  const disciplineColors = {
-    'STA': '#3b82f6',
-    'DYN': '#22c55e',
-    'CWT': '#a855f7'
-  };
-  
-  let color = $derived(disciplineColors[discipline] || '#71717a');
-</script>
-
-<div class="session-row">
-  <div class="indicator" style="background: {color}"></div>
-  
-  <div class="info">
-    <div class="top-line">
-      <span class="date">{date}</span>
-      <span class="discipline" style="color: {color}">{discipline}</span>
-    </div>
-    <div class="stats">
-      <span class="stat">
-        <span class="val">{bestTime}</span>
-        <span class="lbl">best</span>
-      </span>
-      <span class="dot">·</span>
-      <span class="stat">
-        <span class="val">{attempts}</span>
-        <span class="lbl">attempts</span>
-      </span>
-    </div>
-  </div>
-  
-  <div class="comfort">
-    {'●'.repeat(avgComfort)}{'○'.repeat(5 - avgComfort)}
-  </div>
-  
-  <button class="chevron">›</button>
-</div>
-
-<style>
-  .session-row {
+  .partner-info {
     display: flex;
     align-items: center;
     gap: 16px;
-    padding: 16px 20px;
-    background: #09090b;
-    border: 1px solid rgba(255, 255, 255, 0.04);
-    border-radius: 14px;
-    cursor: pointer;
-    transition: all 0.2s;
   }
-  .session-row:hover {
-    background: #0a0a0a;
-    border-color: rgba(255, 255, 255, 0.08);
+  .avatar {
+    position: relative;
+    width: 56px;
+    height: 56px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%);
+    display: grid;
+    place-items: center;
+    overflow: hidden;
   }
-  .indicator {
-    width: 3px;
-    height: 36px;
-    border-radius: 2px;
+  .avatar img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
   }
-  .info {
-    flex: 1;
+  .initials {
+    font-size: 18px;
+    font-weight: 600;
+    color: #fafafa;
+  }
+  .status-dot {
+    position: absolute;
+    bottom: 2px;
+    right: 2px;
+    width: 14px;
+    height: 14px;
+    background: #22c55e;
+    border: 3px solid #09090b;
+    border-radius: 50%;
+  }
+  .details {
     display: flex;
     flex-direction: column;
     gap: 4px;
   }
-  .top-line {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-  }
-  .date {
-    font-size: 15px;
-    font-weight: 500;
+  .name {
+    margin: 0;
+    font-size: 17px;
+    font-weight: 600;
     color: #fafafa;
   }
-  .discipline {
-    font-size: 10px;
-    font-weight: 600;
-    letter-spacing: 0.05em;
+  .role {
+    font-size: 13px;
+    color: #71717a;
   }
   .stats {
     display: flex;
     align-items: center;
-    gap: 6px;
+    gap: 20px;
+    padding: 16px;
+    background: rgba(255, 255, 255, 0.02);
+    border-radius: 12px;
   }
   .stat {
-    display: flex;
-    gap: 4px;
-  }
-  .val {
-    font-size: 13px;
-    color: #a1a1aa;
-    font-family: 'SF Mono', monospace;
-  }
-  .lbl {
-    font-size: 12px;
-    color: #52525b;
-  }
-  .dot {
-    color: #3f3f46;
-  }
-  .comfort {
-    font-size: 8px;
-    letter-spacing: 2px;
-    color: #22c55e;
-  }
-  .chevron {
-    background: none;
-    border: none;
-    font-size: 20px;
-    color: #3f3f46;
-    cursor: pointer;
-    padding: 0 4px;
-  }
-</style>
-```
-
----
-
-### 6. Heart Rate Monitor
-
-Live BPM display with trend sparkline:
-
-```svelte
-<script>
-  let bpm = $state(62);
-  let history = $state([72, 70, 68, 65, 63, 62, 61, 60, 59, 60, 61, 62]);
-  
-  let status = $derived(
-    bpm < 50 ? 'excellent' :
-    bpm < 60 ? 'good' :
-    bpm < 70 ? 'normal' : 'elevated'
-  );
-  
-  let statusColor = $derived({
-    'excellent': '#22c55e',
-    'good': '#3b82f6',
-    'normal': '#f59e0b',
-    'elevated': '#ef4444'
-  }[status]);
-  
-  let sparkPath = $derived(() => {
-    const h = 32;
-    const w = 80;
-    const max = Math.max(...history);
-    const min = Math.min(...history);
-    const range = max - min || 1;
-    
-    return history.map((v, i) => {
-      const x = (i / (history.length - 1)) * w;
-      const y = h - ((v - min) / range) * h;
-      return `${i === 0 ? 'M' : 'L'} ${x},${y}`;
-    }).join(' ');
-  });
-</script>
-
-<div class="hr-card">
-  <div class="left">
-    <div class="icon">♥</div>
-    <div class="data">
-      <div class="bpm-row">
-        <span class="bpm">{bpm}</span>
-        <span class="unit">bpm</span>
-      </div>
-      <div class="status" style="color: {statusColor}">{status}</div>
-    </div>
-  </div>
-  
-  <svg class="spark" viewBox="0 0 80 32">
-    <path d={sparkPath()} fill="none" stroke={statusColor} stroke-width="2" stroke-linecap="round"/>
-  </svg>
-</div>
-
-<style>
-  .hr-card {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    background: #09090b;
-    border: 1px solid rgba(255, 255, 255, 0.06);
-    border-radius: 16px;
-    padding: 20px 24px;
-    max-width: 280px;
-  }
-  .left {
-    display: flex;
-    align-items: center;
-    gap: 14px;
-  }
-  .icon {
-    font-size: 24px;
-    color: #ef4444;
-    animation: beat 1s infinite;
-  }
-  @keyframes beat {
-    0%, 100% { transform: scale(1); }
-    50% { transform: scale(1.1); }
-  }
-  .data {
-    display: flex;
-    flex-direction: column;
-    gap: 2px;
-  }
-  .bpm-row {
-    display: flex;
-    align-items: baseline;
-    gap: 4px;
-  }
-  .bpm {
-    font-size: 28px;
-    font-weight: 300;
-    color: #fafafa;
-    font-family: 'SF Mono', monospace;
-  }
-  .unit {
-    font-size: 12px;
-    color: #52525b;
-  }
-  .status {
-    font-size: 11px;
-    font-weight: 500;
-    text-transform: uppercase;
-    letter-spacing: 0.05em;
-  }
-  .spark {
-    width: 80px;
-    height: 32px;
-  }
-</style>
-```
-
----
-
-### 7. Achievement Badge
-
-Unlockable milestones with elegant animations:
-
-```svelte
-<script>
-  let { 
-    title = "Deep Diver",
-    description = "Reach 30 meters depth",
-    icon = "🏆",
-    unlocked = true,
-    date = "Jan 12, 2026"
-  } = $props();
-</script>
-
-<div class="badge-card" class:locked={!unlocked}>
-  <div class="icon-wrapper">
-    <span class="icon">{icon}</span>
-    {#if unlocked}
-      <div class="glow"></div>
-    {/if}
-  </div>
-  
-  <div class="content">
-    <span class="title">{title}</span>
-    <span class="desc">{description}</span>
-    {#if unlocked}
-      <span class="date">Unlocked {date}</span>
-    {/if}
-  </div>
-  
-  {#if !unlocked}
-    <div class="lock">🔒</div>
-  {/if}
-</div>
-
-<style>
-  .badge-card {
-    display: flex;
-    align-items: center;
-    gap: 16px;
-    background: #09090b;
-    border: 1px solid rgba(255, 255, 255, 0.06);
-    border-radius: 16px;
-    padding: 20px;
-    max-width: 320px;
-    position: relative;
-    overflow: hidden;
-  }
-  .badge-card.locked {
-    opacity: 0.5;
-  }
-  .icon-wrapper {
-    position: relative;
-    width: 48px;
-    height: 48px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-  }
-  .icon {
-    font-size: 32px;
-    z-index: 1;
-  }
-  .glow {
-    position: absolute;
-    inset: -8px;
-    background: radial-gradient(circle, rgba(251, 191, 36, 0.3) 0%, transparent 70%);
-    animation: glow-pulse 2s infinite;
-  }
-  @keyframes glow-pulse {
-    0%, 100% { opacity: 0.5; transform: scale(1); }
-    50% { opacity: 1; transform: scale(1.1); }
-  }
-  .content {
     flex: 1;
     display: flex;
     flex-direction: column;
     gap: 4px;
   }
-  .title {
+  .stat-value {
     font-size: 15px;
     font-weight: 500;
-    color: #fafafa;
+    color: #e4e4e7;
   }
-  .desc {
-    font-size: 13px;
-    color: #71717a;
-  }
-  .date {
+  .stat-label {
     font-size: 11px;
     color: #52525b;
-    margin-top: 4px;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
   }
-  .lock {
-    font-size: 16px;
+  .divider {
+    width: 1px;
+    height: 32px;
+    background: rgba(255, 255, 255, 0.06);
+  }
+  .invite-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    padding: 14px 20px;
+    background: transparent;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 12px;
+    color: #a1a1aa;
+    font-size: 14px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+  .invite-btn:hover {
+    background: rgba(255, 255, 255, 0.04);
+    border-color: rgba(255, 255, 255, 0.15);
+    color: #fafafa;
+  }
+  .plus {
+    font-size: 18px;
+    font-weight: 300;
   }
 </style>
 ```
 
 ---
 
-### 8. Contraction Marker
+### 5. Session Timeline
 
-Tap-to-mark contractions during breath holds:
+A minimal timeline showing dive attempts within a session:
 
 ```svelte
 <script>
-  let contractions = $state([]);
-  let holdStart = $state(Date.now());
+  let dives = $state([
+    { id: 1, time: "09:15", duration: "2:45", depth: null, type: "STA", comfort: 4 },
+    { id: 2, time: "09:32", duration: "3:12", depth: null, type: "STA", comfort: 3 },
+    { id: 3, time: "09:48", duration: "3:48", depth: null, type: "STA", comfort: 4 },
+    { id: 4, time: "10:05", duration: "4:02", depth: null, type: "STA", comfort: 5 }
+  ]);
   
-  function markContraction() {
-    const elapsed = Math.floor((Date.now() - holdStart) / 1000);
-    contractions = [...contractions, elapsed];
-  }
-  
-  let count = $derived(contractions.length);
-  let lastAt = $derived(contractions.length > 0 ? contractions[contractions.length - 1] : null);
-  
-  function formatTime(secs) {
-    const m = Math.floor(secs / 60);
-    const s = secs % 60;
-    return `${m}:${s.toString().padStart(2, '0')}`;
-  }
+  let comfortColors = {
+    1: "#ef4444", 2: "#f97316", 3: "#eab308", 4: "#22c55e", 5: "#10b981"
+  };
 </script>
 
-<div class="contraction-panel">
+<div class="timeline">
   <div class="header">
-    <span class="label">Contractions</span>
-    <span class="count">{count}</span>
+    <h3>Session Timeline</h3>
+    <span class="count">{dives.length} dives</span>
   </div>
-  
-  <button class="mark-btn" onclick={markContraction}>
-    <span class="ripple"></span>
-    <span class="btn-text">TAP</span>
-  </button>
-  
-  {#if contractions.length > 0}
-    <div class="markers">
-      {#each contractions as time, i}
-        <span class="marker">
-          <span class="num">{i + 1}</span>
-          <span class="time">{formatTime(time)}</span>
-        </span>
-      {/each}
-    </div>
-  {:else}
-    <p class="hint">Tap when you feel a contraction</p>
-  {/if}
+  <div class="dives">
+    {#each dives as dive, i}
+      <div class="dive-row">
+        <div class="time-col">
+          <span class="time">{dive.time}</span>
+          {#if i < dives.length - 1}
+            <div class="connector"></div>
+          {/if}
+        </div>
+        <div class="dive-card">
+          <div class="dive-main">
+            <span class="duration">{dive.duration}</span>
+            <span class="type">{dive.type}</span>
+          </div>
+          <div class="comfort-dot" style="background: {comfortColors[dive.comfort]}"></div>
+        </div>
+      </div>
+    {/each}
+  </div>
 </div>
 
 <style>
-  .contraction-panel {
+  .timeline {
     background: #09090b;
-    border: 1px solid rgba(255, 255, 255, 0.06);
+    border: 1px solid rgba(255, 255, 255, 0.04);
     border-radius: 20px;
     padding: 24px;
-    text-align: center;
-    max-width: 280px;
   }
   .header {
     display: flex;
@@ -955,381 +495,696 @@ Tap-to-mark contractions during breath holds:
     align-items: center;
     margin-bottom: 24px;
   }
-  .label {
-    font-size: 13px;
-    color: #71717a;
-    text-transform: uppercase;
-    letter-spacing: 0.05em;
+  .header h3 {
+    margin: 0;
+    font-size: 15px;
+    font-weight: 600;
+    color: #fafafa;
   }
   .count {
-    font-size: 18px;
-    font-weight: 500;
-    color: #fafafa;
-    font-family: 'SF Mono', monospace;
+    font-size: 12px;
+    color: #52525b;
   }
-  .mark-btn {
-    width: 100px;
-    height: 100px;
-    border-radius: 50%;
-    background: linear-gradient(145deg, #18181b, #09090b);
-    border: 2px solid #27272a;
-    color: #71717a;
-    font-size: 14px;
-    font-weight: 600;
-    letter-spacing: 0.1em;
-    cursor: pointer;
-    transition: all 0.15s;
-    position: relative;
-    overflow: hidden;
-  }
-  .mark-btn:hover {
-    border-color: #3f3f46;
-    color: #a1a1aa;
-  }
-  .mark-btn:active {
-    transform: scale(0.95);
-    border-color: #f59e0b;
-    color: #f59e0b;
-  }
-  .markers {
+  .dives {
     display: flex;
-    flex-wrap: wrap;
-    gap: 8px;
-    margin-top: 20px;
-    justify-content: center;
+    flex-direction: column;
+    gap: 0;
   }
-  .marker {
+  .dive-row {
     display: flex;
+    gap: 20px;
+  }
+  .time-col {
+    display: flex;
+    flex-direction: column;
     align-items: center;
-    gap: 4px;
-    padding: 6px 10px;
-    background: rgba(245, 158, 11, 0.1);
-    border-radius: 100px;
-  }
-  .num {
-    font-size: 10px;
-    color: #f59e0b;
+    width: 48px;
   }
   .time {
     font-size: 12px;
-    color: #fafafa;
     font-family: 'SF Mono', monospace;
-  }
-  .hint {
-    font-size: 12px;
     color: #52525b;
-    margin-top: 16px;
+    padding: 4px 0;
+  }
+  .connector {
+    flex: 1;
+    width: 1px;
+    background: linear-gradient(180deg, rgba(255,255,255,0.08) 0%, transparent 100%);
+    min-height: 24px;
+  }
+  .dive-card {
+    flex: 1;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 16px 20px;
+    background: rgba(255, 255, 255, 0.02);
+    border-radius: 12px;
+    margin-bottom: 12px;
+    border: 1px solid rgba(255, 255, 255, 0.03);
+    transition: all 0.2s;
+  }
+  .dive-card:hover {
+    background: rgba(255, 255, 255, 0.04);
+    border-color: rgba(255, 255, 255, 0.06);
+  }
+  .dive-main {
+    display: flex;
+    align-items: baseline;
+    gap: 12px;
+  }
+  .duration {
+    font-size: 20px;
+    font-weight: 500;
+    font-family: 'SF Mono', monospace;
+    color: #fafafa;
+  }
+  .type {
+    font-size: 11px;
+    font-weight: 500;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: #52525b;
+  }
+  .comfort-dot {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
   }
 </style>
 ```
 
 ---
 
-### 9. Weekly Progress Ring
+### 6. Radial Progress Ring
 
-Circular progress indicator for weekly goals:
+A circular progress indicator for goal tracking:
 
 ```svelte
 <script>
-  let { current = 5, goal = 7, label = "Sessions" } = $props();
+  let progress = $state(73);
+  let goal = $state("Weekly Goal");
+  let detail = $state("11 of 15 sessions");
   
-  let percentage = $derived(Math.min((current / goal) * 100, 100));
-  let circumference = $derived(2 * Math.PI * 54);
-  let strokeOffset = $derived(circumference - (percentage / 100) * circumference);
-  let isComplete = $derived(current >= goal);
+  let circumference = 2 * Math.PI * 45;
+  let offset = $derived(circumference - (progress / 100) * circumference);
 </script>
 
-<div class="ring-card">
-  <div class="ring-container">
-    <svg viewBox="0 0 120 120" class="ring">
-      <!-- Background ring -->
-      <circle
-        cx="60" cy="60" r="54"
-        fill="none"
-        stroke="#27272a"
-        stroke-width="8"
-      />
-      <!-- Progress ring -->
-      <circle
-        cx="60" cy="60" r="54"
-        fill="none"
-        stroke={isComplete ? '#22c55e' : '#3b82f6'}
-        stroke-width="8"
-        stroke-linecap="round"
-        stroke-dasharray={circumference}
-        stroke-dashoffset={strokeOffset}
-        transform="rotate(-90 60 60)"
-        style="transition: stroke-dashoffset 0.6s ease"
-      />
-    </svg>
-    
-    <div class="ring-content">
-      <span class="current">{current}</span>
-      <span class="divider">/</span>
-      <span class="goal">{goal}</span>
-    </div>
+<div class="progress-ring">
+  <svg viewBox="0 0 100 100" class="ring-svg">
+    <circle 
+      class="track"
+      cx="50" cy="50" r="45"
+      fill="none"
+      stroke-width="6"
+    />
+    <circle 
+      class="progress"
+      cx="50" cy="50" r="45"
+      fill="none"
+      stroke-width="6"
+      stroke-dasharray={circumference}
+      stroke-dashoffset={offset}
+      stroke-linecap="round"
+    />
+  </svg>
+  <div class="center-content">
+    <span class="percentage">{progress}%</span>
+    <span class="goal-label">{goal}</span>
+    <span class="detail">{detail}</span>
   </div>
-  
-  <div class="label">{label} this week</div>
-  
-  {#if isComplete}
-    <div class="complete-badge">✓ Goal reached!</div>
-  {/if}
 </div>
 
 <style>
-  .ring-card {
-    background: #09090b;
-    border: 1px solid rgba(255, 255, 255, 0.06);
-    border-radius: 20px;
-    padding: 32px;
-    text-align: center;
-    max-width: 200px;
-  }
-  .ring-container {
+  .progress-ring {
     position: relative;
-    width: 120px;
-    height: 120px;
-    margin: 0 auto 16px;
+    width: 200px;
+    height: 200px;
+    background: #09090b;
+    border: 1px solid rgba(255, 255, 255, 0.04);
+    border-radius: 24px;
+    padding: 20px;
   }
-  .ring {
+  .ring-svg {
     width: 100%;
     height: 100%;
+    transform: rotate(-90deg);
   }
-  .ring-content {
+  .track {
+    stroke: rgba(255, 255, 255, 0.04);
+  }
+  .progress {
+    stroke: url(#gradient);
+    transition: stroke-dashoffset 0.6s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+  .ring-svg defs {
+    position: absolute;
+  }
+  .center-content {
     position: absolute;
     inset: 0;
     display: flex;
+    flex-direction: column;
     align-items: center;
     justify-content: center;
-    gap: 2px;
+    gap: 4px;
   }
-  .current {
+  .percentage {
     font-size: 32px;
-    font-weight: 300;
+    font-weight: 200;
     color: #fafafa;
-    font-family: 'SF Mono', monospace;
   }
-  .divider {
-    font-size: 20px;
-    color: #3f3f46;
-  }
-  .goal {
-    font-size: 16px;
-    color: #52525b;
-    font-family: 'SF Mono', monospace;
-  }
-  .label {
-    font-size: 13px;
+  .goal-label {
+    font-size: 11px;
+    font-weight: 500;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
     color: #71717a;
   }
-  .complete-badge {
-    margin-top: 12px;
-    font-size: 12px;
-    color: #22c55e;
-    font-weight: 500;
+  .detail {
+    font-size: 11px;
+    color: #52525b;
   }
 </style>
 ```
 
 ---
 
-### 10. Dive Buddy Invite
+### 7. Quick Action Bar
 
-Elegant invite card with avatar and actions:
+A floating action bar with contextual controls:
 
 ```svelte
 <script>
-  let { 
-    name = "Alex Chen",
-    avatar = "🧜‍♂️",
-    level = "Advanced",
-    mutualBuddies = 3,
-    specialty = "CWT"
-  } = $props();
+  let actions = $state([
+    { id: "timer", icon: "⏱", label: "Timer" },
+    { id: "log", icon: "＋", label: "Log Dive" },
+    { id: "camera", icon: "◉", label: "Record" }
+  ]);
   
-  let invited = $state(false);
+  let activeAction = $state(null);
+  
+  function handleAction(id) {
+    activeAction = activeAction === id ? null : id;
+  }
 </script>
 
-<div class="invite-card">
-  <div class="avatar-section">
-    <div class="avatar">{avatar}</div>
-    <div class="level-badge">{level}</div>
-  </div>
+<div class="action-bar">
+  {#each actions as action}
+    <button 
+      class="action" 
+      class:active={activeAction === action.id}
+      onclick={() => handleAction(action.id)}
+    >
+      <span class="icon">{action.icon}</span>
+      <span class="label">{action.label}</span>
+    </button>
+  {/each}
+</div>
+
+<style>
+  .action-bar {
+    display: inline-flex;
+    gap: 4px;
+    padding: 8px;
+    background: rgba(9, 9, 11, 0.95);
+    backdrop-filter: blur(20px);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 20px;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+  }
+  .action {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
+    padding: 16px 24px;
+    background: transparent;
+    border: none;
+    border-radius: 14px;
+    cursor: pointer;
+    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+  .action:hover {
+    background: rgba(255, 255, 255, 0.04);
+  }
+  .action.active {
+    background: rgba(59, 130, 246, 0.15);
+  }
+  .icon {
+    font-size: 24px;
+    color: #a1a1aa;
+    transition: all 0.2s;
+  }
+  .action:hover .icon,
+  .action.active .icon {
+    color: #fafafa;
+    transform: scale(1.1);
+  }
+  .label {
+    font-size: 11px;
+    font-weight: 500;
+    letter-spacing: 0.02em;
+    color: #52525b;
+    transition: color 0.2s;
+  }
+  .action:hover .label,
+  .action.active .label {
+    color: #a1a1aa;
+  }
+</style>
+```
+
+---
+
+### 8. Heart Rate Sparkline
+
+A compact HR visualization with current BPM:
+
+```svelte
+<script>
+  let hrData = $state([72, 70, 68, 65, 62, 58, 55, 52, 48, 45, 42, 40, 38, 36, 35]);
+  let currentHR = $state(35);
+  let minHR = $state(35);
   
-  <div class="info">
-    <span class="name">{name}</span>
-    <div class="meta">
-      <span class="specialty">{specialty} specialist</span>
-      <span class="mutual">{mutualBuddies} mutual buddies</span>
+  let max = $derived(Math.max(...hrData));
+  let min = $derived(Math.min(...hrData));
+  let range = $derived(max - min);
+  
+  let points = $derived(
+    hrData.map((v, i) => {
+      let x = (i / (hrData.length - 1)) * 180;
+      let y = 40 - ((v - min) / range) * 36;
+      return `${x},${y}`;
+    }).join(' ')
+  );
+</script>
+
+<div class="hr-card">
+  <div class="hr-header">
+    <span class="hr-label">Heart Rate</span>
+    <div class="hr-live">
+      <span class="pulse"></span>
+      <span class="bpm">{currentHR}</span>
+      <span class="unit">BPM</span>
     </div>
   </div>
-  
-  <div class="actions">
-    {#if invited}
-      <button class="btn invited" disabled>
-        <span>Invited ✓</span>
-      </button>
-    {:else}
-      <button class="btn primary" onclick={() => invited = true}>
-        <span>Invite</span>
-      </button>
-    {/if}
+  <svg class="sparkline" viewBox="0 0 180 44">
+    <polyline 
+      points={points}
+      fill="none"
+      stroke="url(#hrGradient)"
+      stroke-width="2"
+      stroke-linecap="round"
+      stroke-linejoin="round"
+    />
+    <defs>
+      <linearGradient id="hrGradient" x1="0%" y1="0%" x2="100%" y2="0%">
+        <stop offset="0%" stop-color="#f87171" />
+        <stop offset="100%" stop-color="#22c55e" />
+      </linearGradient>
+    </defs>
+  </svg>
+  <div class="hr-footer">
+    <span class="min-label">Min: {minHR} BPM</span>
+    <span class="brady-label">Bradycardia achieved</span>
   </div>
 </div>
 
 <style>
-  .invite-card {
-    display: flex;
-    align-items: center;
-    gap: 16px;
+  .hr-card {
     background: #09090b;
-    border: 1px solid rgba(255, 255, 255, 0.06);
-    border-radius: 16px;
-    padding: 16px 20px;
-    max-width: 360px;
-    transition: border-color 0.2s;
+    border: 1px solid rgba(255, 255, 255, 0.04);
+    border-radius: 20px;
+    padding: 20px;
   }
-  .invite-card:hover {
-    border-color: rgba(255, 255, 255, 0.1);
-  }
-  .avatar-section {
-    position: relative;
-  }
-  .avatar {
-    width: 48px;
-    height: 48px;
-    background: linear-gradient(135deg, #1e3a5f, #0f172a);
-    border-radius: 50%;
+  .hr-header {
     display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 24px;
+    justify-content: space-between;
+    align-items: flex-start;
+    margin-bottom: 16px;
   }
-  .level-badge {
-    position: absolute;
-    bottom: -4px;
-    right: -4px;
-    font-size: 8px;
-    font-weight: 600;
+  .hr-label {
+    font-size: 13px;
+    font-weight: 500;
+    color: #71717a;
+  }
+  .hr-live {
+    display: flex;
+    align-items: baseline;
+    gap: 6px;
+  }
+  .pulse {
+    width: 8px;
+    height: 8px;
+    background: #22c55e;
+    border-radius: 50%;
+    animation: pulse 1s ease-in-out infinite;
+  }
+  @keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.4; }
+  }
+  .bpm {
+    font-size: 28px;
+    font-weight: 200;
+    font-family: 'SF Mono', monospace;
     color: #fafafa;
-    background: #3b82f6;
-    padding: 2px 6px;
-    border-radius: 100px;
-    text-transform: uppercase;
-    letter-spacing: 0.03em;
   }
-  .info {
-    flex: 1;
+  .unit {
+    font-size: 11px;
+    color: #52525b;
+    text-transform: uppercase;
+  }
+  .sparkline {
+    width: 100%;
+    height: 44px;
+    margin-bottom: 12px;
+  }
+  .hr-footer {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+  .min-label {
+    font-size: 11px;
+    color: #52525b;
+  }
+  .brady-label {
+    font-size: 11px;
+    font-weight: 500;
+    color: #22c55e;
+  }
+</style>
+```
+
+---
+
+### 9. Settings Toggle Row
+
+A refined settings control with label and description:
+
+```svelte
+<script>
+  let settings = $state([
+    { 
+      id: "haptics", 
+      label: "Haptic Feedback", 
+      description: "Vibrate on contraction markers",
+      enabled: true 
+    },
+    { 
+      id: "audio", 
+      label: "Audio Cues", 
+      description: "Beeps for breathing rhythm",
+      enabled: false 
+    },
+    { 
+      id: "auto", 
+      label: "Auto-detect Dives", 
+      description: "Start timer when submerged",
+      enabled: true 
+    }
+  ]);
+  
+  function toggle(id) {
+    settings = settings.map(s => 
+      s.id === id ? { ...s, enabled: !s.enabled } : s
+    );
+  }
+</script>
+
+<div class="settings-list">
+  {#each settings as setting}
+    <div class="setting-row">
+      <div class="setting-text">
+        <span class="setting-label">{setting.label}</span>
+        <span class="setting-desc">{setting.description}</span>
+      </div>
+      <button 
+        class="toggle" 
+        class:on={setting.enabled}
+        onclick={() => toggle(setting.id)}
+        role="switch"
+        aria-checked={setting.enabled}
+      >
+        <span class="toggle-thumb"></span>
+      </button>
+    </div>
+  {/each}
+</div>
+
+<style>
+  .settings-list {
+    background: #09090b;
+    border: 1px solid rgba(255, 255, 255, 0.04);
+    border-radius: 16px;
+    overflow: hidden;
+  }
+  .setting-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 18px 20px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+  }
+  .setting-row:last-child {
+    border-bottom: none;
+  }
+  .setting-text {
     display: flex;
     flex-direction: column;
     gap: 4px;
   }
-  .name {
+  .setting-label {
     font-size: 15px;
     font-weight: 500;
     color: #fafafa;
   }
-  .meta {
-    display: flex;
-    flex-direction: column;
-    gap: 2px;
-  }
-  .specialty {
+  .setting-desc {
     font-size: 12px;
-    color: #71717a;
-  }
-  .mutual {
-    font-size: 11px;
     color: #52525b;
   }
-  .btn {
-    padding: 10px 20px;
-    font-size: 13px;
-    font-weight: 500;
+  .toggle {
+    position: relative;
+    width: 48px;
+    height: 28px;
+    background: rgba(255, 255, 255, 0.08);
     border: none;
-    border-radius: 10px;
+    border-radius: 14px;
     cursor: pointer;
-    transition: all 0.2s;
+    transition: background 0.2s;
   }
-  .btn.primary {
+  .toggle.on {
+    background: #3b82f6;
+  }
+  .toggle-thumb {
+    position: absolute;
+    top: 3px;
+    left: 3px;
+    width: 22px;
+    height: 22px;
     background: #fafafa;
-    color: #09090b;
+    border-radius: 50%;
+    transition: transform 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
   }
-  .btn.primary:hover {
-    background: #e4e4e7;
-  }
-  .btn.invited {
-    background: rgba(34, 197, 94, 0.1);
-    color: #22c55e;
-    cursor: default;
+  .toggle.on .toggle-thumb {
+    transform: translateX(20px);
   }
 </style>
 ```
 
 ---
 
-## Data Flow Architecture
+### 10. Empty State
 
-```mermaid
-sequenceDiagram
-    participant W as Watch
-    participant A as App
-    participant K as Kernel
-    participant DB as Database
-    
-    W->>A: Heart rate stream
-    A->>K: Process biometrics
-    K-->>A: Bradycardia analysis
-    
-    A->>A: User starts dive
-    A->>K: Begin session
-    
-    loop During dive
-        W->>A: Depth + HR data
-        A->>K: Real-time processing
-    end
-    
-    A->>K: End session
-    K->>DB: Store session data
-    K-->>A: Session summary
+A graceful empty state with call to action:
+
+```svelte
+<script>
+  let title = $state("No dives yet");
+  let message = $state("Start your first session to begin tracking your freediving journey.");
+  let actionLabel = $state("Start Session");
+  
+  function handleStart() {
+    console.log("Starting new session...");
+  }
+</script>
+
+<div class="empty-state">
+  <div class="illustration">
+    <svg viewBox="0 0 80 80" class="wave-icon">
+      <path 
+        d="M10 50 Q20 40 30 50 T50 50 T70 50"
+        fill="none"
+        stroke="currentColor"
+        stroke-width="2"
+        stroke-linecap="round"
+        class="wave wave-1"
+      />
+      <path 
+        d="M10 40 Q20 30 30 40 T50 40 T70 40"
+        fill="none"
+        stroke="currentColor"
+        stroke-width="2"
+        stroke-linecap="round"
+        class="wave wave-2"
+      />
+      <circle cx="40" cy="55" r="4" fill="currentColor" class="diver" />
+    </svg>
+  </div>
+  <h3 class="title">{title}</h3>
+  <p class="message">{message}</p>
+  <button class="cta" onclick={handleStart}>
+    {actionLabel}
+    <span class="arrow">→</span>
+  </button>
+</div>
+
+<style>
+  .empty-state {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 64px 32px;
+    background: #09090b;
+    border: 1px solid rgba(255, 255, 255, 0.04);
+    border-radius: 24px;
+    text-align: center;
+  }
+  .illustration {
+    margin-bottom: 24px;
+  }
+  .wave-icon {
+    width: 80px;
+    height: 80px;
+    color: #3b82f6;
+  }
+  .wave {
+    opacity: 0.3;
+  }
+  .wave-1 {
+    animation: wave 3s ease-in-out infinite;
+  }
+  .wave-2 {
+    animation: wave 3s ease-in-out infinite 0.5s;
+    opacity: 0.5;
+  }
+  @keyframes wave {
+    0%, 100% { transform: translateX(0); }
+    50% { transform: translateX(5px); }
+  }
+  .diver {
+    animation: dive 3s ease-in-out infinite;
+  }
+  @keyframes dive {
+    0%, 100% { transform: translateY(0); }
+    50% { transform: translateY(-5px); }
+  }
+  .title {
+    margin: 0 0 8px 0;
+    font-size: 20px;
+    font-weight: 600;
+    color: #fafafa;
+  }
+  .message {
+    margin: 0 0 28px 0;
+    font-size: 14px;
+    color: #71717a;
+    max-width: 280px;
+    line-height: 1.5;
+  }
+  .cta {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 14px 28px;
+    background: #3b82f6;
+    border: none;
+    border-radius: 12px;
+    color: #fafafa;
+    font-size: 15px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+  .cta:hover {
+    background: #2563eb;
+    transform: translateY(-1px);
+    box-shadow: 0 8px 24px rgba(59, 130, 246, 0.3);
+  }
+  .arrow {
+    transition: transform 0.2s;
+  }
+  .cta:hover .arrow {
+    transform: translateX(4px);
+  }
+</style>
 ```
 
 ---
 
-## Performance Targets
+## Design System
 
-| Metric | Target | Current |
-|--------|--------|---------|
-| **App Launch** | < 500ms | 420ms |
-| **Sync Latency** | < 100ms | 85ms |
-| **Battery Impact** | < 3%/hr | 2.1%/hr |
-| **Offline Days** | 30+ | ∞ |
+### Colors
 
----
+| Token | Value | Usage |
+|-------|-------|-------|
+| `--bg-primary` | `#09090b` | Main background |
+| `--bg-elevated` | `rgba(255,255,255,0.02)` | Cards, containers |
+| `--border-subtle` | `rgba(255,255,255,0.04)` | Subtle borders |
+| `--border-default` | `rgba(255,255,255,0.08)` | Standard borders |
+| `--text-primary` | `#fafafa` | Primary text |
+| `--text-secondary` | `#a1a1aa` | Secondary text |
+| `--text-muted` | `#52525b` | Muted text |
+| `--accent` | `#3b82f6` | Interactive elements |
+| `--success` | `#22c55e` | Positive states |
+| `--warning` | `#fbbf24` | Warnings, targets |
+| `--danger` | `#ef4444` | Errors, alerts |
 
-## Roadmap
+### Typography
 
-### Q1 2026
-- [x] STA timer with contractions
-- [x] Session logging & history
-- [ ] Apple Watch integration
+- **Display**: SF Pro Display, 200 weight
+- **Body**: -apple-system, system-ui
+- **Mono**: SF Mono, Menlo
 
-### Q2 2026
-- [ ] Depth computer sync (Suunto, Garmin)
-- [ ] Training tables (CO2/O2)
-- [ ] Social features
+### Spacing
 
-### Q3 2026
-- [ ] AI coaching recommendations
-- [ ] Competition mode
-- [ ] Video analysis
-
----
-
-> *"In the depth of winter, I finally learned that within me there lay an invincible summer."*  
-> — Albert Camus
+Base unit: `4px`. Common values: `8`, `12`, `16`, `20`, `24`, `32`, `48`, `64`.
 
 ---
 
-*Built with Zef — where code meets consciousness.*
+## Architecture
+
+```mermaid
+flowchart TB
+    subgraph Mobile["Mobile App"]
+        UI[Svelte Components] --> Store[State Store]
+        Store --> Cache[Local Cache]
+    end
+    
+    subgraph Sync["Sync Layer"]
+        Cache <-->|Offline First| API
+        API[REST API] --> Queue[Sync Queue]
+    end
+    
+    subgraph Backend["Backend Services"]
+        Queue --> Worker[Background Worker]
+        Worker --> DB[(PostgreSQL)]
+        Worker --> Analytics[Analytics Engine]
+    end
+    
+    style Mobile fill:#09090b,stroke:#3b82f6,color:#fafafa
+    style Sync fill:#09090b,stroke:#22c55e,color:#fafafa
+    style Backend fill:#09090b,stroke:#a78bfa,color:#fafafa
+```
+
+---
+
+> *"In the depth of the sea, I found my breath."*
+
+---
+
+*Built with Zef — where code breathes.*
