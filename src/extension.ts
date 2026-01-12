@@ -6,7 +6,6 @@ import { getPythonPath, showPythonPicker, showSettingsPanel, setDefaultPython } 
 import { executeRust, RustCellResult, isRustAvailable } from './rustExecutor';
 import { executeJs, JsCellResult, isBunAvailable } from './jsExecutor';
 import { executeTs, TsCellResult, isBunAvailable as isTsBunAvailable } from './tsExecutor';
-import { registerPasteImageCommand } from './clipboardImage';
 
 let statusBarItem: vscode.StatusBarItem;
 
@@ -225,9 +224,6 @@ export function activate(context: vscode.ExtensionContext) {
             kernel.showOutput();
         })
     );
-
-    // Register paste image command
-    registerPasteImageCommand(context);
 }
 
 async function runCodeInKernel(context: vscode.ExtensionContext, code: string, blockId?: number): Promise<void> {
