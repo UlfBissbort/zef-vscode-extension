@@ -31,6 +31,9 @@ sequenceDiagram
 ```
 
 
+
+
+
 ## See It in Action
 
 This document you're reading? It's executable. Try it:
@@ -173,6 +176,12 @@ Code blocks share state, just like notebooks. But with a key difference: Zef tra
 ```python
 [4,5 ] + [6,7,9,8]
 ```
+````Result
+[4, 5, 6, 7, 9, 8]
+````
+````Side Effects
+[]
+````
 
 Every function and value is tracked by hash. Six months later, you can reproduce this exact result.
 
@@ -283,10 +292,11 @@ print(f"Document executed: {datetime.datetime.now()}")
 [
     ET.UnmanagedEffect(
         what='stdout',
-        content='Document executed: 2026-01-11 22:20:29.862433'
+        content='Document executed: 2026-01-12 12:17:59.572127'
     )
 ]
 ````
+
 
 ---
 
@@ -310,3 +320,128 @@ print(f"Document executed: {datetime.datetime.now()}")
 - Never wonder "how did I compute this?" again
 
 Welcome to reproducible interactive computing. 🚀
+
+---
+
+## Svelte Components (Coming Soon)
+
+Embed live, interactive Svelte components directly in your documents. Minimal code, maximum impact.
+
+### Animated Gradient Button
+
+A sleek button with an animated gradient border. Hover to see the glow intensify:
+
+```svelte
+<script>
+  let clicked = 0;
+</script>
+
+<button on:click={() => clicked++}>
+  {clicked === 0 ? 'Click me' : `Clicked ${clicked}×`}
+</button>
+
+<style>
+  button {
+    padding: 12px 28px;
+    font-size: 14px;
+    font-weight: 500;
+    color: #fafafa;
+    background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+    border: 1px solid transparent;
+    border-radius: 8px;
+    cursor: pointer;
+    position: relative;
+    overflow: hidden;
+    transition: all 0.3s ease;
+  }
+  button::before {
+    content: '';
+    position: absolute;
+    inset: -2px;
+    background: linear-gradient(90deg, #667eea, #764ba2, #f093fb, #667eea);
+    background-size: 300% 100%;
+    z-index: -1;
+    border-radius: 10px;
+    animation: gradient 3s linear infinite;
+    opacity: 0.5;
+    transition: opacity 0.3s;
+  }
+  button:hover::before { opacity: 1; }
+  button:hover { transform: translateY(-2px); box-shadow: 0 10px 40px rgba(102, 126, 234, 0.3); }
+  @keyframes gradient { 0% { background-position: 0% 50%; } 100% { background-position: 300% 50%; } }
+</style>
+```
+
+### Pulse Ring
+
+An Apple-style notification pulse. Pure Svelte + CSS:
+
+```svelte
+<script>
+  import { onMount } from 'svelte';
+  let active = true;
+</script>
+
+<div class="container" on:click={() => active = !active}>
+  <div class="dot" class:active></div>
+  {#if active}
+    <div class="ring ring-1"></div>
+    <div class="ring ring-2"></div>
+    <div class="ring ring-3"></div>
+  {/if}
+</div>
+
+<style>
+  .container { position: relative; width: 60px; height: 60px; cursor: pointer; }
+  .dot {
+    position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
+    width: 16px; height: 16px; background: #34d399; border-radius: 50%;
+    transition: background 0.3s;
+  }
+  .dot.active { background: #10b981; }
+  .ring {
+    position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
+    border: 2px solid #34d399; border-radius: 50%; opacity: 0;
+    animation: pulse 2s cubic-bezier(0, 0, 0.2, 1) infinite;
+  }
+  .ring-1 { width: 30px; height: 30px; animation-delay: 0s; }
+  .ring-2 { width: 45px; height: 45px; animation-delay: 0.5s; }
+  .ring-3 { width: 60px; height: 60px; animation-delay: 1s; }
+  @keyframes pulse { 0% { opacity: 0.6; transform: translate(-50%, -50%) scale(0.5); } 100% { opacity: 0; transform: translate(-50%, -50%) scale(1); } }
+</style>
+```
+
+### Shimmer Loading Card
+
+A Linear-style loading skeleton with a shimmer effect:
+
+```svelte
+<div class="card">
+  <div class="shimmer avatar"></div>
+  <div class="content">
+    <div class="shimmer line title"></div>
+    <div class="shimmer line subtitle"></div>
+    <div class="shimmer line short"></div>
+  </div>
+</div>
+
+<style>
+  .card {
+    display: flex; gap: 16px; padding: 20px;
+    background: #0a0a0a; border: 1px solid #222; border-radius: 12px;
+    max-width: 320px;
+  }
+  .avatar { width: 48px; height: 48px; border-radius: 50%; flex-shrink: 0; }
+  .content { flex: 1; display: flex; flex-direction: column; gap: 8px; }
+  .line { height: 12px; border-radius: 6px; }
+  .title { width: 70%; }
+  .subtitle { width: 100%; }
+  .short { width: 40%; }
+  .shimmer {
+    background: linear-gradient(90deg, #1a1a1a 25%, #2a2a2a 50%, #1a1a1a 75%);
+    background-size: 200% 100%;
+    animation: shimmer 1.5s infinite;
+  }
+  @keyframes shimmer { 0% { background-position: 200% 0; } 100% { background-position: -200% 0; } }
+</style>
+```
