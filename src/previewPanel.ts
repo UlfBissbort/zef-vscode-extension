@@ -3,83 +3,113 @@ import * as path from 'path';
 import { marked } from 'marked';
 import { CellResult } from './kernelManager';
 
-let currentPanel: vscode.WebviewPanel | undefined;
+// Map of document URI string to its panel
+const panels: Map<string, vscode.WebviewPanel> = new Map();
 let onRunCodeCallback: ((code: string, blockId: number, language: string) => void) | undefined;
-let currentDocumentUri: vscode.Uri | undefined;  // Track which document the preview is showing
 
 export function setOnRunCode(callback: (code: string, blockId: number, language: string) => void) {
     onRunCodeCallback = callback;
 }
 
 export function getCurrentDocumentUri(): vscode.Uri | undefined {
-    return currentDocumentUri;
+    // Return the URI of the first panel's document (for backwards compatibility)
+    const firstKey = panels.keys().next().value;
+    return firstKey ? vscode.Uri.parse(firstKey) : undefined;
 }
 
-export function createPreviewPanel(context: vscode.ExtensionContext): vscode.WebviewPanel {
+/**
+ * Get the panel for a specific document, if it exists
+ */
+function getPanelForDocument(uri: vscode.Uri): vscode.WebviewPanel | undefined {
+    return panels.get(uri.toString());
+}
+
+/**
+ * Get or create a panel for the current document
+ */
+export function createPreviewPanel(context: vscode.ExtensionContext): vscode.WebviewPanel | undefined {
     const editor = vscode.window.activeTextEditor;
     
-    if (currentPanel) {
-        currentPanel.reveal(vscode.ViewColumn.Two);
-    } else {
-        // Get local resource roots (workspace folders)
-        const localResourceRoots: vscode.Uri[] = [];
-        if (vscode.workspace.workspaceFolders) {
-            for (const folder of vscode.workspace.workspaceFolders) {
-                localResourceRoots.push(folder.uri);
-            }
-        }
-        // Also add the current document's folder if available
-        if (editor && editor.document.uri.scheme === 'file') {
-            const docDir = vscode.Uri.joinPath(editor.document.uri, '..');
-            localResourceRoots.push(docDir);
-        }
-
-        currentPanel = vscode.window.createWebviewPanel(
-            'zefPreview',
-            'Zef Preview',
-            vscode.ViewColumn.Two,
-            {
-                enableScripts: true,
-                retainContextWhenHidden: true,
-                localResourceRoots: localResourceRoots,
-            }
-        );
-
-        currentPanel.onDidDispose(() => {
-            currentPanel = undefined;
-        });
-        
-        // Handle messages from the webview
-        currentPanel.webview.onDidReceiveMessage(message => {
-            if (message.type === 'runCode' && onRunCodeCallback) {
-                onRunCodeCallback(message.code, message.blockId, message.language || 'python');
-            } else if (message.type === 'scrollToSource') {
-                // Navigate editor to this line
-                const editor = vscode.window.activeTextEditor;
-                if (editor) {
-                    const line = message.line;
-                    const range = new vscode.Range(line, 0, line, 0);
-                    editor.revealRange(range, vscode.TextEditorRevealType.InCenter);
-                    editor.selection = new vscode.Selection(line, 0, line, 0);
-                }
-            }
-        });
+    if (!editor || !editor.document.fileName.endsWith('.zef.md')) {
+        vscode.window.showWarningMessage('Zef: Open a .zef.md file first');
+        return undefined;
     }
-
-    if (editor && editor.document.fileName.endsWith('.zef.md')) {
+    
+    const docUri = editor.document.uri;
+    const docKey = docUri.toString();
+    
+    // Check if panel already exists for this document
+    const existingPanel = panels.get(docKey);
+    if (existingPanel) {
+        existingPanel.reveal(vscode.ViewColumn.Two);
         updatePreview(editor.document);
+        return existingPanel;
     }
+    
+    // Create new panel for this document
+    const fileName = path.basename(editor.document.fileName, '.zef.md');
+    const panelTitle = `${fileName} - Zef View`;
+    
+    // Get local resource roots (workspace folders)
+    const localResourceRoots: vscode.Uri[] = [];
+    if (vscode.workspace.workspaceFolders) {
+        for (const folder of vscode.workspace.workspaceFolders) {
+            localResourceRoots.push(folder.uri);
+        }
+    }
+    // Also add the current document's folder if available
+    const docDir = vscode.Uri.joinPath(docUri, '..');
+    localResourceRoots.push(docDir);
 
-    return currentPanel;
+    const panel = vscode.window.createWebviewPanel(
+        'zefView',
+        panelTitle,
+        vscode.ViewColumn.Two,
+        {
+            enableScripts: true,
+            retainContextWhenHidden: true,
+            localResourceRoots: localResourceRoots,
+        }
+    );
+    
+    // Store the document URI in the panel for later reference
+    (panel as any)._zefDocumentUri = docUri;
+    
+    // Add to map
+    panels.set(docKey, panel);
+
+    panel.onDidDispose(() => {
+        panels.delete(docKey);
+    });
+    
+    // Handle messages from the webview
+    panel.webview.onDidReceiveMessage(message => {
+        if (message.type === 'runCode' && onRunCodeCallback) {
+            onRunCodeCallback(message.code, message.blockId, message.language || 'python');
+        } else if (message.type === 'scrollToSource') {
+            // Navigate editor to this line
+            const editor = vscode.window.activeTextEditor;
+            if (editor) {
+                const line = message.line;
+                const range = new vscode.Range(line, 0, line, 0);
+                editor.revealRange(range, vscode.TextEditorRevealType.InCenter);
+                editor.selection = new vscode.Selection(line, 0, line, 0);
+            }
+        }
+    });
+
+    updatePreview(editor.document);
+
+    return panel;
 }
 
 export function updatePreview(document: vscode.TextDocument) {
-    if (!currentPanel) {
+    const docKey = document.uri.toString();
+    const panel = panels.get(docKey);
+    
+    if (!panel) {
         return;
     }
-
-    // Track which document we're previewing
-    currentDocumentUri = document.uri;
 
     const text = document.getText();
     
@@ -110,24 +140,48 @@ export function updatePreview(document: vscode.TextDocument) {
     
     // Convert relative image paths to webview URIs
     const docDir = path.dirname(document.uri.fsPath);
-    html = convertImagePaths(html, docDir, currentPanel.webview);
+    html = convertImagePaths(html, docDir, panel.webview);
     
-    currentPanel.webview.html = getWebviewContent(html, existingResults, existingSideEffects);
+    panel.webview.html = getWebviewContent(html, existingResults, existingSideEffects);
 }
 
+/**
+ * Get the panel for the active editor's document (if exists)
+ */
 export function getPanel(): vscode.WebviewPanel | undefined {
-    return currentPanel;
+    const editor = vscode.window.activeTextEditor;
+    if (editor) {
+        return panels.get(editor.document.uri.toString());
+    }
+    // Return first panel as fallback
+    return panels.values().next().value;
+}
+
+/**
+ * Get panel for a specific document URI
+ */
+export function getPanelForUri(uri: vscode.Uri): vscode.WebviewPanel | undefined {
+    return panels.get(uri.toString());
 }
 
 export function scrollPreviewToLine(line: number) {
-    if (currentPanel) {
-        currentPanel.webview.postMessage({ type: 'scrollToLine', line: line });
+    const panel = getPanel();
+    if (panel) {
+        panel.webview.postMessage({ type: 'scrollToLine', line: line });
     }
 }
 
-export function sendCellResult(blockId: number, result: CellResult) {
-    if (currentPanel) {
-        currentPanel.webview.postMessage({ 
+export function sendCellResult(blockId: number, result: CellResult, documentUri?: vscode.Uri) {
+    // Send to specific panel if URI provided, otherwise send to active panel
+    let panel: vscode.WebviewPanel | undefined;
+    if (documentUri) {
+        panel = panels.get(documentUri.toString());
+    } else {
+        panel = getPanel();
+    }
+    
+    if (panel) {
+        panel.webview.postMessage({ 
             type: 'cellResult', 
             blockId: blockId,
             result: result
