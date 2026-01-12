@@ -43,6 +43,10 @@
       {
         "command": "zef.showKernelOutput",
         "title": "Zef: Show Kernel Output"
+      },
+      {
+        "command": "zef.pasteImage",
+        "title": "Zef: Paste Image from Clipboard"
       }
     ],
     "keybindings": [
@@ -60,6 +64,11 @@
       {
         "command": "zef.openPreview",
         "key": "cmd+shift+v",
+        "when": "editorLangId == markdown && resourceFilename =~ /\\.zef\\.md$/"
+      },
+      {
+        "command": "zef.pasteImage",
+        "key": "cmd+alt+v",
         "when": "editorLangId == markdown && resourceFilename =~ /\\.zef\\.md$/"
       }
     ],

@@ -1,4 +1,5 @@
 import * as vscode from 'vscode';
+import * as path from 'path';
 import { marked } from 'marked';
 import { CellResult } from './kernelManager';
 
@@ -20,6 +21,19 @@ export function createPreviewPanel(context: vscode.ExtensionContext): vscode.Web
     if (currentPanel) {
         currentPanel.reveal(vscode.ViewColumn.Two);
     } else {
+        // Get local resource roots (workspace folders)
+        const localResourceRoots: vscode.Uri[] = [];
+        if (vscode.workspace.workspaceFolders) {
+            for (const folder of vscode.workspace.workspaceFolders) {
+                localResourceRoots.push(folder.uri);
+            }
+        }
+        // Also add the current document's folder if available
+        if (editor && editor.document.uri.scheme === 'file') {
+            const docDir = vscode.Uri.joinPath(editor.document.uri, '..');
+            localResourceRoots.push(docDir);
+        }
+
         currentPanel = vscode.window.createWebviewPanel(
             'zefPreview',
             'Zef Preview',
@@ -27,6 +41,7 @@ export function createPreviewPanel(context: vscode.ExtensionContext): vscode.Web
             {
                 enableScripts: true,
                 retainContextWhenHidden: true,
+                localResourceRoots: localResourceRoots,
             }
         );
 
@@ -91,7 +106,12 @@ export function updatePreview(document: vscode.TextDocument) {
         .replace(/\n````(?:Result|Output)\s*\n[\s\S]*?````/g, '')
         .replace(/\n````Side Effects\s*\n[\s\S]*?````/g, '');
     
-    const html = renderMarkdown(cleanText);
+    let html = renderMarkdown(cleanText);
+    
+    // Convert relative image paths to webview URIs
+    const docDir = path.dirname(document.uri.fsPath);
+    html = convertImagePaths(html, docDir, currentPanel.webview);
+    
     currentPanel.webview.html = getWebviewContent(html, existingResults, existingSideEffects);
 }
 
@@ -122,6 +142,32 @@ function renderMarkdown(markdown: string): string {
     });
 
     return marked.parse(markdown) as string;
+}
+
+/**
+ * Convert relative image paths in HTML to webview URIs
+ * This is necessary because webviews can't directly access local file:// URLs
+ */
+function convertImagePaths(html: string, docDir: string, webview: vscode.Webview): string {
+    // Match img tags with src attribute
+    const imgRegex = /<img\s+([^>]*?)src=["']([^"']+)["']([^>]*?)>/gi;
+    
+    return html.replace(imgRegex, (match, before, src, after) => {
+        // Skip if already an absolute URL (http, https, data, vscode-resource)
+        if (src.startsWith('http://') || src.startsWith('https://') || 
+            src.startsWith('data:') || src.startsWith('vscode-')) {
+            return match;
+        }
+        
+        // Convert relative path to absolute path
+        const absolutePath = path.isAbsolute(src) ? src : path.join(docDir, src);
+        
+        // Convert to webview URI
+        const fileUri = vscode.Uri.file(absolutePath);
+        const webviewUri = webview.asWebviewUri(fileUri);
+        
+        return `<img ${before}src="${webviewUri}"${after}>`;
+    });
 }
 
 function getWebviewContent(renderedHtml: string, existingOutputs: { [blockId: number]: string } = {}, existingSideEffects: { [blockId: number]: string } = {}): string {
