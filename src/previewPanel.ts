@@ -204,6 +204,31 @@ export function sendCellResult(blockId: number, result: CellResult, documentUri?
     }
 }
 
+export interface SvelteResult {
+    success: boolean;
+    html?: string;
+    error?: string;
+    compileTime: string;
+}
+
+export function sendSvelteResult(blockId: number, result: SvelteResult, documentUri?: vscode.Uri) {
+    // Send to specific panel if URI provided, otherwise send to active panel
+    let panel: vscode.WebviewPanel | undefined;
+    if (documentUri) {
+        panel = panels.get(documentUri.toString());
+    } else {
+        panel = getPanel();
+    }
+    
+    if (panel) {
+        panel.webview.postMessage({ 
+            type: 'svelteResult', 
+            blockId: blockId,
+            result: result
+        });
+    }
+}
+
 function renderMarkdown(markdown: string): string {
     marked.setOptions({
         gfm: true,
@@ -378,6 +403,22 @@ function getWebviewContent(renderedHtml: string, existingOutputs: { [blockId: nu
         .mermaid svg {
             max-width: 100%;
             height: auto;
+        }
+
+        /* Svelte preview */
+        .svelte-container .code-block-lang {
+            /* Don't push to the right for svelte, there's a compile button */
+        }
+        .svelte-preview-frame {
+            width: 100%;
+            min-height: 150px;
+            border: none;
+            background: #1e1e1e;
+        }
+        .compile-time {
+            font-size: 0.65rem;
+            margin-left: 4px;
+            font-weight: normal;
         }
 
         /* Code block container with tabs */
@@ -847,9 +888,11 @@ function getWebviewContent(renderedHtml: string, existingOutputs: { [blockId: nu
             document.querySelectorAll('pre code').forEach(function(block) {
                 var lang = block.parentElement.getAttribute('data-lang') || '';
                 if (lang === 'python' || lang === 'rust' || lang === 'javascript' || 
-                    lang === 'js' || lang === 'typescript' || lang === 'ts') {
+                    lang === 'js' || lang === 'typescript' || lang === 'ts' || lang === 'svelte') {
                     var code = block.textContent || '';
-                    block.innerHTML = highlightCode(code, lang);
+                    // Svelte uses JavaScript/HTML highlighting
+                    var hlLang = (lang === 'svelte') ? 'javascript' : lang;
+                    block.innerHTML = highlightCode(code, hlLang);
                 }
             });
             // Transform code blocks to have tabs
@@ -865,7 +908,8 @@ function getWebviewContent(renderedHtml: string, existingOutputs: { [blockId: nu
                 var isJs = (lang === 'javascript' || lang === 'js');
                 var isTs = (lang === 'typescript' || lang === 'ts');
                 var isMermaid = (lang === 'mermaid');
-                var isExecutable = isPython || isRust || isJs || isTs;
+                var isSvelte = (lang === 'svelte');
+                var isExecutable = isPython || isRust || isJs || isTs || isSvelte;
                 
                 // Only assign blockId to executable blocks to match the parser
                 var currentBlockId = null;
@@ -948,6 +992,100 @@ function getWebviewContent(renderedHtml: string, existingOutputs: { [blockId: nu
                     // Remove original pre
                     pre.parentNode.removeChild(pre);
                     return; // Skip the rest of the loop for mermaid
+                }
+                
+                // Handle Svelte blocks with Compile button and Rendered/Source tabs
+                if (isSvelte) {
+                    // Store the code and language for this block
+                    codeBlocks[currentBlockId] = codeContent;
+                    blockLanguages[currentBlockId] = 'svelte';
+                    
+                    // Create container for svelte with tabs
+                    var svelteContainer = document.createElement('div');
+                    svelteContainer.className = 'code-block-container svelte-container';
+                    svelteContainer.setAttribute('data-block-id', currentBlockId);
+                    
+                    // Create tabs bar
+                    var svelteTabsBar = document.createElement('div');
+                    svelteTabsBar.className = 'code-block-tabs';
+                    
+                    // Add Compile button
+                    var compileBtn = document.createElement('button');
+                    compileBtn.className = 'run-button';
+                    compileBtn.textContent = '▶ Compile';
+                    compileBtn.setAttribute('data-block-id', currentBlockId);
+                    compileBtn.onclick = (function(blockId) {
+                        return function() {
+                            var code = codeBlocks[blockId];
+                            var language = blockLanguages[blockId];
+                            if (code) {
+                                vscode.postMessage({
+                                    type: 'runCode',
+                                    code: code,
+                                    blockId: blockId,
+                                    language: language
+                                });
+                            }
+                        };
+                    })(currentBlockId);
+                    svelteTabsBar.appendChild(compileBtn);
+                    
+                    var svelteTabs = ['Source Code', 'Rendered'];
+                    svelteTabs.forEach(function(tabName, index) {
+                        var tab = document.createElement('button');
+                        tab.className = 'code-block-tab' + (index === 0 ? ' active' : '');
+                        tab.textContent = tabName;
+                        tab.setAttribute('data-tab', tabName.toLowerCase().replace(' ', '-'));
+                        tab.onclick = (function(thisContainer, thisTab) {
+                            return function() {
+                                thisContainer.querySelectorAll('.code-block-tab').forEach(function(t) {
+                                    t.classList.remove('active');
+                                });
+                                thisTab.classList.add('active');
+                                thisContainer.querySelectorAll('.code-block-content').forEach(function(c) {
+                                    c.classList.remove('active');
+                                });
+                                var tabId = thisTab.getAttribute('data-tab');
+                                thisContainer.querySelector('.svelte-' + tabId).classList.add('active');
+                            };
+                        })(svelteContainer, tab);
+                        svelteTabsBar.appendChild(tab);
+                    });
+                    
+                    // Add language indicator with compile time placeholder
+                    var svelteLangIndicator = document.createElement('div');
+                    svelteLangIndicator.className = 'code-block-lang';
+                    svelteLangIndicator.innerHTML = 'Svelte <span class="compile-time" data-block-id="' + currentBlockId + '"></span>';
+                    svelteTabsBar.appendChild(svelteLangIndicator);
+                    
+                    // Create "Source Code" content (default active)
+                    var svelteSourceContent = document.createElement('div');
+                    svelteSourceContent.className = 'code-block-content svelte-source-code active';
+                    var svelteSourcePre = document.createElement('pre');
+                    svelteSourcePre.setAttribute('data-lang', 'svelte');
+                    var svelteSourceCode = document.createElement('code');
+                    svelteSourceCode.innerHTML = highlightCode(codeContent, 'svelte');
+                    svelteSourcePre.appendChild(svelteSourceCode);
+                    svelteSourceContent.appendChild(svelteSourcePre);
+                    
+                    // Create "Rendered" content (iframe for HTML)
+                    var svelteRenderedContent = document.createElement('div');
+                    svelteRenderedContent.className = 'code-block-content svelte-rendered';
+                    var svelteIframe = document.createElement('iframe');
+                    svelteIframe.className = 'svelte-preview-frame';
+                    svelteIframe.setAttribute('sandbox', 'allow-scripts');
+                    svelteIframe.setAttribute('data-block-id', currentBlockId);
+                    svelteRenderedContent.appendChild(svelteIframe);
+                    
+                    // Insert container
+                    pre.parentNode.insertBefore(svelteContainer, pre);
+                    svelteContainer.appendChild(svelteTabsBar);
+                    svelteContainer.appendChild(svelteSourceContent);
+                    svelteContainer.appendChild(svelteRenderedContent);
+                    
+                    // Remove original pre
+                    pre.parentNode.removeChild(pre);
+                    return; // Skip the rest of the loop for svelte
                 }
                 
                 // Create container
@@ -1195,6 +1333,54 @@ function getWebviewContent(renderedHtml: string, existingOutputs: { [blockId: nu
                         var resultTab = document.getElementById('content-' + blockId + '-result');
                         if (resultTab) {
                             resultTab.classList.add('active');
+                        }
+                    }
+                }
+                
+                // Handle Svelte compilation results
+                if (message.type === 'svelteResult') {
+                    var blockId = message.blockId;
+                    var result = message.result;
+                    
+                    // Update compile time display
+                    var compileTimeSpan = document.querySelector('.compile-time[data-block-id="' + blockId + '"]');
+                    if (compileTimeSpan) {
+                        if (result.success) {
+                            compileTimeSpan.textContent = result.compileTime + 'ms';
+                            compileTimeSpan.style.color = '#98c379'; // Green
+                        } else {
+                            compileTimeSpan.textContent = 'error';
+                            compileTimeSpan.style.color = '#e06c75'; // Red
+                        }
+                    }
+                    
+                    // Update the iframe with rendered HTML
+                    var iframe = document.querySelector('.svelte-preview-frame[data-block-id="' + blockId + '"]');
+                    if (iframe) {
+                        if (result.success && result.html) {
+                            var iframeHtml = '<!DOCTYPE html><html><head><style>body { margin: 0; padding: 16px; font-family: system-ui, sans-serif; background: #1e1e1e; color: #d4d4d4; }</style></head><body>' + result.html + '</body></html>';
+                            iframe.srcdoc = iframeHtml;
+                        } else {
+                            var errorHtml = '<!DOCTYPE html><html><head><style>body { margin: 0; padding: 16px; font-family: monospace; background: #1e1e1e; color: #e06c75; }</style></head><body><pre>' + escapeHtml(result.error || 'Unknown error') + '</pre></body></html>';
+                            iframe.srcdoc = errorHtml;
+                        }
+                    }
+                    
+                    // Switch to rendered tab
+                    var container = document.querySelector('.svelte-container[data-block-id="' + blockId + '"]');
+                    if (container) {
+                        container.querySelectorAll('.code-block-tab').forEach(function(t) {
+                            t.classList.remove('active');
+                            if (t.getAttribute('data-tab') === 'rendered') {
+                                t.classList.add('active');
+                            }
+                        });
+                        container.querySelectorAll('.code-block-content').forEach(function(c) {
+                            c.classList.remove('active');
+                        });
+                        var renderedTab = container.querySelector('.svelte-rendered');
+                        if (renderedTab) {
+                            renderedTab.classList.add('active');
                         }
                     }
                 }

@@ -1,11 +1,12 @@
 import * as vscode from 'vscode';
 import { CodeBlockProvider, findCodeBlockAtPosition, findCodeBlocks, findCodeBlockById } from './codeBlockParser';
-import { createPreviewPanel, updatePreview, getPanel, scrollPreviewToLine, sendCellResult, setOnRunCode, getCurrentDocumentUri } from './previewPanel';
+import { createPreviewPanel, updatePreview, getPanel, scrollPreviewToLine, sendCellResult, setOnRunCode, getCurrentDocumentUri, sendSvelteResult } from './previewPanel';
 import { getKernelManager, disposeKernelManager, CellResult } from './kernelManager';
 import { getPythonPath, showPythonPicker, showSettingsPanel, setDefaultPython } from './configManager';
 import { executeRust, RustCellResult, isRustAvailable } from './rustExecutor';
 import { executeJs, JsCellResult, isBunAvailable } from './jsExecutor';
 import { executeTs, TsCellResult, isBunAvailable as isTsBunAvailable } from './tsExecutor';
+import { compileSvelteComponent, SvelteCompileResult } from './svelteExecutor';
 
 let statusBarItem: vscode.StatusBarItem;
 
@@ -127,6 +128,12 @@ export function activate(context: vscode.ExtensionContext) {
         })
     );
 
+    // Register command to compile a Svelte component
+    context.subscriptions.push(
+        vscode.commands.registerCommand('zef.compileSvelte', async (code: string, blockId?: number) => {
+            await compileSvelteBlock(context, code, blockId);
+        })
+    );
     // Register command to run code block at cursor
     context.subscriptions.push(
         vscode.commands.registerCommand('zef.runBlockAtCursor', async () => {
@@ -149,6 +156,8 @@ export function activate(context: vscode.ExtensionContext) {
                     await runJsCode(context, block.code, block.blockId);
                 } else if (block.language === 'typescript' || block.language === 'ts') {
                     await runTsCode(context, block.code, block.blockId);
+                } else if (block.language === 'svelte') {
+                    await compileSvelteBlock(context, block.code, block.blockId);
                 } else {
                     await runCodeInKernel(context, block.code, block.blockId);
                 }
@@ -175,6 +184,8 @@ export function activate(context: vscode.ExtensionContext) {
                     runJsCode(context, code, blockId);
                 } else if (language === 'typescript' || language === 'ts') {
                     runTsCode(context, code, blockId);
+                } else if (language === 'svelte') {
+                    compileSvelteBlock(context, code, blockId);
                 } else {
                     runCodeInKernel(context, code, blockId);
                 }
@@ -427,6 +438,97 @@ async function runTsCode(context: vscode.ExtensionContext, code: string, blockId
     } catch (e: any) {
         vscode.window.showErrorMessage(`Zef TS: Execution failed - ${e.message}`);
     }
+}
+
+/**
+ * Compile a Svelte component and write the rendered HTML to the file
+ */
+async function compileSvelteBlock(context: vscode.ExtensionContext, code: string, blockId?: number): Promise<void> {
+    try {
+        // Show compiling indicator
+        vscode.window.setStatusBarMessage('$(sync~spin) Compiling Svelte...', 5000);
+        
+        const result = await compileSvelteComponent(code, context.extensionPath);
+        
+        // Send result to preview panel
+        if (getPanel() && blockId !== undefined) {
+            sendSvelteResult(blockId, result);
+        }
+        
+        // Write result to the file as a rendered-html block
+        if (blockId !== undefined) {
+            await writeSvelteResultToFile(blockId, result);
+        }
+        
+        if (result.success) {
+            // Show compile time in green status bar
+            vscode.window.setStatusBarMessage(`$(check) Svelte: Compiled in ${result.compileTime}ms`, 3000);
+        } else {
+            vscode.window.showErrorMessage(`Zef Svelte: ${result.error}`);
+        }
+    } catch (e: any) {
+        vscode.window.showErrorMessage(`Zef Svelte: Compilation failed - ${e.message}`);
+    }
+}
+
+/**
+ * Write the Svelte compilation result to the file as a rendered-html block
+ */
+async function writeSvelteResultToFile(blockId: number, result: SvelteCompileResult): Promise<void> {
+    // Get document from preview panel or active editor
+    let document: vscode.TextDocument | undefined;
+    let editor: vscode.TextEditor | undefined;
+    
+    const previewDocUri = getCurrentDocumentUri();
+    if (previewDocUri) {
+        editor = vscode.window.visibleTextEditors.find(e => e.document.uri.toString() === previewDocUri.toString());
+        if (editor) {
+            document = editor.document;
+        } else {
+            try {
+                document = await vscode.workspace.openTextDocument(previewDocUri);
+                editor = await vscode.window.showTextDocument(document, vscode.ViewColumn.One, true);
+            } catch (e) {
+                // Silently fail, will try fallback
+            }
+        }
+    }
+    
+    if (!editor || !document) {
+        editor = vscode.window.activeTextEditor;
+        if (!editor) {
+            return;
+        }
+        document = editor.document;
+    }
+    
+    if (!document.fileName.endsWith('.zef.md')) {
+        return;
+    }
+    
+    const block = findCodeBlockById(document, blockId);
+    
+    if (!block) {
+        return;
+    }
+    
+    // Format the rendered HTML block (5 backticks to distinguish from code blocks)
+    let renderedContent = '';
+    if (result.success && result.html) {
+        renderedContent = result.html;
+    } else {
+        renderedContent = `<!-- Error: ${result.error || 'Unknown error'} -->`;
+    }
+    
+    const renderedBlock = '\n`````rendered-html\n' + renderedContent + '\n`````';
+    
+    await editor.edit(editBuilder => {
+        if (block.renderedHtmlRange) {
+            editBuilder.replace(block.renderedHtmlRange, renderedBlock);
+        } else {
+            editBuilder.insert(block.range.end, renderedBlock);
+        }
+    });
 }
 
 /**
