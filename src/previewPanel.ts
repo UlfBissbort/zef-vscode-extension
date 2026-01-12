@@ -1019,11 +1019,16 @@ function getWebviewContent(renderedHtml: string, existingOutputs: { [blockId: nu
                     var svelteTabsBar = document.createElement('div');
                     svelteTabsBar.className = 'code-block-tabs';
                     
-                    // Add tabs first (Source Code, Rendered)
-                    var svelteTabs = ['Source Code', 'Rendered'];
+                    // Check if we have existing rendered HTML for this block
+                    var hasRenderedOutput = existingRenderedHtml && existingRenderedHtml[currentBlockId];
+                    
+                    // Add tabs - Rendered first, then Source Code
+                    var svelteTabs = ['Rendered', 'Source Code'];
                     svelteTabs.forEach(function(tabName, index) {
                         var tab = document.createElement('button');
-                        tab.className = 'code-block-tab' + (index === 0 ? ' active' : '');
+                        // If we have rendered output, Rendered is active; otherwise Source Code is active
+                        var isActive = hasRenderedOutput ? (index === 0) : (index === 1);
+                        tab.className = 'code-block-tab' + (isActive ? ' active' : '');
                         tab.textContent = tabName;
                         tab.setAttribute('data-tab', tabName.toLowerCase().replace(' ', '-'));
                         tab.onclick = (function(thisContainer, thisTab) {
@@ -1075,9 +1080,9 @@ function getWebviewContent(renderedHtml: string, existingOutputs: { [blockId: nu
                     svelteLangIndicator.innerHTML = 'Svelte <span class="compile-time" data-block-id="' + currentBlockId + '"></span>';
                     svelteTabsBar.appendChild(svelteLangIndicator);
                     
-                    // Create "Source Code" content (default active)
+                    // Create "Source Code" content (active if no rendered output)
                     var svelteSourceContent = document.createElement('div');
-                    svelteSourceContent.className = 'code-block-content svelte-source-code active';
+                    svelteSourceContent.className = 'code-block-content svelte-source-code' + (hasRenderedOutput ? '' : ' active');
                     var svelteSourcePre = document.createElement('pre');
                     svelteSourcePre.setAttribute('data-lang', 'svelte');
                     var svelteSourceCode = document.createElement('code');
@@ -1085,16 +1090,16 @@ function getWebviewContent(renderedHtml: string, existingOutputs: { [blockId: nu
                     svelteSourcePre.appendChild(svelteSourceCode);
                     svelteSourceContent.appendChild(svelteSourcePre);
                     
-                    // Create "Rendered" content (iframe for HTML)
+                    // Create "Rendered" content (active if we have rendered output)
                     var svelteRenderedContent = document.createElement('div');
-                    svelteRenderedContent.className = 'code-block-content svelte-rendered';
+                    svelteRenderedContent.className = 'code-block-content svelte-rendered' + (hasRenderedOutput ? ' active' : '');
                     var svelteIframe = document.createElement('iframe');
                     svelteIframe.className = 'svelte-preview-frame';
                     svelteIframe.setAttribute('sandbox', 'allow-scripts');
                     svelteIframe.setAttribute('data-block-id', currentBlockId);
                     
                     // Check for existing rendered HTML for this block
-                    if (existingRenderedHtml && existingRenderedHtml[currentBlockId]) {
+                    if (hasRenderedOutput) {
                         svelteIframe.srcdoc = existingRenderedHtml[currentBlockId];
                     }
                     
