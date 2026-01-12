@@ -426,6 +426,11 @@ function getWebviewContent(renderedHtml: string, existingOutputs: { [blockId: nu
             gap: 6px;
         }
         
+        /* For blocks without a Run button (like mermaid), push lang indicator to right */
+        .mermaid-container .code-block-lang {
+            margin-left: auto;
+        }
+        
         .code-block-run {
             padding: 4px 12px;
             font-size: 0.7rem;
@@ -913,7 +918,7 @@ function getWebviewContent(renderedHtml: string, existingOutputs: { [blockId: nu
                     // Add language indicator
                     var mermaidLangIndicator = document.createElement('div');
                     mermaidLangIndicator.className = 'code-block-lang';
-                    mermaidLangIndicator.innerHTML = '<span class="lang-emoji">📊</span> Mermaid';
+                    mermaidLangIndicator.textContent = 'Mermaid';
                     mermaidTabsBar.appendChild(mermaidLangIndicator);
                     
                     // Create "Rendered" content (the diagram)
