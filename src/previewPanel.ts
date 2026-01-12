@@ -145,28 +145,37 @@ function renderMarkdown(markdown: string): string {
 }
 
 /**
- * Convert relative image paths in HTML to webview URIs
+ * Convert relative image paths in HTML to webview URIs and wrap with copy button
  * This is necessary because webviews can't directly access local file:// URLs
  */
 function convertImagePaths(html: string, docDir: string, webview: vscode.Webview): string {
     // Match img tags with src attribute
     const imgRegex = /<img\s+([^>]*?)src=["']([^"']+)["']([^>]*?)>/gi;
     
+    // Copy button SVG icon - two overlapping document pages, taller aspect ratio
+    const copyButtonSvg = `<svg viewBox="0 0 24 24"><rect x="8" y="6" width="12" height="15" rx="1.5" ry="1.5"></rect><path d="M4 18V5a1.5 1.5 0 0 1 1.5-1.5h9"></path></svg>`;
+    
     return html.replace(imgRegex, (match, before, src, after) => {
-        // Skip if already an absolute URL (http, https, data, vscode-resource)
-        if (src.startsWith('http://') || src.startsWith('https://') || 
-            src.startsWith('data:') || src.startsWith('vscode-')) {
-            return match;
+        let imgSrc = src;
+        
+        // Convert relative paths to webview URIs
+        if (!src.startsWith('http://') && !src.startsWith('https://') && 
+            !src.startsWith('data:') && !src.startsWith('vscode-')) {
+            // Convert relative path to absolute path
+            const absolutePath = path.isAbsolute(src) ? src : path.join(docDir, src);
+            
+            // Convert to webview URI
+            const fileUri = vscode.Uri.file(absolutePath);
+            imgSrc = webview.asWebviewUri(fileUri).toString();
         }
         
-        // Convert relative path to absolute path
-        const absolutePath = path.isAbsolute(src) ? src : path.join(docDir, src);
-        
-        // Convert to webview URI
-        const fileUri = vscode.Uri.file(absolutePath);
-        const webviewUri = webview.asWebviewUri(fileUri);
-        
-        return `<img ${before}src="${webviewUri}"${after}>`;
+        // Wrap image in container with copy button
+        return `<span class="image-container">
+            <img ${before}src="${imgSrc}"${after}>
+            <button class="image-copy-btn" onclick="copyImage(this, '${imgSrc}')" title="Copy image to clipboard">
+                ${copyButtonSvg}
+            </button>
+        </span>`;
     });
 }
 
@@ -474,6 +483,61 @@ function getWebviewContent(renderedHtml: string, existingOutputs: { [blockId: nu
             border-radius: 6px;
         }
 
+        /* Image container with copy button overlay */
+        .image-container {
+            position: relative;
+            display: inline-block;
+        }
+
+        .image-copy-btn {
+            position: absolute;
+            top: 8px;
+            right: 8px;
+            width: 28px;
+            height: 28px;
+            background: transparent;
+            border: none;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            opacity: 0.55;
+            transition: opacity 0.2s;
+            padding: 4px;
+        }
+
+        .image-container:hover .image-copy-btn {
+            opacity: 0.75;
+        }
+
+        .image-copy-btn:hover {
+            opacity: 1 !important;
+        }
+
+        .image-copy-btn svg {
+            width: 18px;
+            height: 18px;
+            fill: none;
+            stroke: #888;
+            stroke-width: 2;
+            stroke-linecap: round;
+            stroke-linejoin: round;
+            filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.5));
+        }
+
+        .image-copy-btn:hover svg {
+            stroke: #ccc;
+        }
+
+        .image-copy-btn.copied {
+            background: rgba(60, 120, 80, 0.85);
+            border-radius: 6px;
+        }
+
+        .image-copy-btn.copied svg {
+            stroke: #fff;
+        }
+
         strong {
             font-weight: 500;
             color: #aaa;
@@ -488,6 +552,61 @@ function getWebviewContent(renderedHtml: string, existingOutputs: { [blockId: nu
 <body>
     ${renderedHtml}
     <script>
+        // Copy image to clipboard function
+        async function copyImage(button, src) {
+            try {
+                // Fetch the image
+                const response = await fetch(src);
+                const blob = await response.blob();
+                
+                // Try to copy as PNG
+                if (blob.type.startsWith('image/')) {
+                    // Convert to PNG if needed
+                    const img = new Image();
+                    img.crossOrigin = 'anonymous';
+                    
+                    await new Promise((resolve, reject) => {
+                        img.onload = resolve;
+                        img.onerror = reject;
+                        img.src = src;
+                    });
+                    
+                    // Draw to canvas and get PNG blob
+                    const canvas = document.createElement('canvas');
+                    canvas.width = img.width;
+                    canvas.height = img.height;
+                    const ctx = canvas.getContext('2d');
+                    ctx.drawImage(img, 0, 0);
+                    
+                    const pngBlob = await new Promise(resolve => 
+                        canvas.toBlob(resolve, 'image/png')
+                    );
+                    
+                    // Write to clipboard
+                    await navigator.clipboard.write([
+                        new ClipboardItem({ 'image/png': pngBlob })
+                    ]);
+                    
+                    // Show success state (checkmark icon)
+                    button.classList.add('copied');
+                    button.innerHTML = '<svg viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"></polyline></svg>';
+                    
+                    setTimeout(() => {
+                        button.classList.remove('copied');
+                        // Restore to document copy icon
+                        button.innerHTML = '<svg viewBox="0 0 24 24"><rect x="8" y="6" width="12" height="15" rx="1.5" ry="1.5"></rect><path d="M4 18V5a1.5 1.5 0 0 1 1.5-1.5h9"></path></svg>';
+                    }, 1500);
+                }
+            } catch (err) {
+                console.error('Failed to copy image:', err);
+                // Fallback: show error briefly
+                button.style.background = 'rgba(239, 68, 68, 0.8)';
+                setTimeout(() => {
+                    button.style.background = '';
+                }, 1000);
+            }
+        }
+
         (function() {
             // Existing outputs and side effects loaded from file
             var existingOutputs = ${outputsJson};
