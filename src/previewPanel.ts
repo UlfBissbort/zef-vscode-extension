@@ -1019,27 +1019,7 @@ function getWebviewContent(renderedHtml: string, existingOutputs: { [blockId: nu
                     var svelteTabsBar = document.createElement('div');
                     svelteTabsBar.className = 'code-block-tabs';
                     
-                    // Add Compile button
-                    var compileBtn = document.createElement('button');
-                    compileBtn.className = 'run-button';
-                    compileBtn.textContent = '▶ Compile';
-                    compileBtn.setAttribute('data-block-id', currentBlockId);
-                    compileBtn.onclick = (function(blockId) {
-                        return function() {
-                            var code = codeBlocks[blockId];
-                            var language = blockLanguages[blockId];
-                            if (code) {
-                                vscode.postMessage({
-                                    type: 'runCode',
-                                    code: code,
-                                    blockId: blockId,
-                                    language: language
-                                });
-                            }
-                        };
-                    })(currentBlockId);
-                    svelteTabsBar.appendChild(compileBtn);
-                    
+                    // Add tabs first (Source Code, Rendered)
                     var svelteTabs = ['Source Code', 'Rendered'];
                     svelteTabs.forEach(function(tabName, index) {
                         var tab = document.createElement('button');
@@ -1061,6 +1041,33 @@ function getWebviewContent(renderedHtml: string, existingOutputs: { [blockId: nu
                         })(svelteContainer, tab);
                         svelteTabsBar.appendChild(tab);
                     });
+                    
+                    // Add Compile button (same style as Run button, aligned right)
+                    var compileBtn = document.createElement('button');
+                    compileBtn.className = 'code-block-run';
+                    compileBtn.id = 'compile-btn-' + currentBlockId;
+                    compileBtn.innerHTML = '▶ Compile';
+                    compileBtn.setAttribute('data-block-id', currentBlockId);
+                    compileBtn.onclick = (function(blockId) {
+                        return function() {
+                            var btn = document.getElementById('compile-btn-' + blockId);
+                            if (btn.classList.contains('running')) return;
+                            btn.classList.add('running');
+                            btn.innerHTML = 'Compiling...';
+                            
+                            var code = codeBlocks[blockId];
+                            var language = blockLanguages[blockId];
+                            if (code) {
+                                vscode.postMessage({
+                                    type: 'runCode',
+                                    code: code,
+                                    blockId: blockId,
+                                    language: language
+                                });
+                            }
+                        };
+                    })(currentBlockId);
+                    svelteTabsBar.appendChild(compileBtn);
                     
                     // Add language indicator with compile time placeholder
                     var svelteLangIndicator = document.createElement('div');
@@ -1357,6 +1364,13 @@ function getWebviewContent(renderedHtml: string, existingOutputs: { [blockId: nu
                 if (message.type === 'svelteResult') {
                     var blockId = message.blockId;
                     var result = message.result;
+                    
+                    // Reset compile button
+                    var compileBtn = document.getElementById('compile-btn-' + blockId);
+                    if (compileBtn) {
+                        compileBtn.classList.remove('running');
+                        compileBtn.innerHTML = '▶ Compile';
+                    }
                     
                     // Update compile time display
                     var compileTimeSpan = document.querySelector('.compile-time[data-block-id="' + blockId + '"]');
