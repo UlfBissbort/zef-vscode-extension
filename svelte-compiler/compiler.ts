@@ -49,6 +49,32 @@ function createRenderer() {
 }
 
 /**
+ * Mock Svelte lifecycle and utility functions for SSR
+ * These are no-ops during server-side rendering
+ */
+const svelteMocks = {
+  // Lifecycle (no-op in SSR)
+  onMount: () => {},
+  onDestroy: () => {},
+  beforeUpdate: () => {},
+  afterUpdate: () => {},
+  tick: () => Promise.resolve(),
+  
+  // Context
+  setContext: () => {},
+  getContext: () => undefined,
+  hasContext: () => false,
+  getAllContexts: () => new Map(),
+  
+  // Motion/transitions (no-op in SSR)
+  spring: (val: any) => ({ subscribe: (fn: any) => { fn(val); return () => {}; } }),
+  tweened: (val: any) => ({ subscribe: (fn: any) => { fn(val); return () => {}; } }),
+  
+  // createEventDispatcher
+  createEventDispatcher: () => () => {},
+};
+
+/**
  * Compile a Svelte component source to HTML
  */
 function compileSvelteComponent(source: string): CompileResult {
@@ -66,20 +92,32 @@ function compileSvelteComponent(source: string): CompileResult {
     const compileTime = (compileEnd - compileStart).toFixed(2);
     
     // Transform the compiled code for execution:
-    // 1. Remove the import statement
+    // 1. Remove ALL import statements (svelte/internal/server, svelte, etc.)
     // 2. Change "export default function X" to "const X = function"
     let executableCode = compiled.js.code
-      .replace(/import \* as \$ from ['"]svelte\/internal\/server['"];?\n?/, '')
+      // Remove import * as $ from 'svelte/internal/server'
+      .replace(/import \* as \$ from ['"]svelte\/internal\/server['"];?\n?/g, '')
+      // Remove import { ... } from 'svelte'
+      .replace(/import\s*\{[^}]*\}\s*from\s*['"]svelte['"];?\n?/g, '')
+      // Remove import { ... } from 'svelte/...'
+      .replace(/import\s*\{[^}]*\}\s*from\s*['"]svelte\/[^'"]+['"];?\n?/g, '')
+      // Change export default function to const
       .replace(/export default function (\w+)/, 'const $1 = function');
     
     // Create a function that returns the component
-    const createComponent = new Function('$', `
+    // We pass both the svelte internals ($) and the lifecycle mocks (svelte)
+    const createComponent = new Function('$', 'svelte', `
+      // Destructure svelte mocks for convenience
+      const { onMount, onDestroy, beforeUpdate, afterUpdate, tick, 
+              setContext, getContext, hasContext, getAllContexts,
+              spring, tweened, createEventDispatcher } = svelte;
+      
       ${executableCode}
       return Component;
     `);
     
-    // Get the component function with svelte internals bound
-    const Component = createComponent(svelteServer);
+    // Get the component function with svelte internals and mocks bound
+    const Component = createComponent(svelteServer, svelteMocks);
     
     // Create renderer and execute component
     const { renderer, getHtml, getCss } = createRenderer();
