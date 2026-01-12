@@ -961,8 +961,9 @@ function getWebviewContent(renderedHtml: string, existingOutputs: { [blockId: nu
                     '<div class="output-value" id="result-value-' + currentBlockId + '">';
                     
                 if (existingOutput) {
-                    // Show existing output with proper escaping
-                    outputHtml += '<span style="color: #98c379; white-space: pre-wrap;">' + escapeHtml(existingOutput) + '</span>';
+                    // Show existing output with syntax highlighting (same as code tab)
+                    var resultLang = blockLanguages[currentBlockId] || 'python';
+                    outputHtml += '<pre style="margin: 0; background: transparent;"><code>' + highlightCode(existingOutput, resultLang) + '</code></pre>';
                 } else {
                     outputHtml += '<span style="color: var(--text-dim); font-style: italic;">No result yet. Click Run to execute.</span>';
                 }
@@ -1036,8 +1037,9 @@ function getWebviewContent(renderedHtml: string, existingOutputs: { [blockId: nu
                         } else {
                             // Show return value (the evaluated expression) - this is the primary result
                             if (result.result !== undefined && result.result !== null && result.result !== 'None') {
-                                html += '<div style="color: #98c379; white-space: pre-wrap; font-family: monospace;">' + 
-                                        escapeHtml(String(result.result)) + '</div>';
+                                var resultLang = blockLanguages[blockId] || 'python';
+                                html += '<pre style="margin: 0; background: transparent;"><code>' + 
+                                        highlightCode(String(result.result), resultLang) + '</code></pre>';
                             }
                             // Show stdout if any (as secondary, dimmer output)
                             if (result.stdout && result.stdout.trim()) {
