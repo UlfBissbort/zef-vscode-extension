@@ -371,9 +371,7 @@ A sleek button with an animated gradient border. Hover to see the glow intensify
   @keyframes gradient { 0% { background-position: 0% 50%; } 100% { background-position: 300% 50%; } }
 </style>
 ```
-`````rendered-html
-<!-- Error: Failed to spawn bun: spawn bun ENOENT. Is Bun installed? -->
-`````
+
 
 ### Pulse Ring
 
@@ -415,6 +413,7 @@ An Apple-style notification pulse. Pure Svelte + CSS:
 ```
 
 
+
 ### Shimmer Loading Card
 
 A Linear-style loading skeleton with a shimmer effect:
@@ -449,9 +448,3 @@ A Linear-style loading skeleton with a shimmer effect:
   @keyframes shimmer { 0% { background-position: 200% 0; } 100% { background-position: -200% 0; } }
 </style>
 ```
-`````rendered-html
-<style>.card.svelte-r6lh70 {display:flex;gap:16px;padding:20px;background:#0a0a0a;border:1px solid #222;border-radius:12px;max-width:320px;}.avatar.svelte-r6lh70 {width:48px;height:48px;border-radius:50%;flex-shrink:0;}.content.svelte-r6lh70 {flex:1;display:flex;flex-direction:column;gap:8px;}.line.svelte-r6lh70 {height:12px;border-radius:6px;}.title.svelte-r6lh70 {width:70%;}.subtitle.svelte-r6lh70 {width:100%;}.short.svelte-r6lh70 {width:40%;}.shimmer.svelte-r6lh70 {background:linear-gradient(90deg, #1a1a1a 25%, #2a2a2a 50%, #1a1a1a 75%);background-size:200% 100%;
-    animation: svelte-r6lh70-shimmer 1.5s infinite;}
-  @keyframes svelte-r6lh70-shimmer { 0% { background-position: 200% 0; } 100% { background-position: -200% 0; } }</style>
-<div class="card svelte-r6lh70"><div class="shimmer avatar svelte-r6lh70"></div> <div class="content svelte-r6lh70"><div class="shimmer line title svelte-r6lh70"></div> <div class="shimmer line subtitle svelte-r6lh70"></div> <div class="shimmer line short svelte-r6lh70"></div></div></div>
-`````

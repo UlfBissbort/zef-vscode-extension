@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <script type="importmap">
+  {
+    "imports": {
+      "svelte": "https://esm.sh/svelte@5.46.1",
+      "svelte/": "https://esm.sh/svelte@5.46.1/"
+    }
+  }
+  </script>
+  <style>
+    body { background: #1e1e1e; color: #d4d4d4; font-family: system-ui; padding: 20px; }
+  </style>
+</head>
+<body>
+  <div id="app"></div>
+  
+  <script type="module">
+    import { mount } from 'svelte';
+    import * as $ from 'svelte/internal/client';
+    
+    // Inline component (compiled from Svelte)
+    var root = $.from_html(`<button class="svelte-test">Click me</button>`);
+    
+    const $$css = {
+      hash: 'svelte-test',
+      code: 'button.svelte-test { background: #ff3e00; color: white; padding: 12px 24px; border: none; border-radius: 8px; cursor: pointer; }'
+    };
+    
+    function Component($$anchor) {
+      $.append_styles($$anchor, $$css);
+      
+      let count = $.mutable_source(0);
+      var button = root();
+      var text = $.child(button);
+      
+      $.reset(button);
+      $.template_effect(() => $.set_text(text, `Count: ${$.get(count) ?? ''}`));
+      $.event('click', button, () => $.update(count));
+      $.append($$anchor, button);
+    }
+    
+    // Mount the component
+    mount(Component, { target: document.getElementById('app') });
+  </script>
+</body>
+</html>

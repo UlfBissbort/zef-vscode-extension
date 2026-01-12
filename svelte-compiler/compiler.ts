@@ -1,7 +1,8 @@
 /**
- * Svelte Component Compiler
+ * Svelte Component Compiler (Client-Side Bundled)
  * 
- * A Bun script that compiles Svelte components to HTML using SSR.
+ * Compiles Svelte components to fully interactive client-side HTML.
+ * Uses Bun's bundler to create a self-contained IIFE with Svelte runtime.
  * 
  * Usage:
  *   echo '<script>let x = 1</script><p>{x}</p>' | bun run compiler.ts
@@ -11,7 +12,8 @@
  */
 
 import { compile } from 'svelte/compiler';
-import * as svelteServer from 'svelte/internal/server';
+import * as fs from 'fs';
+import * as path from 'path';
 
 interface CompileResult {
   success: boolean;
@@ -20,117 +22,105 @@ interface CompileResult {
   compileTime: string;
 }
 
-interface CssItem {
-  hash: string;
-  code: string;
-}
-
 /**
- * Create a mock renderer that collects HTML and CSS output
+ * Compile a Svelte component to a self-contained HTML document with bundled runtime
  */
-function createRenderer() {
-  const htmlParts: string[] = [];
-  const cssSet = new Set<CssItem>();
-  
-  const renderer = {
-    push: (s: string) => htmlParts.push(s),
-    global: {
-      css: {
-        add: (css: CssItem) => cssSet.add(css)
-      }
-    }
-  };
-  
-  return {
-    renderer,
-    getHtml: () => htmlParts.join(''),
-    getCss: () => Array.from(cssSet).map(c => c.code).join('\n')
-  };
-}
-
-/**
- * Mock Svelte lifecycle and utility functions for SSR
- * These are no-ops during server-side rendering
- */
-const svelteMocks = {
-  // Lifecycle (no-op in SSR)
-  onMount: () => {},
-  onDestroy: () => {},
-  beforeUpdate: () => {},
-  afterUpdate: () => {},
-  tick: () => Promise.resolve(),
-  
-  // Context
-  setContext: () => {},
-  getContext: () => undefined,
-  hasContext: () => false,
-  getAllContexts: () => new Map(),
-  
-  // Motion/transitions (no-op in SSR)
-  spring: (val: any) => ({ subscribe: (fn: any) => { fn(val); return () => {}; } }),
-  tweened: (val: any) => ({ subscribe: (fn: any) => { fn(val); return () => {}; } }),
-  
-  // createEventDispatcher
-  createEventDispatcher: () => () => {},
-};
-
-/**
- * Compile a Svelte component source to HTML
- */
-function compileSvelteComponent(source: string): CompileResult {
+async function compileSvelteClient(source: string): Promise<CompileResult> {
   const compileStart = performance.now();
   
+  // Get the extension's root directory (parent of svelte-compiler/)
+  const extensionRoot = path.dirname(__dirname);
+  const tempDir = path.join(extensionRoot, '.svelte-temp');
+  
+  // Ensure temp dir exists
+  if (!fs.existsSync(tempDir)) {
+    fs.mkdirSync(tempDir, { recursive: true });
+  }
+  
+  const tempId = `svelte-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+  const componentFile = path.join(tempDir, `${tempId}.js`);
+  const entryFile = path.join(tempDir, `${tempId}-entry.js`);
+  const outFile = path.join(tempDir, `${tempId}-bundle.js`);
+  
   try {
-    // Compile to SSR
+    // Step 1: Compile Svelte source to client-side JS
     const compiled = compile(source, {
-      generate: 'server',
+      generate: 'client',
       css: 'injected',
       name: 'Component'
     });
     
+    // Step 2: Write compiled component to temp file
+    fs.writeFileSync(componentFile, compiled.js.code);
+    
+    // Step 3: Write entry point that mounts the component
+    const entryCode = `
+import { mount } from 'svelte';
+import Component from './${tempId}.js';
+
+// Mount on DOMContentLoaded or immediately if already loaded
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', init);
+} else {
+  init();
+}
+
+function init() {
+  const target = document.getElementById('app') || document.body;
+  mount(Component, { target });
+}
+`;
+    fs.writeFileSync(entryFile, entryCode);
+    
+    // Step 4: Bundle with Bun (includes Svelte runtime)
+    const buildResult = await Bun.build({
+      entrypoints: [entryFile],
+      outdir: tempDir,
+      naming: `${tempId}-bundle.js`,
+      target: 'browser',
+      format: 'iife',
+      minify: true,
+    });
+    
+    if (!buildResult.success) {
+      const errors = buildResult.logs.map(l => l.message).join('\n');
+      throw new Error(`Bundle failed: ${errors}`);
+    }
+    
+    // Step 5: Read the bundled output
+    const bundledCode = fs.readFileSync(outFile, 'utf-8');
+    
     const compileEnd = performance.now();
     const compileTime = (compileEnd - compileStart).toFixed(2);
     
-    // Transform the compiled code for execution:
-    // 1. Remove ALL import statements (svelte/internal/server, svelte, etc.)
-    // 2. Change "export default function X" to "const X = function"
-    let executableCode = compiled.js.code
-      // Remove import * as $ from 'svelte/internal/server'
-      .replace(/import \* as \$ from ['"]svelte\/internal\/server['"];?\n?/g, '')
-      // Remove import { ... } from 'svelte'
-      .replace(/import\s*\{[^}]*\}\s*from\s*['"]svelte['"];?\n?/g, '')
-      // Remove import { ... } from 'svelte/...'
-      .replace(/import\s*\{[^}]*\}\s*from\s*['"]svelte\/[^'"]+['"];?\n?/g, '')
-      // Change export default function to const
-      .replace(/export default function (\w+)/, 'const $1 = function');
-    
-    // Create a function that returns the component
-    // We pass both the svelte internals ($) and the lifecycle mocks (svelte)
-    const createComponent = new Function('$', 'svelte', `
-      // Destructure svelte mocks for convenience
-      const { onMount, onDestroy, beforeUpdate, afterUpdate, tick, 
-              setContext, getContext, hasContext, getAllContexts,
-              spring, tweened, createEventDispatcher } = svelte;
-      
-      ${executableCode}
-      return Component;
-    `);
-    
-    // Get the component function with svelte internals and mocks bound
-    const Component = createComponent(svelteServer, svelteMocks);
-    
-    // Create renderer and execute component
-    const { renderer, getHtml, getCss } = createRenderer();
-    Component(renderer);
-    
-    // Combine CSS and HTML
-    const css = getCss();
-    const html = getHtml();
-    const fullHtml = css ? `<style>${css}</style>\n${html}` : html;
+    // Step 6: Create the full HTML document
+    const html = `<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <style>
+    * { box-sizing: border-box; }
+    body { 
+      margin: 0; 
+      padding: 16px; 
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+      background: #1e1e1e;
+      color: #d4d4d4;
+    }
+  </style>
+</head>
+<body>
+  <div id="app"></div>
+  <script>
+${bundledCode}
+  </script>
+</body>
+</html>`;
     
     return {
       success: true,
-      html: fullHtml,
+      html,
       compileTime
     };
     
@@ -141,6 +131,15 @@ function compileSvelteComponent(source: string): CompileResult {
       error: error.message || String(error),
       compileTime: (compileEnd - compileStart).toFixed(2)
     };
+  } finally {
+    // Cleanup temp files
+    try {
+      if (fs.existsSync(componentFile)) fs.unlinkSync(componentFile);
+      if (fs.existsSync(entryFile)) fs.unlinkSync(entryFile);
+      if (fs.existsSync(outFile)) fs.unlinkSync(outFile);
+    } catch {
+      // Ignore cleanup errors
+    }
   }
 }
 
@@ -157,7 +156,7 @@ async function main() {
     return;
   }
   
-  const result = compileSvelteComponent(source);
+  const result = await compileSvelteClient(source);
   console.log(JSON.stringify(result));
 }
 
