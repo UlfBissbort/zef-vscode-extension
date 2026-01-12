@@ -373,6 +373,12 @@ A sleek button with an animated gradient border. Hover to see the glow intensify
 ```
 
 
+
+
+
+
+
+
 ### Pulse Ring
 
 An Apple-style notification pulse. Pure Svelte + CSS:
@@ -411,6 +417,7 @@ An Apple-style notification pulse. Pure Svelte + CSS:
   @keyframes pulse { 0% { opacity: 0.6; transform: translate(-50%, -50%) scale(0.5); } 100% { opacity: 0; transform: translate(-50%, -50%) scale(1); } }
 </style>
 ```
+
 
 
 

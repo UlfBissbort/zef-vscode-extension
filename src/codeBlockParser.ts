@@ -15,7 +15,7 @@ export interface CodeBlock {
 
 /**
  * Find all code blocks (Python, Rust, JavaScript, TypeScript, Svelte) in a markdown document
- * Also detects associated ````Result, ````Side Effects, and `````rendered-html blocks
+ * Also detects associated ````Result, ````Side Effects, and ````rendered-html blocks
  */
 export function findCodeBlocks(document: vscode.TextDocument): CodeBlock[] {
     const blocks: CodeBlock[] = [];
@@ -48,9 +48,9 @@ export function findCodeBlocks(document: vscode.TextDocument): CodeBlock[] {
         let searchOffset = endOffset;
         const afterCodeBlock = text.slice(endOffset);
         
-        // For Svelte blocks, look for `````rendered-html block (5 backticks)
+        // For Svelte blocks, look for ````rendered-html block (4 backticks)
         if (language === 'svelte') {
-            const renderedMatch = afterCodeBlock.match(/^\s*\n`````rendered-html\s*\n([\s\S]*?)`````/);
+            const renderedMatch = afterCodeBlock.match(/^\s*\n````rendered-html\s*\n([\s\S]*?)````/);
             if (renderedMatch) {
                 const renderedStartOffset = endOffset + renderedMatch.index!;
                 const renderedEndOffset = renderedStartOffset + renderedMatch[0].length;

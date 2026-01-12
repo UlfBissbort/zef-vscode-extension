@@ -121,13 +121,15 @@ export function updatePreview(document: vscode.TextDocument) {
 
     const text = document.getText();
     
-    // Extract existing Result and Side Effects blocks before removing them
+    // Extract existing Result, Side Effects, and rendered-html blocks before removing them
     const existingResults: { [blockId: number]: string } = {};
     const existingSideEffects: { [blockId: number]: string } = {};
+    const existingRenderedHtml: { [blockId: number]: string } = {};
     let codeBlockIndex = 0;
     
-    // Find all code blocks (Python, Rust, JavaScript, TypeScript) and their associated Result/Side Effects
-    const codeBlockRegex = /```(?:python|rust|javascript|js|typescript|ts)\s*\n[\s\S]*?```(\s*\n````(?:Result|Output)\s*\n([\s\S]*?)````)?(\s*\n````Side Effects\s*\n([\s\S]*?)````)?/g;
+    // Find all executable code blocks and their associated output blocks
+    // This includes Python, Rust, JS/TS (with Result/Side Effects) and Svelte (with rendered-html)
+    const codeBlockRegex = /```(?:python|rust|javascript|js|typescript|ts|svelte)\s*\n[\s\S]*?```(\s*\n````(?:Result|Output)\s*\n([\s\S]*?)````)?(\s*\n````Side Effects\s*\n([\s\S]*?)````)?(\s*\n````rendered-html\s*\n([\s\S]*?)````)?/g;
     let match;
     while ((match = codeBlockRegex.exec(text)) !== null) {
         codeBlockIndex++;
@@ -137,12 +139,16 @@ export function updatePreview(document: vscode.TextDocument) {
         if (match[4]) {  // Has Side Effects block
             existingSideEffects[codeBlockIndex] = match[4].trim();
         }
+        if (match[6]) {  // Has rendered-html block
+            existingRenderedHtml[codeBlockIndex] = match[6].trim();
+        }
     }
     
-    // Remove Result and Side Effects blocks for rendering
+    // Remove Result, Side Effects, and rendered-html blocks for rendering
     const cleanText = text
         .replace(/\n````(?:Result|Output)\s*\n[\s\S]*?````/g, '')
-        .replace(/\n````Side Effects\s*\n[\s\S]*?````/g, '');
+        .replace(/\n````Side Effects\s*\n[\s\S]*?````/g, '')
+        .replace(/\n````rendered-html\s*\n[\s\S]*?````/g, '');
     
     let html = renderMarkdown(cleanText);
     
@@ -157,7 +163,7 @@ export function updatePreview(document: vscode.TextDocument) {
         mermaidUri = panel.webview.asWebviewUri(mermaidPath).toString();
     }
     
-    panel.webview.html = getWebviewContent(html, existingResults, existingSideEffects, mermaidUri);
+    panel.webview.html = getWebviewContent(html, existingResults, existingSideEffects, mermaidUri, existingRenderedHtml);
 }
 
 /**
@@ -273,10 +279,11 @@ function convertImagePaths(html: string, docDir: string, webview: vscode.Webview
     });
 }
 
-function getWebviewContent(renderedHtml: string, existingOutputs: { [blockId: number]: string } = {}, existingSideEffects: { [blockId: number]: string } = {}, mermaidUri: string = ''): string {
-    // Serialize existing outputs and side effects as JSON for the webview
+function getWebviewContent(renderedHtml: string, existingOutputs: { [blockId: number]: string } = {}, existingSideEffects: { [blockId: number]: string } = {}, mermaidUri: string = '', existingRenderedHtml: { [blockId: number]: string } = {}): string {
+    // Serialize existing outputs, side effects, and rendered HTML as JSON for the webview
     const outputsJson = JSON.stringify(existingOutputs);
     const sideEffectsJson = JSON.stringify(existingSideEffects);
+    const renderedHtmlJson = JSON.stringify(existingRenderedHtml);
     
     return `<!DOCTYPE html>
 <html lang="en">
@@ -735,9 +742,10 @@ function getWebviewContent(renderedHtml: string, existingOutputs: { [blockId: nu
         }
 
         (function() {
-            // Existing outputs and side effects loaded from file
+            // Existing outputs, side effects, and rendered HTML loaded from file
             var existingOutputs = ${outputsJson};
             var existingSideEffects = ${sideEffectsJson};
+            var existingRenderedHtml = ${renderedHtmlJson};
             
             // Add language data attributes to pre elements
             document.querySelectorAll('pre code').forEach(function(block) {
@@ -1075,6 +1083,12 @@ function getWebviewContent(renderedHtml: string, existingOutputs: { [blockId: nu
                     svelteIframe.className = 'svelte-preview-frame';
                     svelteIframe.setAttribute('sandbox', 'allow-scripts');
                     svelteIframe.setAttribute('data-block-id', currentBlockId);
+                    
+                    // Check for existing rendered HTML for this block
+                    if (existingRenderedHtml && existingRenderedHtml[currentBlockId]) {
+                        svelteIframe.srcdoc = existingRenderedHtml[currentBlockId];
+                    }
+                    
                     svelteRenderedContent.appendChild(svelteIframe);
                     
                     // Insert container

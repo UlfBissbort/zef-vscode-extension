@@ -520,7 +520,7 @@ async function writeSvelteResultToFile(blockId: number, result: SvelteCompileRes
         renderedContent = `<!-- Error: ${result.error || 'Unknown error'} -->`;
     }
     
-    const renderedBlock = '\n`````rendered-html\n' + renderedContent + '\n`````';
+    const renderedBlock = '\n````rendered-html\n' + renderedContent + '\n````';
     
     await editor.edit(editBuilder => {
         if (block.renderedHtmlRange) {
