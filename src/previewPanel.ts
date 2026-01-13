@@ -601,6 +601,39 @@ function getWebviewContent(renderedHtml: string, existingOutputs: { [blockId: nu
             margin: 0.5em 0;
         }
 
+        /* Task list checkbox styling */
+        input[type="checkbox"] {
+            appearance: none;
+            -webkit-appearance: none;
+            width: 16px;
+            height: 16px;
+            border: 2px solid var(--text-dim);
+            border-radius: 3px;
+            margin-right: 8px;
+            vertical-align: middle;
+            position: relative;
+            cursor: pointer;
+        }
+
+        input[type="checkbox"]:checked {
+            background-color: #4ade80;
+            border-color: #22c55e;
+        }
+
+        input[type="checkbox"]:checked::after {
+            content: '✓';
+            position: absolute;
+            top: -2px;
+            left: 2px;
+            font-size: 12px;
+            font-weight: bold;
+            color: #0a0a0a;
+        }
+
+        li:has(input[type="checkbox"]:checked) {
+            color: var(--text-muted);
+        }
+
         table {
             border-collapse: collapse;
             width: 100%;
