@@ -12,6 +12,37 @@ export function setOnRunCode(callback: (code: string, blockId: number, language:
     onRunCodeCallback = callback;
 }
 
+/**
+ * Toggle a checkbox in the document by its index
+ */
+async function toggleCheckboxInDocument(document: vscode.TextDocument, checkboxIndex: number, checked: boolean): Promise<void> {
+    const text = document.getText();
+    const lines = text.split('\n');
+    
+    let currentIndex = 0;
+    for (let lineNum = 0; lineNum < lines.length; lineNum++) {
+        const line = lines[lineNum];
+        // Match task list items: - [ ] or - [x] or * [ ] or * [x]
+        const match = line.match(/^(\s*[-*]\s+)\[([ xX])\](.*)$/);
+        if (match) {
+            if (currentIndex === checkboxIndex) {
+                // Found the checkbox to toggle
+                const prefix = match[1];
+                const suffix = match[3];
+                const newMark = checked ? 'x' : ' ';
+                const newLine = `${prefix}[${newMark}]${suffix}`;
+                
+                const edit = new vscode.WorkspaceEdit();
+                const range = new vscode.Range(lineNum, 0, lineNum, line.length);
+                edit.replace(document.uri, range, newLine);
+                await vscode.workspace.applyEdit(edit);
+                return;
+            }
+            currentIndex++;
+        }
+    }
+}
+
 export function getCurrentDocumentUri(): vscode.Uri | undefined {
     // Return the URI of the first panel's document (for backwards compatibility)
     const firstKey = panels.keys().next().value;
@@ -91,7 +122,7 @@ export function createPreviewPanel(context: vscode.ExtensionContext): vscode.Web
     });
     
     // Handle messages from the webview
-    panel.webview.onDidReceiveMessage(message => {
+    panel.webview.onDidReceiveMessage(async message => {
         if (message.type === 'runCode' && onRunCodeCallback) {
             onRunCodeCallback(message.code, message.blockId, message.language || 'python');
         } else if (message.type === 'scrollToSource') {
@@ -102,6 +133,13 @@ export function createPreviewPanel(context: vscode.ExtensionContext): vscode.Web
                 const range = new vscode.Range(line, 0, line, 0);
                 editor.revealRange(range, vscode.TextEditorRevealType.InCenter);
                 editor.selection = new vscode.Selection(line, 0, line, 0);
+            }
+        } else if (message.type === 'toggleCheckbox') {
+            // Toggle a checkbox in the source document
+            const docUri = docKey;
+            const document = vscode.workspace.textDocuments.find(d => d.uri.toString() === docUri);
+            if (document) {
+                await toggleCheckboxInDocument(document, message.index, message.checked);
             }
         }
     });
@@ -241,7 +279,15 @@ function renderMarkdown(markdown: string): string {
         breaks: true,
     });
 
-    return marked.parse(markdown) as string;
+    let html = marked.parse(markdown) as string;
+    
+    // Remove disabled attribute from checkboxes to make them interactive
+    // Marked generates: <input disabled="" type="checkbox"> for unchecked
+    // and: <input checked="" disabled="" type="checkbox"> for checked
+    html = html.replace(/<input disabled="" type="checkbox">/g, '<input type="checkbox">');
+    html = html.replace(/<input checked="" disabled="" type="checkbox">/g, '<input type="checkbox" checked>');
+    
+    return html;
 }
 
 /**
@@ -613,11 +659,16 @@ function getWebviewContent(renderedHtml: string, existingOutputs: { [blockId: nu
             vertical-align: middle;
             position: relative;
             cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        input[type="checkbox"]:hover {
+            border-color: var(--text-muted);
         }
 
         input[type="checkbox"]:checked {
-            background-color: #4ade80;
-            border-color: #22c55e;
+            background-color: #3d8b40;
+            border-color: #357a38;
         }
 
         input[type="checkbox"]:checked::after {
@@ -627,7 +678,7 @@ function getWebviewContent(renderedHtml: string, existingOutputs: { [blockId: nu
             left: 2px;
             font-size: 12px;
             font-weight: bold;
-            color: #0a0a0a;
+            color: #fff;
         }
 
         li:has(input[type="checkbox"]:checked) {
@@ -958,6 +1009,35 @@ function getWebviewContent(renderedHtml: string, existingOutputs: { [blockId: nu
             var codeBlocks = {}; // Store code content for each block
             var blockLanguages = {}; // Store language for each block
             var vscode = acquireVsCodeApi();
+
+            // Handle checkbox clicks to toggle task list items
+            document.addEventListener('change', function(event) {
+                var target = event.target;
+                if (target.tagName === 'INPUT' && target.type === 'checkbox') {
+                    // Only count checkboxes that are in list items (task list checkboxes)
+                    // Exclude checkboxes in code blocks, output areas, etc.
+                    if (!target.closest('li')) {
+                        return; // Not a task list checkbox
+                    }
+                    
+                    // Find the checkbox index by counting only task list checkboxes
+                    var taskCheckboxes = document.querySelectorAll('li > input[type="checkbox"]');
+                    var index = -1;
+                    for (var i = 0; i < taskCheckboxes.length; i++) {
+                        if (taskCheckboxes[i] === target) {
+                            index = i;
+                            break;
+                        }
+                    }
+                    if (index >= 0) {
+                        vscode.postMessage({
+                            type: 'toggleCheckbox',
+                            index: index,
+                            checked: target.checked
+                        });
+                    }
+                }
+            });
             
             document.querySelectorAll('pre').forEach(function(pre) {
                 var lang = pre.getAttribute('data-lang') || 'code';
