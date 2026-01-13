@@ -298,8 +298,8 @@ function getWebviewContent(renderedHtml: string, existingOutputs: { [blockId: nu
         :root {
             --bg-color: #0a0a0a;
             --text-color: #fafafa;
-            --text-muted: #888;
-            --text-dim: #666;
+            --text-muted: #bbb;
+            --text-dim: #999;
             --code-bg: #141414;
             --border-color: #222;
             --heading-color: #fafafa;
