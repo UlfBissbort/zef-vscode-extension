@@ -11,15 +11,29 @@
     "Other"
   ],
   "activationEvents": [
-    "onLanguage:markdown"
+    "onLanguage:markdown",
+    "onLanguage:zef-markdown"
   ],
   "main": "./out/extension.js",
   "contributes": {
+    "languages": [
+      {
+        "id": "zef-markdown",
+        "aliases": ["Zef Markdown", "zef-markdown"],
+        "extensions": [".zef.md"],
+        "configuration": "./language-configuration.json"
+      }
+    ],
     "grammars": [
+      {
+        "language": "zef-markdown",
+        "scopeName": "text.html.markdown.zef",
+        "path": "./syntaxes/zef-markdown.tmLanguage.json"
+      },
       {
         "scopeName": "zef.markdown.injection",
         "path": "./syntaxes/zef-markdown-injection.tmLanguage.json",
-        "injectTo": ["text.html.markdown"]
+        "injectTo": ["text.html.markdown", "text.html.markdown.zef"]
       }
     ],
     "commands": [
@@ -60,18 +74,18 @@
       {
         "command": "zef.runBlockAtCursor",
         "key": "shift+enter",
-        "when": "editorLangId == markdown && resourceFilename =~ /\\.zef\\.md$/"
+        "when": "editorLangId == zef-markdown"
       },
       {
         "command": "zef.runBlockAtCursor",
         "key": "ctrl+enter",
         "mac": "cmd+enter",
-        "when": "editorLangId == markdown && resourceFilename =~ /\\.zef\\.md$/"
+        "when": "editorLangId == zef-markdown"
       },
       {
         "command": "zef.openPreview",
         "key": "cmd+shift+v",
-        "when": "editorLangId == markdown && resourceFilename =~ /\\.zef\\.md$/"
+        "when": "editorLangId == zef-markdown"
       }
     ],
     "configuration": {
@@ -90,6 +104,14 @@
       }
     },
     "configurationDefaults": {
+      "[zef-markdown]": {
+        "editor.quickSuggestions": {
+          "comments": "off",
+          "strings": "off",
+          "other": "off"
+        },
+        "cSpell.enabled": false
+      },
       "[markdown]": {
         "editor.quickSuggestions": {
           "comments": "off",
@@ -105,11 +127,10 @@
         "MD012": false,
         "MD032": false
       },
-      "cSpell.enabled": false,
       "cSpell.enableFiletypes": [
-        "!markdown"
-      ],
-      "cSpell.enabledLanguageIds": []
+        "!markdown",
+        "!zef-markdown"
+      ]
     }
   },
   "scripts": {
