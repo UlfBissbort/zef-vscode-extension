@@ -110,6 +110,8 @@
           "strings": "off",
           "other": "off"
         },
+        "editor.experimental.pasteActions.enabled": true,
+        "markdown.editor.pasteUrlAsFormattedLink.enabled": "smart",
         "cSpell.enabled": false
       },
       "[markdown]": {
@@ -118,6 +120,9 @@
           "strings": "off",
           "other": "off"
         }
+      },
+      "markdown.copyFiles.destination": {
+        "**/*.zef.md": "${documentDirname}/"
       },
       "markdownlint.config": {
         "default": false,

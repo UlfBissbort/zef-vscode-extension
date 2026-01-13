@@ -1,4 +1,6 @@
 import * as vscode from 'vscode';
+import * as fs from 'fs';
+import * as path from 'path';
 import { CodeBlockProvider, findCodeBlockAtPosition, findCodeBlocks, findCodeBlockById } from './codeBlockParser';
 import { createPreviewPanel, updatePreview, getPanel, scrollPreviewToLine, sendCellResult, setOnRunCode, getCurrentDocumentUri, sendSvelteResult } from './previewPanel';
 import { getKernelManager, disposeKernelManager, CellResult } from './kernelManager';
@@ -9,6 +11,56 @@ import { executeTs, TsCellResult, isBunAvailable as isTsBunAvailable } from './t
 import { compileSvelteComponent, SvelteCompileResult } from './svelteExecutor';
 
 let statusBarItem: vscode.StatusBarItem;
+
+// Document paste provider for handling image paste in .zef.md files
+class ZefImagePasteProvider implements vscode.DocumentPasteEditProvider {
+    async provideDocumentPasteEdits(
+        document: vscode.TextDocument,
+        ranges: readonly vscode.Range[],
+        dataTransfer: vscode.DataTransfer,
+        _context: vscode.DocumentPasteEditContext,
+        token: vscode.CancellationToken
+    ): Promise<vscode.DocumentPasteEdit[] | undefined> {
+        // Check for image data in clipboard
+        const imageItem = dataTransfer.get('image/png') || dataTransfer.get('image/jpeg') || dataTransfer.get('image/gif');
+        
+        if (!imageItem) {
+            return undefined;
+        }
+
+        try {
+            const imageData = await imageItem.asFile();
+            if (!imageData) {
+                return undefined;
+            }
+
+            const buffer = Buffer.from(await imageData.data());
+            
+            // Generate unique filename with timestamp
+            const timestamp = Date.now();
+            // Get extension from the file name if available, else default to png
+            const originalName = imageData.name || '';
+            const ext = path.extname(originalName).slice(1) || 'png';
+            const fileName = `image_${timestamp}.${ext}`;
+            
+            // Save to same directory as the document
+            const docDir = path.dirname(document.uri.fsPath);
+            const imagePath = path.join(docDir, fileName);
+            
+            // Write the image file
+            fs.writeFileSync(imagePath, buffer);
+            
+            // Create the markdown link
+            const markdownLink = `![${fileName}](./${fileName})`;
+            
+            const edit = new vscode.DocumentPasteEdit(markdownLink, 'Insert Image', vscode.DocumentDropOrPasteEditKind.Empty);
+            return [edit];
+        } catch (error) {
+            console.error('Failed to paste image:', error);
+            return undefined;
+        }
+    }
+}
 
 // File decoration provider for .zef.md files
 class ZefFileDecorationProvider implements vscode.FileDecorationProvider {
@@ -109,6 +161,19 @@ export function activate(context: vscode.ExtensionContext) {
                 zefFileDecorationProvider.refresh(zefUris);
             }
         })
+    );
+
+    // Register image paste provider for zef-markdown files
+    const imagePasteProvider = new ZefImagePasteProvider();
+    context.subscriptions.push(
+        vscode.languages.registerDocumentPasteEditProvider(
+            { language: 'zef-markdown' },
+            imagePasteProvider,
+            {
+                providedPasteEditKinds: [vscode.DocumentDropOrPasteEditKind.Empty],
+                pasteMimeTypes: ['image/png', 'image/jpeg', 'image/gif', 'image/*']
+            }
+        )
     );
 
     // Register CodeLens provider for .zef.md files
