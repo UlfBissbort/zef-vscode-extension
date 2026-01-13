@@ -15,6 +15,13 @@
   ],
   "main": "./out/extension.js",
   "contributes": {
+    "grammars": [
+      {
+        "scopeName": "zef.markdown.injection",
+        "path": "./syntaxes/zef-markdown-injection.tmLanguage.json",
+        "injectTo": ["text.html.markdown"]
+      }
+    ],
     "commands": [
       {
         "command": "zef.runBlock",
@@ -81,6 +88,28 @@
           "description": "Path to virtual environment for notebook execution (takes priority over defaultPython)"
         }
       }
+    },
+    "configurationDefaults": {
+      "[markdown]": {
+        "editor.quickSuggestions": {
+          "comments": "off",
+          "strings": "off",
+          "other": "off"
+        }
+      },
+      "markdownlint.config": {
+        "default": false,
+        "MD041": false,
+        "MD013": false,
+        "MD033": false,
+        "MD012": false,
+        "MD032": false
+      },
+      "cSpell.enabled": false,
+      "cSpell.enableFiletypes": [
+        "!markdown"
+      ],
+      "cSpell.enabledLanguageIds": []
     }
   },
   "scripts": {
