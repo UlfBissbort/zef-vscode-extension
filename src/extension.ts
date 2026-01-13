@@ -10,6 +10,47 @@ import { compileSvelteComponent, SvelteCompileResult } from './svelteExecutor';
 
 let statusBarItem: vscode.StatusBarItem;
 
+// File decoration provider for .zef.md files
+class ZefFileDecorationProvider implements vscode.FileDecorationProvider {
+    private _onDidChangeFileDecorations = new vscode.EventEmitter<vscode.Uri | vscode.Uri[] | undefined>();
+    readonly onDidChangeFileDecorations = this._onDidChangeFileDecorations.event;
+
+    provideFileDecoration(uri: vscode.Uri): vscode.FileDecoration | undefined {
+        if (!uri.fsPath.endsWith('.zef.md')) {
+            return undefined;
+        }
+
+        const diagnostics = vscode.languages.getDiagnostics(uri);
+        const hasErrors = diagnostics.some(d => d.severity === vscode.DiagnosticSeverity.Error);
+        const hasWarnings = diagnostics.some(d => d.severity === vscode.DiagnosticSeverity.Warning);
+
+        if (hasErrors) {
+            return {
+                badge: '✗',
+                color: new vscode.ThemeColor('errorForeground'),
+                tooltip: 'Has errors'
+            };
+        } else if (hasWarnings) {
+            return {
+                badge: '!',
+                color: new vscode.ThemeColor('editorWarning.foreground'),
+                tooltip: 'Has warnings'
+            };
+        } else {
+            return {
+                color: new vscode.ThemeColor('gitDecoration.addedResourceForeground'),
+                tooltip: 'No errors'
+            };
+        }
+    }
+
+    refresh(uri?: vscode.Uri | vscode.Uri[]) {
+        this._onDidChangeFileDecorations.fire(uri);
+    }
+}
+
+let zefFileDecorationProvider: ZefFileDecorationProvider;
+
 // Decoration type for highlighting code blocks with a gray background
 const codeBlockDecorationType = vscode.window.createTextEditorDecorationType({
     backgroundColor: 'rgba(128, 128, 128, 0.15)',
@@ -53,6 +94,22 @@ export function activate(context: vscode.ExtensionContext) {
     statusBarItem.command = 'zef.settings';
     context.subscriptions.push(statusBarItem);
     updateStatusBar();
+
+    // Register file decoration provider for .zef.md files
+    zefFileDecorationProvider = new ZefFileDecorationProvider();
+    context.subscriptions.push(
+        vscode.window.registerFileDecorationProvider(zefFileDecorationProvider)
+    );
+
+    // Listen for diagnostic changes to update decorations
+    context.subscriptions.push(
+        vscode.languages.onDidChangeDiagnostics(event => {
+            const zefUris = event.uris.filter(uri => uri.fsPath.endsWith('.zef.md'));
+            if (zefUris.length > 0) {
+                zefFileDecorationProvider.refresh(zefUris);
+            }
+        })
+    );
 
     // Register CodeLens provider for .zef.md files
     const codeLensProvider = new CodeBlockProvider();
