@@ -57,3 +57,15 @@
 ## Defining a Full Zef App from Zef MD
 - one more instance of running a bunch of managed FX
 - mix languages / data definitions / UI components etc in same zef md doc
+
+
+## Rendering Live Data
+- run side effect and query when view first loads
+- optionally support subscriptions: keep UI state live and updated based on source changes
+- possible sources:
+  - Zef signals / streams
+  - Zef databases
+  - external data sources (APIs, databases etc)
+- allow Zef Components to hook into live data? Can we bridge the Svelte store (or other abstraction) syntax with zef data types?
+
+
