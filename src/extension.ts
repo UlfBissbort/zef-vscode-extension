@@ -370,6 +370,73 @@ export function activate(context: vscode.ExtensionContext) {
 }
 
 /**
+ * Install a runtime automatically (macOS for now)
+ */
+async function installRuntime(runtime: 'python' | 'rust' | 'bun'): Promise<void> {
+    const isMac = process.platform === 'darwin';
+    const isLinux = process.platform === 'linux';
+    const isWindows = process.platform === 'win32';
+    
+    // Installation commands for each platform
+    const installCommands: Record<string, Record<string, string>> = {
+        python: {
+            darwin: 'brew install python3',
+            linux: 'sudo apt install -y python3 || sudo dnf install -y python3',
+            win32: 'winget install Python.Python.3.12'
+        },
+        rust: {
+            darwin: 'curl --proto \'=https\' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y',
+            linux: 'curl --proto \'=https\' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y',
+            win32: 'winget install Rustlang.Rustup'
+        },
+        bun: {
+            darwin: 'curl -fsSL https://bun.sh/install | bash',
+            linux: 'curl -fsSL https://bun.sh/install | bash',
+            win32: 'powershell -c "irm bun.sh/install.ps1 | iex"'
+        }
+    };
+    
+    const platform = process.platform as string;
+    const cmd = installCommands[runtime]?.[platform];
+    
+    if (!cmd) {
+        vscode.window.showErrorMessage(`Auto-installation not yet supported for ${runtime} on ${platform}. Please install manually.`);
+        return;
+    }
+    
+    // Show progress
+    await vscode.window.withProgress({
+        location: vscode.ProgressLocation.Notification,
+        title: `Installing ${runtime}...`,
+        cancellable: false
+    }, async (progress) => {
+        progress.report({ message: 'This may take a minute...' });
+        
+        try {
+            // Open a terminal and run the install command
+            const terminal = vscode.window.createTerminal({
+                name: `Install ${runtime}`,
+                shellPath: isWindows ? 'powershell.exe' : '/bin/bash'
+            });
+            terminal.show();
+            terminal.sendText(cmd);
+            
+            // Show follow-up instructions
+            vscode.window.showInformationMessage(
+                `Installation started in terminal. After it completes, reload VS Code (Cmd+Shift+P → "Reload Window").`,
+                'Reload Now'
+            ).then(action => {
+                if (action === 'Reload Now') {
+                    vscode.commands.executeCommand('workbench.action.reloadWindow');
+                }
+            });
+        } catch (e: any) {
+            vscode.window.showErrorMessage(`Failed to start installation: ${e.message}`);
+        }
+    });
+}
+
+/**
  * Handle missing runtime with detailed, beginner-friendly error message
  */
 async function handleMissingRuntime(runtime: 'python' | 'rust' | 'bun'): Promise<boolean> {
@@ -400,15 +467,24 @@ async function handleMissingRuntime(runtime: 'python' | 'rust' | 'bun'): Promise
         bun: 'Bun runtime not found'
     };
     
+    // Check if we can offer auto-install (macOS primarily, but Linux too)
+    const canAutoInstall = process.platform === 'darwin' || process.platform === 'linux';
+    
+    // Build button options based on platform
+    const buttons = canAutoInstall 
+        ? ['Install Now', 'Manual Install', 'Configure Path', 'View Docs']
+        : ['Install It', 'Configure Path', 'View Docs'];
+    
     // First show an informational message explaining what's happening
     const action = await vscode.window.showErrorMessage(
         `${shortMessages[runtime]} — ${descriptions[runtime]}`,
-        'Install It',
-        'Configure Path',
-        'View Docs'
+        ...buttons
     );
     
-    if (action === 'Install It') {
+    if (action === 'Install Now') {
+        // Auto-install for macOS/Linux
+        await installRuntime(runtime);
+    } else if (action === 'Install It' || action === 'Manual Install') {
         vscode.env.openExternal(vscode.Uri.parse(installUrls[runtime]));
         // Also show a follow-up message
         vscode.window.showInformationMessage(

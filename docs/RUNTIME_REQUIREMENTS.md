@@ -2,6 +2,18 @@
 
 This guide explains the runtime dependencies required to execute different types of code blocks in Zef.
 
+## Quick Start (Automatic Installation)
+
+**On macOS or Linux**, Zef can install missing runtimes for you automatically! When you try to run code that requires a missing runtime, you'll see an error with an **"Install Now"** button. Click it and Zef will:
+
+1. Open a terminal with the installation command
+2. Install the runtime for you
+3. Prompt you to reload VS Code
+
+This is the easiest way to get started!
+
+---
+
 ## Overview
 
 Zef supports executing code in multiple languages:
