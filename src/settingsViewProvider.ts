@@ -76,6 +76,13 @@ export class ZefSettingsViewProvider implements vscode.WebviewViewProvider {
                     await config.update('treatAllMarkdownAsZef', !current, vscode.ConfigurationTarget.Global);
                     this._refreshView();
                     break;
+                case 'setViewWidth':
+                    const widthConfig = vscode.workspace.getConfiguration('zef');
+                    const widthValue = parseInt(message.tab, 10);
+                    if (widthValue >= 70 && widthValue <= 150) {
+                        await widthConfig.update('viewWidthPercent', widthValue, vscode.ConfigurationTarget.Global);
+                    }
+                    break;
                 case 'installRust':
                     vscode.env.openExternal(vscode.Uri.parse('https://rustup.rs/'));
                     break;
@@ -140,6 +147,7 @@ export class ZefSettingsViewProvider implements vscode.WebviewViewProvider {
         const rustcPath = config.get<string>('rustcPath', '');
         const bunPath = config.get<string>('bunPath', '');
         const wsEnabled = config.get<boolean>('wsConnectionEnabled', false);
+        const viewWidthPercent = config.get<number>('viewWidthPercent', 100);
 
         // Format Python display
         let pythonDisplay = 'Not configured';
@@ -376,6 +384,52 @@ export class ZefSettingsViewProvider implements vscode.WebviewViewProvider {
             padding: 12px 0;
             border-bottom: 1px solid var(--vscode-widget-border);
         }
+        
+        .slider-row {
+            display: flex;
+            flex-direction: column;
+            padding: 8px 0;
+            gap: 6px;
+        }
+        
+        .slider-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .slider-label {
+            font-size: 12px;
+        }
+        
+        .slider-value {
+            font-size: 11px;
+            color: var(--vscode-descriptionForeground);
+            min-width: 40px;
+            text-align: right;
+        }
+        
+        input[type="range"] {
+            width: 100%;
+            height: 4px;
+            -webkit-appearance: none;
+            background: var(--vscode-input-background);
+            border-radius: 2px;
+            outline: none;
+        }
+        
+        input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            width: 14px;
+            height: 14px;
+            background: var(--vscode-button-background);
+            border-radius: 50%;
+            cursor: pointer;
+        }
+        
+        input[type="range"]::-webkit-slider-thumb:hover {
+            background: var(--vscode-button-hoverBackground);
+        }
     </style>
 </head>
 <body>
@@ -387,7 +441,7 @@ export class ZefSettingsViewProvider implements vscode.WebviewViewProvider {
     
     <div class="content">
         ${statusTab ? this._getStatusContent(wsEnabled) : ''}
-        ${settingsTab ? this._getSettingsContent(pythonPath ?? undefined, pythonDisplay, rustAvailable, bunAvailable, rustcPath, bunPath, treatAllMd) : ''}
+        ${settingsTab ? this._getSettingsContent(pythonPath ?? undefined, pythonDisplay, rustAvailable, bunAvailable, rustcPath, bunPath, treatAllMd, viewWidthPercent) : ''}
     </div>
 
     <script>
@@ -432,7 +486,8 @@ export class ZefSettingsViewProvider implements vscode.WebviewViewProvider {
         bunAvailable: boolean,
         rustcPath: string,
         bunPath: string,
-        treatAllMd: boolean
+        treatAllMd: boolean,
+        viewWidthPercent: number
     ): string {
         return `
             <h2>Runtimes</h2>
@@ -476,6 +531,15 @@ export class ZefSettingsViewProvider implements vscode.WebviewViewProvider {
                 <div class="toggle-row">
                     <input type="checkbox" class="checkbox" id="treatAllMd" ${treatAllMd ? 'checked' : ''} onchange="send('toggleTreatAllMd')">
                     <label class="toggle-label" for="treatAllMd">Treat all .md as Zef</label>
+                </div>
+                <div class="slider-row">
+                    <div class="slider-header">
+                        <span class="slider-label">View Width</span>
+                        <span class="slider-value" id="widthValue">${viewWidthPercent}%</span>
+                    </div>
+                    <input type="range" id="viewWidth" min="70" max="150" step="5" value="${viewWidthPercent}" 
+                        oninput="document.getElementById('widthValue').textContent = this.value + '%'"
+                        onchange="send('setViewWidth', this.value)">
                 </div>
             </div>
             
