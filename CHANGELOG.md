@@ -5,6 +5,24 @@ All notable changes to the Zef extension will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.1.5] - 2026-01-22
+
+### Added
+
+- **Configurable View Width**: New `zef.viewWidthPercent` setting (70-150%) to adjust the Zef View width. Default is 100% (680px). Accessible via slider in the Settings tab of the Zef sidebar.
+
+- **Live View Width Adjustment**: The Zef View automatically re-renders when the width slider is adjusted, with 0.5 second debounce for smooth interaction.
+
+- **Improved Markdown Rendering**:
+  - Blank lines between content blocks are now preserved (Obsidian-style)
+  - Horizontal rules (`---`) are now more prominent with thicker, brighter styling
+
+- **Enhanced Code Block Support**:
+  - JSON code blocks with syntax highlighting
+  - Zen notation code blocks with Python-style highlighting
+  - HTML code blocks with Rendered/Code tabs and iframe preview
+  - HTML modal view with expand button for full-screen viewing
+
 ## [0.1.4] - 2026-01-22
 
 ### Added
