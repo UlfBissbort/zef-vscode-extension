@@ -545,12 +545,16 @@ function getWebviewContent(renderedHtml: string, existingOutputs: { [blockId: nu
             gap: 6px;
         }
         
-        /* For blocks without a Run button (like mermaid, json), push lang indicator to right */
+        /* For blocks without a Run button (like mermaid, json, zen), push lang indicator to right */
         .mermaid-container .code-block-lang {
             margin-left: auto;
         }
         
         .json-container .code-block-lang {
+            margin-left: auto;
+        }
+        
+        .zen-container .code-block-lang {
             margin-left: auto;
         }
         
@@ -1015,10 +1019,11 @@ function getWebviewContent(renderedHtml: string, existingOutputs: { [blockId: nu
                 var langLower = lang.toLowerCase();
                 if (langLower === 'python' || langLower === 'rust' || langLower === 'javascript' || 
                     langLower === 'js' || langLower === 'typescript' || langLower === 'ts' || langLower === 'svelte' ||
-                    langLower === 'json') {
+                    langLower === 'json' || langLower === 'zen') {
                     var code = block.textContent || '';
-                    // Svelte uses JavaScript/HTML highlighting
-                    var hlLang = (langLower === 'svelte') ? 'javascript' : langLower;
+                    // Svelte uses JavaScript/HTML highlighting, Zen uses Python highlighting
+                    var hlLang = (langLower === 'svelte') ? 'javascript' : 
+                                 (langLower === 'zen') ? 'python' : langLower;
                     block.innerHTML = highlightCode(code, hlLang);
                 }
             });
@@ -1067,6 +1072,7 @@ function getWebviewContent(renderedHtml: string, existingOutputs: { [blockId: nu
                 var isMermaid = (langLower === 'mermaid');
                 var isSvelte = (langLower === 'svelte');
                 var isJson = (langLower === 'json');
+                var isZen = (langLower === 'zen');
                 var isExecutable = isPython || isRust || isJs || isTs || isSvelte;
                 
                 // Only assign blockId to executable blocks to match the parser
@@ -1300,6 +1306,37 @@ function getWebviewContent(renderedHtml: string, existingOutputs: { [blockId: nu
                     jsonCodeContent.appendChild(pre);
                     
                     return; // Skip the rest of the loop for json
+                }
+                
+                // Handle Zen blocks - display only with Python highlighting, no execution
+                if (isZen) {
+                    // Create simple container with just language indicator and code
+                    var zenContainer = document.createElement('div');
+                    zenContainer.className = 'code-block-container zen-container';
+                    
+                    // Create header bar with just language indicator
+                    var zenHeaderBar = document.createElement('div');
+                    zenHeaderBar.className = 'code-block-tabs';
+                    
+                    // Add language indicator
+                    var zenLangIndicator = document.createElement('div');
+                    zenLangIndicator.className = 'code-block-lang';
+                    zenLangIndicator.innerHTML = '<span>Zen</span><span>🌿</span>';
+                    zenHeaderBar.appendChild(zenLangIndicator);
+                    
+                    // Create code content
+                    var zenCodeContent = document.createElement('div');
+                    zenCodeContent.className = 'code-block-content active';
+                    
+                    // Insert container BEFORE moving the pre element
+                    pre.parentNode.insertBefore(zenContainer, pre);
+                    zenContainer.appendChild(zenHeaderBar);
+                    zenContainer.appendChild(zenCodeContent);
+                    
+                    // Now move pre into the code content
+                    zenCodeContent.appendChild(pre);
+                    
+                    return; // Skip the rest of the loop for zen
                 }
                 
                 // Create container
