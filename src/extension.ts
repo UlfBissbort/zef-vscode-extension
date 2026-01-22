@@ -1,7 +1,7 @@
 import * as vscode from 'vscode';
 import * as fs from 'fs';
 import * as path from 'path';
-import { CodeBlockProvider, findCodeBlockAtPosition, findCodeBlocks, findCodeBlockById } from './codeBlockParser';
+import { CodeBlockProvider, findCodeBlockAtPosition, findCodeBlocks, findCodeBlockById, findDisplayCodeBlocks } from './codeBlockParser';
 import { createPreviewPanel, updatePreview, getPanel, scrollPreviewToLine, sendCellResult, setOnRunCode, sendSvelteResult } from './previewPanel';
 import { getKernelManager, disposeKernelManager, CellResult } from './kernelManager';
 import { getPythonPath, showPythonPicker, showSettingsPanel, setDefaultPython } from './configManager';
@@ -106,9 +106,16 @@ class ZefFileDecorationProvider implements vscode.FileDecorationProvider {
 
 let zefFileDecorationProvider: ZefFileDecorationProvider;
 
-// Decoration type for highlighting code blocks with a gray background
+// Decoration type for highlighting executable code blocks with a gray background
 const codeBlockDecorationType = vscode.window.createTextEditorDecorationType({
     backgroundColor: 'rgba(128, 128, 128, 0.15)',
+    isWholeLine: true,
+    borderRadius: '3px',
+});
+
+// Decoration type for highlighting display-only code blocks (zen, json) with a slightly lighter background
+const displayCodeBlockDecorationType = vscode.window.createTextEditorDecorationType({
+    backgroundColor: 'rgba(128, 128, 128, 0.10)',
     isWholeLine: true,
     borderRadius: '3px',
 });
@@ -118,12 +125,19 @@ function updateDecorations(editor: vscode.TextEditor) {
         return;
     }
 
-    const blocks = findCodeBlocks(editor.document);
-    const decorations: vscode.DecorationOptions[] = blocks.map(block => ({
+    // Decorate executable code blocks
+    const executableBlocks = findCodeBlocks(editor.document);
+    const executableDecorations: vscode.DecorationOptions[] = executableBlocks.map(block => ({
         range: block.range,
     }));
+    editor.setDecorations(codeBlockDecorationType, executableDecorations);
 
-    editor.setDecorations(codeBlockDecorationType, decorations);
+    // Decorate display-only code blocks (zen, json)
+    const displayBlocks = findDisplayCodeBlocks(editor.document);
+    const displayDecorations: vscode.DecorationOptions[] = displayBlocks.map(block => ({
+        range: block.range,
+    }));
+    editor.setDecorations(displayCodeBlockDecorationType, displayDecorations);
 }
 
 function updateStatusBar() {

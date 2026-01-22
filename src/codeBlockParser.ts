@@ -100,6 +100,43 @@ export function findCodeBlocks(document: vscode.TextDocument): CodeBlock[] {
 }
 
 /**
+ * Simple interface for display-only code blocks (like zen, json)
+ */
+export interface DisplayCodeBlock {
+    range: vscode.Range;
+    language: string;
+}
+
+/**
+ * Find all display-only code blocks (zen, json) in a markdown document
+ * These blocks get background highlighting but no execution
+ */
+export function findDisplayCodeBlocks(document: vscode.TextDocument): DisplayCodeBlock[] {
+    const blocks: DisplayCodeBlock[] = [];
+    const text = document.getText();
+    
+    // Match ```zen ... ```, ```json ... ```, and ```html ... ``` blocks (case insensitive)
+    const regex = /```(zen|json|html)\s*\n([\s\S]*?)```/gi;
+    let match;
+    
+    while ((match = regex.exec(text)) !== null) {
+        const startOffset = match.index;
+        const endOffset = match.index + match[0].length;
+        const language = match[1].toLowerCase();
+        
+        const startPos = document.positionAt(startOffset);
+        const endPos = document.positionAt(endOffset);
+        
+        blocks.push({
+            range: new vscode.Range(startPos, endPos),
+            language: language
+        });
+    }
+    
+    return blocks;
+}
+
+/**
  * Find the code block at the given position
  */
 export function findCodeBlockAtPosition(

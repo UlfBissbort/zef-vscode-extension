@@ -478,6 +478,15 @@ function getWebviewContent(renderedHtml: string, existingOutputs: { [blockId: nu
             border: none;
             background: #1e1e1e;
         }
+        
+        /* HTML preview */
+        .html-preview-frame {
+            width: 100%;
+            min-height: 200px;
+            border: none;
+            background: #fff;
+        }
+        
         .svelte-placeholder {
             display: flex;
             flex-direction: column;
@@ -545,7 +554,7 @@ function getWebviewContent(renderedHtml: string, existingOutputs: { [blockId: nu
             gap: 6px;
         }
         
-        /* For blocks without a Run button (like mermaid, json, zen), push lang indicator to right */
+        /* For blocks without a Run button (like mermaid, json, zen, html), push lang indicator to right */
         .mermaid-container .code-block-lang {
             margin-left: auto;
         }
@@ -555,6 +564,10 @@ function getWebviewContent(renderedHtml: string, existingOutputs: { [blockId: nu
         }
         
         .zen-container .code-block-lang {
+            margin-left: auto;
+        }
+        
+        .html-container .code-block-lang {
             margin-left: auto;
         }
         
@@ -1019,10 +1032,10 @@ function getWebviewContent(renderedHtml: string, existingOutputs: { [blockId: nu
                 var langLower = lang.toLowerCase();
                 if (langLower === 'python' || langLower === 'rust' || langLower === 'javascript' || 
                     langLower === 'js' || langLower === 'typescript' || langLower === 'ts' || langLower === 'svelte' ||
-                    langLower === 'json' || langLower === 'zen') {
+                    langLower === 'json' || langLower === 'zen' || langLower === 'html') {
                     var code = block.textContent || '';
-                    // Svelte uses JavaScript/HTML highlighting, Zen uses Python highlighting
-                    var hlLang = (langLower === 'svelte') ? 'javascript' : 
+                    // Svelte/HTML uses JavaScript highlighting, Zen uses Python highlighting
+                    var hlLang = (langLower === 'svelte' || langLower === 'html') ? 'javascript' : 
                                  (langLower === 'zen') ? 'python' : langLower;
                     block.innerHTML = highlightCode(code, hlLang);
                 }
@@ -1073,6 +1086,7 @@ function getWebviewContent(renderedHtml: string, existingOutputs: { [blockId: nu
                 var isSvelte = (langLower === 'svelte');
                 var isJson = (langLower === 'json');
                 var isZen = (langLower === 'zen');
+                var isHtml = (langLower === 'html');
                 var isExecutable = isPython || isRust || isJs || isTs || isSvelte;
                 
                 // Only assign blockId to executable blocks to match the parser
@@ -1156,6 +1170,74 @@ function getWebviewContent(renderedHtml: string, existingOutputs: { [blockId: nu
                     // Remove original pre
                     pre.parentNode.removeChild(pre);
                     return; // Skip the rest of the loop for mermaid
+                }
+                
+                // Handle HTML blocks with Rendered/Code tabs (no execution button)
+                if (isHtml) {
+                    // Create container for HTML with tabs
+                    var htmlContainer = document.createElement('div');
+                    htmlContainer.className = 'code-block-container html-container';
+                    
+                    // Create tabs bar
+                    var htmlTabsBar = document.createElement('div');
+                    htmlTabsBar.className = 'code-block-tabs';
+                    
+                    var htmlTabs = ['Rendered', 'Code'];
+                    htmlTabs.forEach(function(tabName, index) {
+                        var tab = document.createElement('button');
+                        tab.className = 'code-block-tab' + (index === 0 ? ' active' : '');
+                        tab.textContent = tabName;
+                        tab.setAttribute('data-tab', tabName.toLowerCase());
+                        tab.onclick = (function(thisContainer, thisTab) {
+                            return function() {
+                                thisContainer.querySelectorAll('.code-block-tab').forEach(function(t) {
+                                    t.classList.remove('active');
+                                });
+                                thisTab.classList.add('active');
+                                thisContainer.querySelectorAll('.code-block-content').forEach(function(c) {
+                                    c.classList.remove('active');
+                                });
+                                var tabId = thisTab.getAttribute('data-tab');
+                                thisContainer.querySelector('.html-' + tabId).classList.add('active');
+                            };
+                        })(htmlContainer, tab);
+                        htmlTabsBar.appendChild(tab);
+                    });
+                    
+                    // Add language indicator
+                    var htmlLangIndicator = document.createElement('div');
+                    htmlLangIndicator.className = 'code-block-lang';
+                    htmlLangIndicator.innerHTML = '<span>HTML</span><span>&lt;/&gt;</span>';
+                    htmlTabsBar.appendChild(htmlLangIndicator);
+                    
+                    // Create "Rendered" content (the HTML preview in iframe)
+                    var htmlRenderedContent = document.createElement('div');
+                    htmlRenderedContent.className = 'code-block-content html-rendered active';
+                    var htmlIframe = document.createElement('iframe');
+                    htmlIframe.className = 'html-preview-frame';
+                    htmlIframe.setAttribute('sandbox', 'allow-scripts');
+                    htmlIframe.srcdoc = codeContent;
+                    htmlRenderedContent.appendChild(htmlIframe);
+                    
+                    // Create "Code" content
+                    var htmlCodeContent = document.createElement('div');
+                    htmlCodeContent.className = 'code-block-content html-code';
+                    var htmlSourcePre = document.createElement('pre');
+                    htmlSourcePre.setAttribute('data-lang', 'html');
+                    var htmlSourceCode = document.createElement('code');
+                    htmlSourceCode.innerHTML = highlightCode(codeContent, 'javascript');
+                    htmlSourcePre.appendChild(htmlSourceCode);
+                    htmlCodeContent.appendChild(htmlSourcePre);
+                    
+                    // Insert container
+                    pre.parentNode.insertBefore(htmlContainer, pre);
+                    htmlContainer.appendChild(htmlTabsBar);
+                    htmlContainer.appendChild(htmlRenderedContent);
+                    htmlContainer.appendChild(htmlCodeContent);
+                    
+                    // Remove original pre
+                    pre.parentNode.removeChild(pre);
+                    return; // Skip the rest of the loop for html
                 }
                 
                 // Handle Svelte blocks with Compile button and Rendered/Source tabs
