@@ -482,7 +482,7 @@ function getWebviewContent(renderedHtml: string, existingOutputs: { [blockId: nu
         /* HTML preview */
         .html-preview-frame {
             width: 100%;
-            min-height: 200px;
+            min-height: 400px;
             border: none;
             background: #fff;
         }
