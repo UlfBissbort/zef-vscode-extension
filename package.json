@@ -1,7 +1,7 @@
 {
   "name": "zef",
   "displayName": "Zef",
-  "description": "Run Python code blocks from .zef.md files",
+  "description": "Lightweight Jupyter-style notebooks in Markdown — execute code, embed results, render Svelte components and mermaid diagrams",
   "version": "0.1.0",
   "publisher": "zef",
   "repository": {

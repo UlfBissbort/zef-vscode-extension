@@ -1,23 +1,63 @@
 # Zef
 
-A VS Code extension for working with `.zef.md` files — executable markdown with beautiful rendering.
+Lightweight Jupyter-style notebooks in Markdown. Write executable documents with code, results, and visualizations — all in plain `.zef.md` files.
+
+## Why Zef?
+
+Zef brings the power of Jupyter notebooks to Markdown files:
+
+- **Lightweight** — Plain text files, no special notebook format
+- **Executable** — Run code blocks directly in VS Code
+- **Embeddable results** — Output is stored inline, share files with results included
+- **Beautiful rendering** — Dark theme preview with mermaid diagrams and syntax highlighting
+- **Svelte components** — Define and render interactive components inline
 
 ## Features
 
-### Code Block Execution
-- **▶ Run** buttons appear above Python code blocks
-- **Shift+Enter** runs the code block at cursor
-- Executes in a dedicated terminal
+### Code Execution
+
+Execute code blocks in multiple languages:
+
+- **Python** — Full support with expression output (like Jupyter cells)
+- **Rust** — Compile and run
+- **JavaScript / TypeScript** — Bun execution
+
+The final expression of a code block is captured as **output** — just like Jupyter. Side effects are tracked and can be displayed.
+
+**Run code:**
+- Click the **▶ Run** button above any code block
+- Press **Shift+Enter** to run the block at cursor
+- Press **Cmd+Enter** (Mac) / **Ctrl+Enter** (Windows) as alternative
+
+### Embedded Results
+
+Results from code execution can be embedded directly in the Markdown file. This allows you to share `.zef.md` files complete with the outputs — like Jupyter notebooks, but in plain Markdown.
+
+### Content-Addressed Storage
+
+For large inputs or outputs, Zef uses a **content-hashing system**:
+
+- Any value can be identified by its content hash
+- Hashes serve as compact placeholders in your document
+- Sync with the Zef Distributed Hash Store happens transparently
+- Links never go stale — no version conflicts or cache invalidation
 
 ### Live Preview
-- **Cmd+Shift+V** opens a beautifully rendered preview panel
-- Elegant dark theme with Apple-inspired minimalist styling
-- Syntax highlighting for Python, Rust, JavaScript, TypeScript
+
+Press **Cmd+Shift+V** to open a beautifully rendered preview:
+
+- Elegant dark theme with minimalist styling
+- **Mermaid diagrams** rendered automatically
+- Syntax highlighting for all major languages
 - Live updates as you type
 
-### Editor Integration
-- Gray background highlighting for code blocks
-- Works with any `.zef.md` file
+### Svelte Components
+
+Define Svelte components directly in code blocks:
+
+- Components are compiled and rendered inline
+- Interactive UI elements in your documents
+- Compiled output can be embedded for sharing
 
 ## Usage
 
@@ -30,52 +70,51 @@ A VS Code extension for working with `.zef.md` files — executable markdown wit
 Some explanatory text...
 
 ​```python
-print("Hello from Zef!")
-x = 42
+data = [1, 2, 3, 4, 5]
+sum(data) / len(data)  # Output: 3.0
 ​```
 
-​```rust
-fn main() {
-    println!("Hello, Rust!");
-}
+​```mermaid
+graph LR
+    A[Input] --> B[Process]
+    B --> C[Output]
 ​```
 ```
 
-3. Click **▶ Run** above a Python block to execute
+3. Click **▶ Run** to execute code blocks
 4. Press **Cmd+Shift+V** to open the preview panel
-
-## Building from Source
-
-```bash
-# Clone the repo
-git clone https://github.com/UlfBissbort/zef-vscode-extension.git
-cd zef-vscode-extension
-
-# Build and install (recommended)
-python3 build.py
-
-# Or manually:
-npm install
-npm run compile
-npx vsce package --allow-missing-repository
-code --install-extension zef-*.vsix --force
-```
-
-After installing, reload VS Code: **Cmd+Shift+P** → **Reload Window**
 
 ## Commands
 
 | Command | Keybinding | Description |
 |---------|------------|-------------|
 | Zef: Run Code Block | — | Run the code block (via CodeLens) |
-| Zef: Run Code Block at Cursor | Shift+Enter | Run block where cursor is |
-| Zef: Open Preview to Side | Cmd+Shift+V | Open rendered preview panel |
+| Zef: Run Code Block at Cursor | Shift+Enter | Run block at cursor |
+| Zef: Open Preview | Cmd+Shift+V | Open rendered preview panel |
+| Zef: Select Python Interpreter | — | Choose Python environment |
+| Zef: Restart Kernel | — | Restart the execution kernel |
+
+## Building from Source
+
+```bash
+git clone https://github.com/UlfBissbort/zef-vscode-extension.git
+cd zef-vscode-extension
+
+npm install
+npm run compile
+npx vsce package
+code --install-extension zef-*.vsix --force
+```
+
+After installing, reload VS Code: **Cmd+Shift+P** → **Reload Window**
 
 ## Requirements
 
 - VS Code 1.85.0 or higher
-- Node.js (for building)
-- Python (for build.py script)
+- Python 3.x (for Python code execution)
+- Bun (for JS/TS execution) — install from https://bun.sh
+- Node.js (for building from source)
+- Rust toolchain (optional, for Rust code execution)
 
 ## License
 
