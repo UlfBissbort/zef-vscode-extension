@@ -136,10 +136,10 @@ Or
 ```python
 from zef import *
 
-ET.Foo(x=41+12)
+ET.Foo(icon='🌿')
 ```
 ````Result
-ET.Foo(x=53)
+ET.Foo(icon='🌿')
 ````
 ````Side Effects
 []

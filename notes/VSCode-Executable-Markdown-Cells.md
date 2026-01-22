@@ -1,6 +1,5 @@
-# Executable Code Blocks in Markdown: Building Your Own "Run Cell" Feature ✨
+# Executable Code Blocks in Markdown: Building Your Own "Run Cell" Feature
 
-*A Julia Evans-style exploration*
 
 ---
 
@@ -413,4 +412,3 @@ That's maybe 100 lines of code and you get:
 - Shared IPython session (variables persist!)
 - Rich output (plots, dataframes, etc.)
 
-Then iterate from there! 🚀

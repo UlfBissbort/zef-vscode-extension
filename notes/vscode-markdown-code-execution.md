@@ -1,6 +1,5 @@
 # 🧪 Running Python Code Blocks from Markdown in VS Code
 
-*A Julia Evans-style exploration of making `.zef.md` files executable*
 
 ---
 
@@ -333,5 +332,3 @@ The easiest win: **CodeLens + Jupyter command execution**
 The power move: **Custom notebook serializer for .zef.md**
 
 ---
-
-*"The editor is just another program. Make it do what you want." — Every extension author*
