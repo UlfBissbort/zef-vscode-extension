@@ -295,6 +295,7 @@ function preserveBlankLines(markdown: string): string {
     let inCodeBlock = false;
     let codeBlockFence = '';
     let blankLineCount = 0;
+    let justExitedCodeBlock = false;  // Track if we just closed a code block
     
     for (const line of lines) {
         // Check for code block fence (3+ backticks)
@@ -305,42 +306,53 @@ function preserveBlankLines(markdown: string): string {
                 // Before entering code block, output any accumulated blank lines
                 if (blankLineCount > 0) {
                     result.push('');
-                    for (let i = 1; i < blankLineCount; i++) {
+                    // If we just exited a code block, add visible spacing for EACH blank line
+                    // Otherwise, only add extra spacing for 2+ blank lines
+                    const startFrom = justExitedCodeBlock ? 0 : 1;
+                    for (let i = startFrom; i < blankLineCount; i++) {
                         result.push('<div class="blank-line"></div>');
                         result.push('');
                     }
                     blankLineCount = 0;
                 }
-                // Entering code block
+                // Entering code block - push the opening fence and continue
                 inCodeBlock = true;
                 codeBlockFence = fenceMatch[1];
+                justExitedCodeBlock = false;
+                result.push(line);
+                continue;  // Skip rest of processing for this line
             } else if (line.startsWith(codeBlockFence) && line.slice(codeBlockFence.length).trim() === '') {
-                // Exiting code block (closing fence matches opening)
+                // Exiting code block - push the closing fence and continue
                 inCodeBlock = false;
                 codeBlockFence = '';
+                justExitedCodeBlock = true;  // Mark that we just exited
+                result.push(line);
+                continue;  // Skip rest of processing for this line
             }
         }
         
         if (inCodeBlock) {
             // Inside code block, preserve line as-is
             result.push(line);
-            blankLineCount = 0;
         } else if (line.trim() === '') {
             // Blank line outside code block
             blankLineCount++;
         } else {
-            // Non-blank line outside code block
+            // Non-blank line outside code block (and not a fence)
             if (blankLineCount > 0) {
                 // First blank line = standard paragraph break
                 result.push('');
-                // Extra blank lines beyond the first become visible divs
-                for (let i = 1; i < blankLineCount; i++) {
+                // If we just exited a code block, add visible spacing for EACH blank line
+                // Otherwise, only add extra spacing for 2+ blank lines
+                const startFrom = justExitedCodeBlock ? 0 : 1;
+                for (let i = startFrom; i < blankLineCount; i++) {
                     result.push('<div class="blank-line"></div>');
                     result.push('');
                 }
             }
             result.push(line);
             blankLineCount = 0;
+            justExitedCodeBlock = false;  // Reset since we processed content
         }
     }
     
