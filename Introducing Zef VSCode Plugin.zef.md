@@ -379,79 +379,277 @@ A sleek button with an animated gradient border. Hover to see the glow intensify
 
 
 
-### Pulse Ring
-
-An Apple-style notification pulse. Pure Svelte + CSS:
+### Profiler Compact View
 
 ```svelte
 <script>
-  import { onMount } from 'svelte';
-  let active = true;
+  let hoveredSpan = $state(null);
+  let mousePos = $state({ x: 0, y: 0 });
+  
+  const trace = {
+    traceId: 'trace-abc123',
+    totalDuration: 156,
+    spans: [
+      { id: 'span-1', name: 'api.handleRequest', hash: 'abc123', node: 'node-1', start: 0, duration: 156, parentId: null },
+      { id: 'span-2', name: 'auth.validate', hash: 'def456', node: 'node-1', start: 5, duration: 18, parentId: 'span-1' },
+      { id: 'span-3', name: 'db.getUser', hash: 'ghi789', node: 'node-2', start: 25, duration: 45, parentId: 'span-1', isRemote: true },
+      { id: 'span-4', name: 'cache.check', hash: 'jkl012', node: 'node-2', start: 28, duration: 8, parentId: 'span-3' },
+      { id: 'span-5', name: 'db.query', hash: 'mno345', node: 'node-2', start: 38, duration: 28, parentId: 'span-3' },
+      { id: 'span-6', name: 'transform.response', hash: 'pqr678', node: 'node-1', start: 72, duration: 12, parentId: 'span-1' },
+      { id: 'span-7', name: 'log.request', hash: 'stu901', node: 'node-3', start: 85, duration: 68, parentId: 'span-1', isRemote: true },
+      { id: 'span-8', name: 'serialize.result', hash: 'vwx234', node: 'node-1', start: 140, duration: 12, parentId: 'span-1' },
+      { id: 'span-9', name: 'metrics.record', hash: 'yza567', node: 'node-3', start: 92, duration: 20, parentId: 'span-7' },
+      { id: 'span-10', name: 'db.secondQuery', hash: 'bcd890', node: 'node-2', start: 68, duration: 14, parentId: 'span-3' },
+    ]
+  };
+  
+  const nodeColors = { 'node-1': '#3b82f6', 'node-2': '#10b981', 'node-3': '#f59e0b' };
+  
+  function getDepth(spanId) {
+    const span = trace.spans.find(s => s.id === spanId);
+    if (!span || !span.parentId) return 0;
+    return 1 + getDepth(span.parentId);
+  }
+  
+  function handleMouseMove(e) {
+    mousePos = { x: e.clientX, y: e.clientY };
+  }
 </script>
 
-<div class="container" on:click={() => active = !active}>
-  <div class="dot" class:active></div>
-  {#if active}
-    <div class="ring ring-1"></div>
-    <div class="ring ring-2"></div>
-    <div class="ring ring-3"></div>
+<div class="compact-container" onmousemove={handleMouseMove}>
+  <div class="header">
+    <span class="icon">▬</span>
+    <span class="title">Trace: Compact Dense View</span>
+    <span class="span-count">{trace.spans.length} spans</span>
+  </div>
+  
+  <div class="compact-view">
+    <div class="time-ruler">
+      {#each [0, 40, 80, 120, 156] as ms}
+        <span class="tick" style="left: {(ms / trace.totalDuration) * 100}%">
+          <span class="tick-line"></span>
+          <span class="tick-label">{ms}</span>
+        </span>
+      {/each}
+    </div>
+    
+    <div class="spans-area">
+      {#each trace.spans as span}
+        {@const depth = getDepth(span.id)}
+        <button 
+          class="compact-row"
+          onmouseenter={() => hoveredSpan = span}
+          onmouseleave={() => hoveredSpan = null}
+        >
+          <div class="compact-label" style="padding-left: {depth * 8 + 4}px">
+            <span class="dot" style="background: {nodeColors[span.node]}"></span>
+            <span class="name">{span.name}</span>
+          </div>
+          <div class="compact-track">
+            <div 
+              class="compact-bar"
+              style="
+                left: {(span.start / trace.totalDuration) * 100}%;
+                width: {Math.max((span.duration / trace.totalDuration) * 100, 1)}%;
+                background: {nodeColors[span.node]};
+              "
+            ></div>
+          </div>
+        </button>
+      {/each}
+    </div>
+  </div>
+  
+  {#if hoveredSpan}
+    <div class="hover-tooltip" style="left: {mousePos.x + 15}px; top: {mousePos.y - 40}px;">
+      <div class="tooltip-title">{hoveredSpan.name}</div>
+      <div class="tooltip-stats">
+        <span>{hoveredSpan.node}</span>
+        <span>{hoveredSpan.start}ms → {hoveredSpan.start + hoveredSpan.duration}ms</span>
+        <span>{hoveredSpan.duration}ms</span>
+      </div>
+    </div>
   {/if}
-</div>
-
-<style>
-  .container { position: relative; width: 60px; height: 60px; cursor: pointer; }
-  .dot {
-    position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
-    width: 16px; height: 16px; background: #34d399; border-radius: 50%;
-    transition: background 0.3s;
-  }
-  .dot.active { background: #10b981; }
-  .ring {
-    position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
-    border: 2px solid #34d399; border-radius: 50%; opacity: 0;
-    animation: pulse 2s cubic-bezier(0, 0, 0.2, 1) infinite;
-  }
-  .ring-1 { width: 30px; height: 30px; animation-delay: 0s; }
-  .ring-2 { width: 45px; height: 45px; animation-delay: 0.5s; }
-  .ring-3 { width: 60px; height: 60px; animation-delay: 1s; }
-  @keyframes pulse { 0% { opacity: 0.6; transform: translate(-50%, -50%) scale(0.5); } 100% { opacity: 0; transform: translate(-50%, -50%) scale(1); } }
-</style>
-```
-
-
-
-
-### Shimmer Loading Card
-
-A Linear-style loading skeleton with a shimmer effect:
-
-```svelte
-<div class="card">
-  <div class="shimmer avatar"></div>
-  <div class="content">
-    <div class="shimmer line title"></div>
-    <div class="shimmer line subtitle"></div>
-    <div class="shimmer line short"></div>
+  
+  <div class="legend">
+    {#each Object.entries(nodeColors) as [node, color]}
+      <span class="legend-item">
+        <span class="dot" style="background: {color}"></span>
+        {node}
+      </span>
+    {/each}
+  </div>
+  
+  <div class="insight">
+    <span class="insight-icon">💡</span>
+    Compact view shows up to 20+ spans without scrolling. Hover for details.
   </div>
 </div>
 
 <style>
-  .card {
-    display: flex; gap: 16px; padding: 20px;
-    background: #0a0a0a; border: 1px solid #222; border-radius: 12px;
-    max-width: 320px;
+  .compact-container {
+    background: #0a0a0c;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 16px;
+    padding: 24px;
+    position: relative;
   }
-  .avatar { width: 48px; height: 48px; border-radius: 50%; flex-shrink: 0; }
-  .content { flex: 1; display: flex; flex-direction: column; gap: 8px; }
-  .line { height: 12px; border-radius: 6px; }
-  .title { width: 70%; }
-  .subtitle { width: 100%; }
-  .short { width: 40%; }
-  .shimmer {
-    background: linear-gradient(90deg, #1a1a1a 25%, #2a2a2a 50%, #1a1a1a 75%);
-    background-size: 200% 100%;
-    animation: shimmer 1.5s infinite;
+  
+  .header {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 16px;
   }
-  @keyframes shimmer { 0% { background-position: 200% 0; } 100% { background-position: -200% 0; } }
+  
+  .icon { color: #10b981; font-size: 20px; }
+  .title { font-size: 14px; font-weight: 500; color: #e4e4e7; flex: 1; }
+  .span-count { font-size: 10px; color: #52525b; }
+  
+  .compact-view {
+    background: rgba(0, 0, 0, 0.3);
+    border-radius: 10px;
+    padding: 10px;
+    margin-bottom: 16px;
+  }
+  
+  .time-ruler {
+    position: relative;
+    height: 20px;
+    margin-left: 100px;
+    margin-bottom: 4px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  }
+  
+  .tick {
+    position: absolute;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+  }
+  
+  .tick-line {
+    width: 1px;
+    height: 6px;
+    background: rgba(255, 255, 255, 0.1);
+  }
+  
+  .tick-label {
+    font-family: 'SF Mono', monospace;
+    font-size: 8px;
+    color: #3f3f46;
+  }
+  
+  .spans-area {
+    display: flex;
+    flex-direction: column;
+    gap: 1px;
+  }
+  
+  .compact-row {
+    display: flex;
+    align-items: center;
+    height: 18px;
+    background: none;
+    border: none;
+    cursor: pointer;
+    width: 100%;
+  }
+  
+  .compact-row:hover {
+    background: rgba(255, 255, 255, 0.03);
+  }
+  
+  .compact-label {
+    width: 100px;
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  
+  .dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    flex-shrink: 0;
+  }
+  
+  .name {
+    font-family: 'SF Mono', monospace;
+    font-size: 9px;
+    color: #a1a1aa;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  
+  .compact-track {
+    flex: 1;
+    height: 12px;
+    position: relative;
+    background: rgba(255, 255, 255, 0.02);
+    border-radius: 2px;
+  }
+  
+  .compact-bar {
+    position: absolute;
+    height: 100%;
+    border-radius: 2px;
+    min-width: 3px;
+  }
+  
+  .hover-tooltip {
+    position: fixed;
+    background: #18181b;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 8px;
+    padding: 10px 14px;
+    pointer-events: none;
+    z-index: 1000;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
+  }
+  
+  .tooltip-title {
+    font-family: 'SF Mono', monospace;
+    font-size: 12px;
+    color: #e4e4e7;
+    margin-bottom: 6px;
+  }
+  
+  .tooltip-stats {
+    display: flex;
+    gap: 12px;
+    font-size: 10px;
+    color: #71717a;
+  }
+  
+  .legend {
+    display: flex;
+    justify-content: center;
+    gap: 20px;
+    margin-bottom: 16px;
+  }
+  
+  .legend-item {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 10px;
+    color: #52525b;
+  }
+  
+  .insight {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 12px 16px;
+    background: rgba(16, 185, 129, 0.05);
+    border-radius: 10px;
+    font-size: 12px;
+    color: #a1a1aa;
+  }
+  
+  .insight-icon { font-size: 16px; }
 </style>
 ```
