@@ -1024,7 +1024,7 @@ function getWebviewContent(renderedHtml: string, existingOutputs: { [blockId: nu
         }
         
         /* Settings Drawer Styles */
-        .settings-trigger {
+        .drawer-trigger {
             position: fixed;
             top: 16px;
             right: 16px;
@@ -1042,18 +1042,18 @@ function getWebviewContent(renderedHtml: string, existingOutputs: { [blockId: nu
             z-index: 100;
         }
         
-        .settings-trigger:hover {
+        .drawer-trigger:hover {
             background: rgba(255, 255, 255, 0.06);
             color: rgba(255, 255, 255, 0.7);
             border-color: rgba(255, 255, 255, 0.1);
         }
         
-        .settings-trigger svg {
+        .drawer-trigger svg {
             width: 18px;
             height: 18px;
         }
         
-        .settings-overlay {
+        .drawer-overlay {
             display: none;
             position: fixed;
             top: 0;
@@ -1061,36 +1061,43 @@ function getWebviewContent(renderedHtml: string, existingOutputs: { [blockId: nu
             right: 0;
             bottom: 0;
             background: rgba(0, 0, 0, 0.5);
-            z-index: 998;
-            animation: settingsFadeIn 0.2s ease;
+            z-index: 999;
         }
         
-        .settings-overlay.active {
+        .drawer-overlay.active {
             display: block;
+            animation: fadeIn 0.2s ease;
         }
         
-        @keyframes settingsFadeIn {
+        @keyframes fadeIn {
             from { opacity: 0; }
             to { opacity: 1; }
         }
         
-        .settings-drawer {
+        .drawer-panel {
             position: fixed;
             top: 0;
-            right: -320px;
+            right: 0;
             width: 320px;
             height: 100%;
             background: linear-gradient(180deg, #0d0d12 0%, #08080c 100%);
             border-left: 1px solid rgba(255, 255, 255, 0.06);
-            z-index: 999;
+            z-index: 1000;
             display: flex;
             flex-direction: column;
             font-family: -apple-system, BlinkMacSystemFont, sans-serif;
-            transition: right 0.25s ease;
+            transform: translateX(100%);
+            transition: transform 0.25s ease;
         }
         
-        .settings-drawer.active {
-            right: 0;
+        .drawer-panel.active {
+            transform: translateX(0);
+            animation: slideIn 0.25s ease;
+        }
+        
+        @keyframes slideIn {
+            from { transform: translateX(100%); }
+            to { transform: translateX(0); }
         }
         
         .drawer-header {
@@ -1106,10 +1113,9 @@ function getWebviewContent(renderedHtml: string, existingOutputs: { [blockId: nu
             font-size: 15px;
             font-weight: 600;
             color: rgba(255, 255, 255, 0.9);
-            letter-spacing: 0;
         }
         
-        .drawer-close {
+        .close-btn {
             width: 28px;
             height: 28px;
             background: rgba(255, 255, 255, 0.03);
@@ -1118,12 +1124,9 @@ function getWebviewContent(renderedHtml: string, existingOutputs: { [blockId: nu
             color: rgba(255, 255, 255, 0.5);
             font-size: 18px;
             cursor: pointer;
-            display: flex;
-            align-items: center;
-            justify-content: center;
         }
         
-        .drawer-close:hover {
+        .close-btn:hover {
             background: rgba(255, 255, 255, 0.08);
             color: rgba(255, 255, 255, 0.8);
         }
@@ -1134,11 +1137,11 @@ function getWebviewContent(renderedHtml: string, existingOutputs: { [blockId: nu
             padding: 16px 0;
         }
         
-        .settings-section {
+        .accordion-section {
             border-bottom: 1px solid rgba(255, 255, 255, 0.03);
         }
         
-        .section-header {
+        .accordion-header {
             display: flex;
             justify-content: space-between;
             padding: 16px 24px;
@@ -1149,79 +1152,88 @@ function getWebviewContent(renderedHtml: string, existingOutputs: { [blockId: nu
             transition: background 0.15s ease;
         }
         
-        .section-header:hover {
+        .accordion-header:hover {
             background: rgba(255, 255, 255, 0.02);
         }
         
-        .section-header.expanded {
+        .accordion-header.expanded {
             color: #8ab4f8;
         }
         
-        .section-icon {
+        .accordion-icon {
             color: rgba(255, 255, 255, 0.3);
         }
         
-        .section-content {
+        .accordion-content {
             padding: 0 24px 20px;
+            animation: slideDown 0.2s ease;
         }
         
-        .setting-row {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            padding: 12px 0;
+        @keyframes slideDown {
+            from { opacity: 0; transform: translateY(-8px); }
+            to { opacity: 1; transform: translateY(0); }
         }
         
-        .setting-label {
+        .subsection {
+            margin-bottom: 16px;
+        }
+        
+        .subsection-label {
+            display: block;
+            font-size: 11px;
+            color: rgba(255, 255, 255, 0.4);
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin-bottom: 10px;
+        }
+        
+        .field {
+            margin-bottom: 12px;
+        }
+        
+        .field label {
+            display: block;
+            font-size: 12px;
+            color: rgba(255, 255, 255, 0.4);
+            margin-bottom: 6px;
+        }
+        
+        .field input, .field select {
+            width: 100%;
+            padding: 10px 12px;
+            background: rgba(255, 255, 255, 0.03);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            border-radius: 8px;
+            color: rgba(255, 255, 255, 0.9);
             font-size: 13px;
-            color: rgba(255, 255, 255, 0.6);
+            box-sizing: border-box;
         }
         
-        .toggle-switch {
-            width: 36px;
-            height: 20px;
-            background: rgba(255, 255, 255, 0.1);
-            border-radius: 10px;
-            position: relative;
-            cursor: pointer;
-            transition: all 0.2s ease;
+        .field input:focus, .field select:focus {
+            outline: none;
+            border-color: rgba(138, 180, 248, 0.4);
         }
         
-        .toggle-switch.on {
-            background: rgba(103, 194, 165, 0.6);
+        .field input::placeholder {
+            color: rgba(255, 255, 255, 0.3);
         }
         
-        .toggle-switch .knob {
-            width: 16px;
-            height: 16px;
-            background: white;
-            border-radius: 50%;
-            position: absolute;
-            top: 2px;
-            left: 2px;
-            transition: all 0.2s ease;
-        }
-        
-        .toggle-switch.on .knob {
-            left: 18px;
-        }
-        
-        .lang-label {
+        .checkbox-row {
             display: flex;
             align-items: center;
             gap: 10px;
+            padding: 8px 0;
+            color: rgba(255, 255, 255, 0.6);
+            font-size: 13px;
+            cursor: pointer;
         }
         
-        .lang-dot {
-            width: 8px;
-            height: 8px;
-            border-radius: 50%;
+        .checkbox-row input[type="checkbox"] {
+            width: 16px;
+            height: 16px;
+            accent-color: #8ab4f8;
+            cursor: pointer;
         }
-        
-        .lang-dot.svelte { background: #f96743; }
-        .lang-dot.python { background: #4b8bbe; }
-        .lang-dot.rust { background: #dea584; }
-        .lang-dot.typescript { background: #3178c6; }
     </style>
 </head>
 <body>
@@ -1236,96 +1248,86 @@ function getWebviewContent(renderedHtml: string, existingOutputs: { [blockId: nu
     </div>
     
     <!-- Settings Trigger Button -->
-    <button class="settings-trigger" onclick="openSettingsDrawer()" title="Document Settings">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <circle cx="12" cy="12" r="3"/>
-            <path d="M12 1v4M12 19v4M4.22 4.22l2.83 2.83M16.95 16.95l2.83 2.83M1 12h4M19 12h4M4.22 19.78l2.83-2.83M16.95 7.05l2.83-2.83"/>
+    <button class="drawer-trigger" onclick="openSettingsDrawer()" title="Document Settings">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round">
+            <line x1="4" y1="6" x2="20" y2="6"/>
+            <circle cx="8" cy="6" r="2" fill="currentColor"/>
+            <line x1="4" y1="12" x2="20" y2="12"/>
+            <circle cx="16" cy="12" r="2" fill="currentColor"/>
+            <line x1="4" y1="18" x2="20" y2="18"/>
+            <circle cx="10" cy="18" r="2" fill="currentColor"/>
         </svg>
     </button>
     
     <!-- Settings Drawer Overlay -->
-    <div id="settings-overlay" class="settings-overlay" onclick="closeSettingsDrawer()"></div>
+    <div id="drawer-overlay" class="drawer-overlay" onclick="closeSettingsDrawer()"></div>
     
     <!-- Settings Drawer Panel -->
-    <div id="settings-drawer" class="settings-drawer">
+    <div id="drawer-panel" class="drawer-panel">
         <div class="drawer-header">
             <h3>Document Settings</h3>
-            <button class="drawer-close" onclick="closeSettingsDrawer()">×</button>
+            <button class="close-btn" onclick="closeSettingsDrawer()">×</button>
         </div>
         
         <div class="drawer-body">
-            <!-- Svelte Section -->
-            <div class="settings-section">
-                <div class="section-header" id="svelte-header" onclick="toggleSection('svelte')">
-                    <span class="lang-label">
-                        <span class="lang-dot svelte"></span>
-                        Svelte
-                    </span>
-                    <span class="section-icon" id="svelte-icon">+</span>
+            <!-- General Section -->
+            <div class="accordion-section">
+                <div class="accordion-header expanded" id="general-header" onclick="toggleSection('general')">
+                    <span>General</span>
+                    <span class="accordion-icon" id="general-icon">−</span>
                 </div>
-                <div class="section-content" id="svelte-content" style="display: none;">
-                    <div class="setting-row">
-                        <span class="setting-label">Persist rendered output</span>
-                        <div class="toggle-switch on" id="svelte-persist" onclick="toggleSetting('svelte-persist')">
-                            <div class="knob"></div>
-                        </div>
+                <div class="accordion-content" id="general-content">
+                    <div class="field">
+                        <label>Theme</label>
+                        <select id="general-theme">
+                            <option value="dark">Dark</option>
+                            <option value="light">Light</option>
+                        </select>
                     </div>
                 </div>
             </div>
             
-            <!-- Python Section -->
-            <div class="settings-section">
-                <div class="section-header" onclick="toggleSection('python')">
-                    <span class="lang-label">
-                        <span class="lang-dot python"></span>
-                        Python
-                    </span>
-                    <span class="section-icon" id="python-icon">+</span>
+            <!-- Languages Section -->
+            <div class="accordion-section">
+                <div class="accordion-header expanded" id="languages-header" onclick="toggleSection('languages')">
+                    <span>Languages</span>
+                    <span class="accordion-icon" id="languages-icon">−</span>
                 </div>
-                <div class="section-content" id="python-content" style="display: none;">
-                    <div class="setting-row">
-                        <span class="setting-label">Show output blocks</span>
-                        <div class="toggle-switch on" id="python-output" onclick="toggleSetting('python-output')">
-                            <div class="knob"></div>
+                <div class="accordion-content" id="languages-content">
+                    <!-- Svelte Subsection -->
+                    <div class="subsection">
+                        <span class="subsection-label">Svelte</span>
+                        <label class="checkbox-row">
+                            <input type="checkbox" id="svelte-persist" checked />
+                            <span>Persist rendered output</span>
+                        </label>
+                    </div>
+                    
+                    <!-- Python Subsection -->
+                    <div class="subsection">
+                        <span class="subsection-label">Python</span>
+                        <div class="field">
+                            <label>Custom venv path</label>
+                            <input type="text" id="python-venv" placeholder="./venv" />
                         </div>
                     </div>
-                </div>
-            </div>
-            
-            <!-- Rust Section -->
-            <div class="settings-section">
-                <div class="section-header" onclick="toggleSection('rust')">
-                    <span class="lang-label">
-                        <span class="lang-dot rust"></span>
-                        Rust
-                    </span>
-                    <span class="section-icon" id="rust-icon">+</span>
-                </div>
-                <div class="section-content" id="rust-content" style="display: none;">
-                    <div class="setting-row">
-                        <span class="setting-label">Check mode only</span>
-                        <div class="toggle-switch" id="rust-check" onclick="toggleSetting('rust-check')">
-                            <div class="knob"></div>
-                        </div>
+                    
+                    <!-- Rust Subsection -->
+                    <div class="subsection">
+                        <span class="subsection-label">Rust</span>
+                        <label class="checkbox-row">
+                            <input type="checkbox" id="rust-check" />
+                            <span>Check mode only</span>
+                        </label>
                     </div>
-                </div>
-            </div>
-            
-            <!-- TypeScript Section -->
-            <div class="settings-section">
-                <div class="section-header" onclick="toggleSection('typescript')">
-                    <span class="lang-label">
-                        <span class="lang-dot typescript"></span>
-                        TypeScript
-                    </span>
-                    <span class="section-icon" id="typescript-icon">+</span>
-                </div>
-                <div class="section-content" id="typescript-content" style="display: none;">
-                    <div class="setting-row">
-                        <span class="setting-label">Strict mode</span>
-                        <div class="toggle-switch on" id="ts-strict" onclick="toggleSetting('ts-strict')">
-                            <div class="knob"></div>
-                        </div>
+                    
+                    <!-- TypeScript Subsection -->
+                    <div class="subsection">
+                        <span class="subsection-label">TypeScript</span>
+                        <label class="checkbox-row">
+                            <input type="checkbox" id="ts-strict" checked />
+                            <span>Strict mode</span>
+                        </label>
                     </div>
                 </div>
             </div>
@@ -1359,13 +1361,13 @@ function getWebviewContent(renderedHtml: string, existingOutputs: { [blockId: nu
         
         // Settings drawer functions
         function openSettingsDrawer() {
-            document.getElementById('settings-overlay').classList.add('active');
-            document.getElementById('settings-drawer').classList.add('active');
+            document.getElementById('drawer-overlay').classList.add('active');
+            document.getElementById('drawer-panel').classList.add('active');
         }
         
         function closeSettingsDrawer() {
-            document.getElementById('settings-overlay').classList.remove('active');
-            document.getElementById('settings-drawer').classList.remove('active');
+            document.getElementById('drawer-overlay').classList.remove('active');
+            document.getElementById('drawer-panel').classList.remove('active');
         }
         
         function toggleSection(section) {
@@ -1376,20 +1378,11 @@ function getWebviewContent(renderedHtml: string, existingOutputs: { [blockId: nu
             if (content.style.display === 'none') {
                 content.style.display = 'block';
                 icon.textContent = '−';
-                if (header) header.classList.add('expanded');
+                header.classList.add('expanded');
             } else {
                 content.style.display = 'none';
                 icon.textContent = '+';
-                if (header) header.classList.remove('expanded');
-            }
-        }
-        
-        function toggleSetting(id) {
-            var toggle = document.getElementById(id);
-            if (toggle.classList.contains('on')) {
-                toggle.classList.remove('on');
-            } else {
-                toggle.classList.add('on');
+                header.classList.remove('expanded');
             }
         }
         
