@@ -1025,6 +1025,47 @@ function getWebviewContent(renderedHtml: string, existingOutputs: { [blockId: nu
                 
                 return result.join('\\n');
             }
+            
+            // HTML-specific highlighter for proper tag/attribute highlighting
+            function highlightHtml(code) {
+                var result = escapeHtml(code);
+                
+                // Highlight HTML comments
+                result = result.replace(/(&lt;!--[\\s\\S]*?--&gt;)/g, '<span class="hl-cmt">$1</span>');
+                
+                // Highlight DOCTYPE
+                result = result.replace(/(&lt;!DOCTYPE[^&]*&gt;)/gi, '<span class="hl-kw">$1</span>');
+                
+                // Highlight opening tags with attributes
+                result = result.replace(/(&lt;)(\\/?)(\\w+)([^&]*?)(&gt;)/g, function(match, lt, slash, tagName, attrs, gt) {
+                    // Highlight attribute names and values within attrs
+                    var highlightedAttrs = attrs.replace(/(\\s+)(\\w+)(=)(&quot;[^&]*?&quot;|'[^']*')/g, function(m, space, attrName, eq, attrValue) {
+                        return space + '<span class="hl-fn">' + attrName + '</span>' + eq + '<span class="hl-str">' + attrValue + '</span>';
+                    });
+                    // Also handle attributes without quotes
+                    highlightedAttrs = highlightedAttrs.replace(/(\\s+)(\\w+)(=)(\\w+)/g, function(m, space, attrName, eq, attrValue) {
+                        return space + '<span class="hl-fn">' + attrName + '</span>' + eq + '<span class="hl-str">' + attrValue + '</span>';
+                    });
+                    // Handle boolean attributes (no value)
+                    highlightedAttrs = highlightedAttrs.replace(/(\\s+)(\\w+)(?!=)/g, function(m, space, attrName) {
+                        if (attrName && !attrName.includes('span')) {
+                            return space + '<span class="hl-fn">' + attrName + '</span>';
+                        }
+                        return m;
+                    });
+                    return '<span class="hl-ty">' + lt + slash + tagName + '</span>' + highlightedAttrs + '<span class="hl-ty">' + gt + '</span>';
+                });
+                
+                // Highlight self-closing tags
+                result = result.replace(/(&lt;)(\\w+)([^&]*?)(\\/&gt;)/g, function(match, lt, tagName, attrs, close) {
+                    var highlightedAttrs = attrs.replace(/(\\s+)(\\w+)(=)(&quot;[^&]*?&quot;|'[^']*')/g, function(m, space, attrName, eq, attrValue) {
+                        return space + '<span class="hl-fn">' + attrName + '</span>' + eq + '<span class="hl-str">' + attrValue + '</span>';
+                    });
+                    return '<span class="hl-ty">' + lt + tagName + '</span>' + highlightedAttrs + '<span class="hl-ty">' + close + '</span>';
+                });
+                
+                return result;
+            }
 
             // Apply syntax highlighting
             document.querySelectorAll('pre code').forEach(function(block) {
@@ -1034,10 +1075,14 @@ function getWebviewContent(renderedHtml: string, existingOutputs: { [blockId: nu
                     langLower === 'js' || langLower === 'typescript' || langLower === 'ts' || langLower === 'svelte' ||
                     langLower === 'json' || langLower === 'zen' || langLower === 'html') {
                     var code = block.textContent || '';
-                    // Svelte/HTML uses JavaScript highlighting, Zen uses Python highlighting
-                    var hlLang = (langLower === 'svelte' || langLower === 'html') ? 'javascript' : 
-                                 (langLower === 'zen') ? 'python' : langLower;
-                    block.innerHTML = highlightCode(code, hlLang);
+                    // HTML uses its own highlighter, Svelte uses JavaScript highlighting, Zen uses Python highlighting
+                    if (langLower === 'html') {
+                        block.innerHTML = highlightHtml(code);
+                    } else {
+                        var hlLang = (langLower === 'svelte') ? 'javascript' : 
+                                     (langLower === 'zen') ? 'python' : langLower;
+                        block.innerHTML = highlightCode(code, hlLang);
+                    }
                 }
             });
             // Transform code blocks to have tabs
@@ -1225,7 +1270,7 @@ function getWebviewContent(renderedHtml: string, existingOutputs: { [blockId: nu
                     var htmlSourcePre = document.createElement('pre');
                     htmlSourcePre.setAttribute('data-lang', 'html');
                     var htmlSourceCode = document.createElement('code');
-                    htmlSourceCode.innerHTML = highlightCode(codeContent, 'javascript');
+                    htmlSourceCode.innerHTML = highlightHtml(codeContent);
                     htmlSourcePre.appendChild(htmlSourceCode);
                     htmlCodeContent.appendChild(htmlSourcePre);
                     
