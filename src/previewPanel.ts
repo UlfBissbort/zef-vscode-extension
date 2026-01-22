@@ -302,6 +302,15 @@ function preserveBlankLines(markdown: string): string {
         
         if (fenceMatch) {
             if (!inCodeBlock) {
+                // Before entering code block, output any accumulated blank lines
+                if (blankLineCount > 0) {
+                    result.push('');
+                    for (let i = 1; i < blankLineCount; i++) {
+                        result.push('<div class="blank-line"></div>');
+                        result.push('');
+                    }
+                    blankLineCount = 0;
+                }
                 // Entering code block
                 inCodeBlock = true;
                 codeBlockFence = fenceMatch[1];
