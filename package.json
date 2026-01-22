@@ -4,6 +4,7 @@
   "description": "Executable Markdown — run Python, Rust, TypeScript with live preview, mermaid diagrams, and Svelte components",
   "version": "0.1.1",
   "publisher": "UlfBissbort",
+  "icon": "icon.png",
   "repository": {
     "type": "git",
     "url": "https://github.com/UlfBissbort/zef-vscode-extension.git"
