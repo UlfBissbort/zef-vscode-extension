@@ -105,6 +105,16 @@
           "type": "string",
           "default": "",
           "description": "Path to virtual environment for notebook execution (takes priority over defaultPython)"
+        },
+        "zef.rustcPath": {
+          "type": "string",
+          "default": "",
+          "description": "Custom path to Rust compiler (rustc). Leave empty for auto-detection."
+        },
+        "zef.bunPath": {
+          "type": "string",
+          "default": "",
+          "description": "Custom path to Bun runtime for JS/TS execution. Leave empty for auto-detection."
         }
       }
     },

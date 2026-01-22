@@ -369,6 +369,63 @@ export function activate(context: vscode.ExtensionContext) {
     }
 }
 
+/**
+ * Handle missing runtime with detailed, beginner-friendly error message
+ */
+async function handleMissingRuntime(runtime: 'python' | 'rust' | 'bun'): Promise<boolean> {
+    const installUrls: Record<string, string> = {
+        python: 'https://www.python.org/downloads/',
+        rust: 'https://rustup.rs/',
+        bun: 'https://bun.sh/'
+    };
+    
+    const docsUrl = 'https://github.com/UlfBissbort/zef-vscode-extension/blob/main/docs/RUNTIME_REQUIREMENTS.md';
+    
+    const settingKeys: Record<string, string> = {
+        python: 'zef.defaultPython',
+        rust: 'zef.rustcPath',
+        bun: 'zef.bunPath'
+    };
+    
+    // Detailed, beginner-friendly messages explaining what each runtime is
+    const descriptions: Record<string, string> = {
+        python: 'Python is a programming language. To run Python code blocks, you need Python 3 installed on your computer.',
+        rust: 'Rust is a systems programming language. To run Rust code blocks, you need the Rust compiler (rustc) installed.',
+        bun: 'Bun is a JavaScript runtime (like Node.js, but faster). It\'s required for running JavaScript, TypeScript, and Svelte components.'
+    };
+    
+    const shortMessages: Record<string, string> = {
+        python: 'Python not found',
+        rust: 'Rust compiler not found',
+        bun: 'Bun runtime not found'
+    };
+    
+    // First show an informational message explaining what's happening
+    const action = await vscode.window.showErrorMessage(
+        `${shortMessages[runtime]} — ${descriptions[runtime]}`,
+        'Install It',
+        'Configure Path',
+        'View Docs'
+    );
+    
+    if (action === 'Install It') {
+        vscode.env.openExternal(vscode.Uri.parse(installUrls[runtime]));
+        // Also show a follow-up message
+        vscode.window.showInformationMessage(
+            `After installing, restart VS Code and try running your code again.`
+        );
+    } else if (action === 'Configure Path') {
+        vscode.commands.executeCommand(
+            'workbench.action.openSettings',
+            settingKeys[runtime]
+        );
+    } else if (action === 'View Docs') {
+        vscode.env.openExternal(vscode.Uri.parse(docsUrl + '#' + runtime));
+    }
+    
+    return false; // Execution should not continue
+}
+
 async function runCodeInKernel(context: vscode.ExtensionContext, code: string, blockId?: number, documentUri?: vscode.Uri): Promise<void> {
     const pythonPath = getPythonPath();
     
@@ -426,7 +483,7 @@ async function runRustCode(context: vscode.ExtensionContext, code: string, block
     // Check if Rust is available
     const rustAvailable = await isRustAvailable();
     if (!rustAvailable) {
-        vscode.window.showErrorMessage('Zef: Rust compiler (rustc) not found. Please install Rust.');
+        await handleMissingRuntime('rust');
         return;
     }
 
@@ -476,7 +533,7 @@ async function runJsCode(context: vscode.ExtensionContext, code: string, blockId
     // Check if Bun is available
     const bunAvailable = await isBunAvailable();
     if (!bunAvailable) {
-        vscode.window.showErrorMessage('Zef: Bun runtime not found. Please install Bun (https://bun.sh)');
+        await handleMissingRuntime('bun');
         return;
     }
 
@@ -526,7 +583,7 @@ async function runTsCode(context: vscode.ExtensionContext, code: string, blockId
     // Check if Bun is available (TS uses bun too)
     const bunAvailable = await isTsBunAvailable();
     if (!bunAvailable) {
-        vscode.window.showErrorMessage('Zef: Bun runtime not found. Please install Bun (https://bun.sh)');
+        await handleMissingRuntime('bun');
         return;
     }
 

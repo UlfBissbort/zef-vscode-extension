@@ -1,5 +1,7 @@
 import * as vscode from 'vscode';
 import { detectPythons, normalizeVenvPath, PythonInfo } from './pythonDetector';
+import { isRustAvailable } from './rustExecutor';
+import { isBunAvailable } from './jsExecutor';
 
 const CONFIG_SECTION = 'zef';
 
@@ -140,16 +142,38 @@ export async function showSettingsPanel(): Promise<void> {
     const currentPython = getPythonPath();
     const currentVenv = getNotebookVenv();
     
+    // Check runtime availability
+    const [rustAvailable, bunAvailable] = await Promise.all([
+        isRustAvailable(),
+        isBunAvailable()
+    ]);
+    
+    const config = vscode.workspace.getConfiguration('zef');
+    const rustcPath = config.get<string>('rustcPath');
+    const bunPath = config.get<string>('bunPath');
+    
     interface SettingsQuickPickItem extends vscode.QuickPickItem {
         action: string;
     }
     
     const items: SettingsQuickPickItem[] = [
         {
-            label: '$(symbol-method) Select Python Interpreter',
+            label: `${currentPython ? '$(check)' : '$(warning)'} Python Interpreter`,
             description: currentPython ? `Current: ${currentPython}` : 'Not configured',
             detail: 'Choose which Python to use for running code blocks',
             action: 'selectPython',
+        },
+        {
+            label: `${rustAvailable ? '$(check)' : '$(warning)'} Rust Compiler`,
+            description: rustAvailable ? (rustcPath || 'Auto-detected') : 'Not found',
+            detail: rustAvailable ? 'Rust is available' : 'Configure path or install from rustup.rs',
+            action: 'configureRust',
+        },
+        {
+            label: `${bunAvailable ? '$(check)' : '$(warning)'} Bun Runtime (JS/TS)`,
+            description: bunAvailable ? (bunPath || 'Auto-detected') : 'Not found',
+            detail: bunAvailable ? 'Bun is available for JavaScript/TypeScript' : 'Configure path or install from bun.sh',
+            action: 'configureBun',
         },
         {
             label: '$(folder) Set Notebook Virtual Environment',
@@ -170,7 +194,7 @@ export async function showSettingsPanel(): Promise<void> {
             action: 'showOutput',
         },
         {
-            label: '$(settings-gear) Open Settings',
+            label: '$(settings-gear) Open All Settings',
             description: '',
             detail: 'Open VS Code settings for Zef',
             action: 'openSettings',
@@ -212,6 +236,36 @@ export async function showSettingsPanel(): Promise<void> {
                 } else {
                     vscode.window.showErrorMessage(`Could not find Python in: ${venvPath}`);
                 }
+            }
+            break;
+        }
+        case 'configureRust': {
+            const action = await vscode.window.showQuickPick([
+                { label: '$(gear) Configure Custom Path', action: 'configure' },
+                { label: '$(link-external) Install Rust (rustup.rs)', action: 'install' }
+            ], {
+                placeHolder: 'Rust Compiler Configuration'
+            });
+            
+            if (action?.action === 'configure') {
+                await vscode.commands.executeCommand('workbench.action.openSettings', 'zef.rustcPath');
+            } else if (action?.action === 'install') {
+                vscode.env.openExternal(vscode.Uri.parse('https://rustup.rs/'));
+            }
+            break;
+        }
+        case 'configureBun': {
+            const action = await vscode.window.showQuickPick([
+                { label: '$(gear) Configure Custom Path', action: 'configure' },
+                { label: '$(link-external) Install Bun (bun.sh)', action: 'install' }
+            ], {
+                placeHolder: 'Bun Runtime Configuration'
+            });
+            
+            if (action?.action === 'configure') {
+                await vscode.commands.executeCommand('workbench.action.openSettings', 'zef.bunPath');
+            } else if (action?.action === 'install') {
+                vscode.env.openExternal(vscode.Uri.parse('https://bun.sh/'));
             }
             break;
         }

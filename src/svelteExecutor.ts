@@ -2,6 +2,7 @@ import { spawn, exec } from 'child_process';
 import { promisify } from 'util';
 import * as path from 'path';
 import * as os from 'os';
+import * as vscode from 'vscode';
 
 const execAsync = promisify(exec);
 
@@ -13,10 +14,23 @@ export interface SvelteCompileResult {
 }
 
 /**
- * Get the path to bun, checking common installation locations
+ * Get the path to bun, checking settings first, then common installation locations
  */
 async function getBunPath(): Promise<string | null> {
-    // Common bun locations
+    // First check if user has configured a custom path in settings
+    const config = vscode.workspace.getConfiguration('zef');
+    const configuredPath = config.get<string>('bunPath');
+    
+    if (configuredPath) {
+        try {
+            await execAsync(`"${configuredPath}" --version`);
+            return configuredPath;
+        } catch {
+            // Configured path is invalid, fall back to auto-detection
+        }
+    }
+    
+    // Common bun locations for auto-detection
     const possiblePaths = [
         'bun',  // Try PATH first
         path.join(os.homedir(), '.bun', 'bin', 'bun'),  // Standard bun location

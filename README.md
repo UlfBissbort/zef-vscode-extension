@@ -110,16 +110,19 @@ After installing, reload VS Code: **Cmd+Shift+P** → **Reload Window**
 
 ## Documentation
 
+- **[Runtime Requirements](docs/RUNTIME_REQUIREMENTS.md)** — Installing Python, Rust, and Bun
 - **[Internal Architecture](notes/INTERNAL_ARCHITECTURE.md)** — How the extension works under the hood
 - **[Architecture Overview](notes/ARCHITECTURE.md)** — High-level design and file structure
 
 ## Requirements
 
 - VS Code 1.85.0 or higher
-- Python 3.x (for Python code execution)
-- Bun (for JS/TS execution) — install from https://bun.sh
-- Node.js (for building from source)
-- Rust toolchain (optional, for Rust code execution)
+- Python 3.x (for Python code execution) — [installation guide](docs/RUNTIME_REQUIREMENTS.md#python)
+- Bun (for JS/TS execution) — [installation guide](docs/RUNTIME_REQUIREMENTS.md#bun)
+- Rust toolchain (optional, for Rust code execution) — [installation guide](docs/RUNTIME_REQUIREMENTS.md#rust)
+- Node.js (for building from source only)
+
+> **New to these tools?** Check our [Runtime Requirements Guide](docs/RUNTIME_REQUIREMENTS.md) for step-by-step installation instructions.
 
 ## License
 

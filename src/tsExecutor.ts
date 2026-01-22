@@ -4,6 +4,7 @@ import * as fs from 'fs/promises';
 import * as path from 'path';
 import * as os from 'os';
 import * as crypto from 'crypto';
+import * as vscode from 'vscode';
 
 const execAsync = promisify(exec);
 
@@ -190,11 +191,25 @@ ${indentedCode}
 let cachedBunPath: string | null = null;
 
 /**
- * Get the path to the bun executable
+ * Get the path to the bun executable, checking settings first
  */
 export async function getBunPath(): Promise<string> {
     if (cachedBunPath) {
         return cachedBunPath;
+    }
+    
+    // First check if user has configured a custom path in settings
+    const config = vscode.workspace.getConfiguration('zef');
+    const configuredPath = config.get<string>('bunPath');
+    
+    if (configuredPath) {
+        try {
+            await fs.access(configuredPath, fs.constants.X_OK);
+            cachedBunPath = configuredPath;
+            return configuredPath;
+        } catch {
+            // Configured path is invalid, fall back to auto-detection
+        }
     }
     
     // Common locations for bun

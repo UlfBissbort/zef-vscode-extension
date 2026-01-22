@@ -4,6 +4,7 @@ import * as fs from 'fs/promises';
 import * as path from 'path';
 import * as os from 'os';
 import * as crypto from 'crypto';
+import * as vscode from 'vscode';
 
 const execAsync = promisify(exec);
 
@@ -287,10 +288,23 @@ function cleanRustError(stderr: string, srcFile: string): string {
 }
 
 /**
- * Get the path to rustc, checking common installation locations
+ * Get the path to rustc, checking settings first, then common installation locations
  */
 async function getRustcPath(): Promise<string | null> {
-    // Common rustc locations
+    // First check if user has configured a custom path in settings
+    const config = vscode.workspace.getConfiguration('zef');
+    const configuredPath = config.get<string>('rustcPath');
+    
+    if (configuredPath) {
+        try {
+            await execAsync(`"${configuredPath}" --version`);
+            return configuredPath;
+        } catch {
+            // Configured path is invalid, fall back to auto-detection
+        }
+    }
+    
+    // Common rustc locations for auto-detection
     const possiblePaths = [
         'rustc',  // Try PATH first
         path.join(os.homedir(), '.cargo', 'bin', 'rustc'),  // Standard rustup location
