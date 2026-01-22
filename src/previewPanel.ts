@@ -811,11 +811,147 @@ function getWebviewContent(renderedHtml: string, existingOutputs: { [blockId: nu
             font-style: italic;
             color: var(--text-muted);
         }
+        
+        /* Modal styles for expanded HTML view */
+        .html-modal-overlay {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.9);
+            z-index: 10000;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+        
+        .html-modal-overlay.active {
+            display: flex;
+        }
+        
+        .html-modal-content {
+            width: 95%;
+            height: 95%;
+            background: #fff;
+            border-radius: 8px;
+            overflow: hidden;
+            position: relative;
+        }
+        
+        .html-modal-close {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            width: 36px;
+            height: 36px;
+            background: rgba(0, 0, 0, 0.7);
+            border: none;
+            border-radius: 50%;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 10001;
+            transition: background 0.2s;
+        }
+        
+        .html-modal-close:hover {
+            background: rgba(0, 0, 0, 0.9);
+        }
+        
+        .html-modal-close svg {
+            width: 20px;
+            height: 20px;
+            stroke: #fff;
+            stroke-width: 2;
+        }
+        
+        .html-modal-iframe {
+            width: 100%;
+            height: 100%;
+            border: none;
+        }
+        
+        /* Expand button for HTML blocks */
+        .html-expand-btn {
+            position: absolute;
+            top: 8px;
+            right: 8px;
+            width: 28px;
+            height: 28px;
+            background: rgba(0, 0, 0, 0.5);
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            opacity: 0.6;
+            transition: opacity 0.2s, background 0.2s;
+            z-index: 10;
+        }
+        
+        .html-expand-btn:hover {
+            opacity: 1;
+            background: rgba(0, 0, 0, 0.7);
+        }
+        
+        .html-expand-btn svg {
+            width: 16px;
+            height: 16px;
+            stroke: #fff;
+            stroke-width: 2;
+            fill: none;
+        }
+        
+        .html-rendered {
+            position: relative;
+        }
     </style>
 </head>
 <body>
+    <!-- Modal for expanded HTML view -->
+    <div id="html-modal" class="html-modal-overlay">
+        <div class="html-modal-content">
+            <button class="html-modal-close" onclick="closeHtmlModal()">
+                <svg viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+            </button>
+            <iframe id="html-modal-frame" class="html-modal-iframe" sandbox="allow-scripts"></iframe>
+        </div>
+    </div>
     ${renderedHtml}
     <script>
+        // Modal functions for HTML preview
+        function openHtmlModal(htmlContent) {
+            var modal = document.getElementById('html-modal');
+            var iframe = document.getElementById('html-modal-frame');
+            iframe.srcdoc = htmlContent;
+            modal.classList.add('active');
+            document.body.style.overflow = 'hidden';
+        }
+        
+        function closeHtmlModal() {
+            var modal = document.getElementById('html-modal');
+            modal.classList.remove('active');
+            document.body.style.overflow = '';
+        }
+        
+        // Close modal on Escape key
+        document.addEventListener('keydown', function(e) {
+            if (e.key === 'Escape') {
+                closeHtmlModal();
+            }
+        });
+        
+        // Close modal when clicking overlay background
+        document.getElementById('html-modal').addEventListener('click', function(e) {
+            if (e.target === this) {
+                closeHtmlModal();
+            }
+        });
+        
         // Copy image to clipboard function
         async function copyImage(button, src) {
             try {
@@ -1258,6 +1394,19 @@ function getWebviewContent(renderedHtml: string, existingOutputs: { [blockId: nu
                     // Create "Rendered" content (the HTML preview in iframe)
                     var htmlRenderedContent = document.createElement('div');
                     htmlRenderedContent.className = 'code-block-content html-rendered active';
+                    
+                    // Add expand button
+                    var htmlExpandBtn = document.createElement('button');
+                    htmlExpandBtn.className = 'html-expand-btn';
+                    htmlExpandBtn.title = 'Expand to fullscreen';
+                    htmlExpandBtn.innerHTML = '<svg viewBox="0 0 24 24"><polyline points="15 3 21 3 21 9"></polyline><polyline points="9 21 3 21 3 15"></polyline><line x1="21" y1="3" x2="14" y2="10"></line><line x1="3" y1="21" x2="10" y2="14"></line></svg>';
+                    htmlExpandBtn.onclick = (function(content) {
+                        return function() {
+                            openHtmlModal(content);
+                        };
+                    })(codeContent);
+                    htmlRenderedContent.appendChild(htmlExpandBtn);
+                    
                     var htmlIframe = document.createElement('iframe');
                     htmlIframe.className = 'html-preview-frame';
                     htmlIframe.setAttribute('sandbox', 'allow-scripts');
