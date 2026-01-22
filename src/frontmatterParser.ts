@@ -163,6 +163,46 @@ export function shouldPersistSvelteOutput(text: string): boolean {
 }
 
 /**
+ * Check if code output (Result block) should be persisted for this document.
+ * 
+ * @param text - The full document text
+ * @param language - The code block language ('python', 'rust', etc.)
+ * @returns true if the Result block should be saved
+ */
+export function shouldPersistOutput(text: string, language: string): boolean {
+    const settings = getDocumentSettings(text);
+    
+    if (language === 'python') {
+        return settings.python?.persist_output ?? true;
+    } else if (language === 'rust') {
+        return settings.rust?.persist_output ?? true;
+    }
+    
+    // Default to true for other languages (js, ts, etc.)
+    return true;
+}
+
+/**
+ * Check if side effects (Side Effects block) should be persisted for this document.
+ * 
+ * @param text - The full document text
+ * @param language - The code block language ('python', 'rust', etc.)
+ * @returns true if the Side Effects block should be saved
+ */
+export function shouldPersistSideEffects(text: string, language: string): boolean {
+    const settings = getDocumentSettings(text);
+    
+    if (language === 'python') {
+        return settings.python?.persist_side_effects ?? true;
+    } else if (language === 'rust') {
+        return settings.rust?.persist_side_effects ?? true;
+    }
+    
+    // Default to true for other languages
+    return true;
+}
+
+/**
  * Get the content after the frontmatter block (for rendering).
  * 
  * @param text - The full document text

@@ -12,7 +12,7 @@ import { compileSvelteComponent, SvelteCompileResult } from './svelteExecutor';
 import { isZefDocument, isZefUri } from './zefUtils';
 import { ZefSettingsViewProvider } from './settingsViewProvider';
 import { initJsonValidator, disposeJsonValidator } from './jsonValidator';
-import { shouldPersistSvelteOutput } from './frontmatterParser';
+import { shouldPersistSvelteOutput, shouldPersistOutput, shouldPersistSideEffects } from './frontmatterParser';
 
 let statusBarItem: vscode.StatusBarItem;
 
@@ -912,6 +912,15 @@ async function writeOutputToFile(blockId: number, result: CellResult, documentUr
         return;
     }
     
+    const docText = document.getText();
+    const persistOutput = shouldPersistOutput(docText, block.language);
+    const persistSideEffects = shouldPersistSideEffects(docText, block.language);
+    
+    // If neither output nor side effects should be persisted, return early
+    if (!persistOutput && !persistSideEffects) {
+        return;
+    }
+    
     // Format the result content - only the evaluated value, NOT stdout
     let resultContent = '';
     if (result.status === 'error' && result.error) {
@@ -949,26 +958,27 @@ async function writeOutputToFile(blockId: number, result: CellResult, documentUr
     const resultBlock = '\n````Result\n' + resultContent + '\n````';
     const sideEffectsBlock = '\n````Side Effects\n' + sideEffectsContent + '\n````';
     
-    // Determine insert position - need to track where to insert side effects
-    // Result block comes first, then side effects block
-    await editor.edit(editBuilder => {
-        // Handle result block
-        if (block.resultRange) {
-            editBuilder.replace(block.resultRange, resultBlock);
-        } else {
-            editBuilder.insert(block.range.end, resultBlock);
-        }
-    });
+    // Only write result block if persist_output is true
+    if (persistOutput) {
+        await editor.edit(editBuilder => {
+            if (block.resultRange) {
+                editBuilder.replace(block.resultRange, resultBlock);
+            } else {
+                editBuilder.insert(block.range.end, resultBlock);
+            }
+        });
+    }
     
-    // Re-fetch block after first edit to get updated positions
-    if (sideEffectsContent) {
+    // Only write side effects block if persist_side_effects is true
+    if (persistSideEffects) {
+        // Re-fetch block after first edit to get updated positions
         const updatedBlock = findCodeBlockById(document, blockId);
         if (updatedBlock) {
             await editor.edit(editBuilder => {
                 if (updatedBlock.sideEffectsRange) {
                     editBuilder.replace(updatedBlock.sideEffectsRange, sideEffectsBlock);
                 } else {
-                    // Insert after result block
+                    // Insert after result block if it exists, otherwise after code block
                     const insertPos = updatedBlock.resultRange ? updatedBlock.resultRange.end : updatedBlock.range.end;
                     editBuilder.insert(insertPos, sideEffectsBlock);
                 }
