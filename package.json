@@ -1,9 +1,9 @@
 {
   "name": "zef",
   "displayName": "Zef",
-  "description": "Lightweight Jupyter-style notebooks in Markdown — execute code, embed results, render Svelte components and mermaid diagrams",
-  "version": "0.1.0",
-  "publisher": "zef",
+  "description": "Executable Markdown — run Python, Rust, TypeScript with live preview, mermaid diagrams, and Svelte components",
+  "version": "0.1.1",
+  "publisher": "UlfBissbort",
   "repository": {
     "type": "git",
     "url": "https://github.com/UlfBissbort/zef-vscode-extension.git"
