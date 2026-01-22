@@ -545,8 +545,12 @@ function getWebviewContent(renderedHtml: string, existingOutputs: { [blockId: nu
             gap: 6px;
         }
         
-        /* For blocks without a Run button (like mermaid), push lang indicator to right */
+        /* For blocks without a Run button (like mermaid, json), push lang indicator to right */
         .mermaid-container .code-block-lang {
+            margin-left: auto;
+        }
+        
+        .json-container .code-block-lang {
             margin-left: auto;
         }
         
@@ -897,6 +901,9 @@ function getWebviewContent(renderedHtml: string, existingOutputs: { [blockId: nu
                         'of', 'default', 'switch', 'case', 'break', 'continue',
                         'null', 'undefined', 'true', 'false'];
 
+            // JSON keywords
+            var jsonKw = ['true', 'false', 'null'];
+
             function escapeHtml(text) {
                 return text.replace(/&/g, '&amp;')
                            .replace(/</g, '&lt;')
@@ -970,6 +977,7 @@ function getWebviewContent(renderedHtml: string, existingOutputs: { [blockId: nu
                             if (lang === 'python') keywords = pyKw;
                             else if (lang === 'rust') { keywords = rsKw; types = rsTypes; }
                             else if (lang === 'javascript' || lang === 'js' || lang === 'typescript' || lang === 'ts') keywords = jsKw;
+                            else if (lang === 'json') keywords = jsonKw;
                             
                             // Check if followed by ( for function (lookahead without consuming)
                             var lookAhead = j;
@@ -1005,7 +1013,8 @@ function getWebviewContent(renderedHtml: string, existingOutputs: { [blockId: nu
             document.querySelectorAll('pre code').forEach(function(block) {
                 var lang = block.parentElement.getAttribute('data-lang') || '';
                 if (lang === 'python' || lang === 'rust' || lang === 'javascript' || 
-                    lang === 'js' || lang === 'typescript' || lang === 'ts' || lang === 'svelte') {
+                    lang === 'js' || lang === 'typescript' || lang === 'ts' || lang === 'svelte' ||
+                    lang === 'json') {
                     var code = block.textContent || '';
                     // Svelte uses JavaScript/HTML highlighting
                     var hlLang = (lang === 'svelte') ? 'javascript' : lang;
@@ -1055,6 +1064,7 @@ function getWebviewContent(renderedHtml: string, existingOutputs: { [blockId: nu
                 var isTs = (lang === 'typescript' || lang === 'ts');
                 var isMermaid = (lang === 'mermaid');
                 var isSvelte = (lang === 'svelte');
+                var isJson = (lang === 'json');
                 var isExecutable = isPython || isRust || isJs || isTs || isSvelte;
                 
                 // Only assign blockId to executable blocks to match the parser
@@ -1257,6 +1267,35 @@ function getWebviewContent(renderedHtml: string, existingOutputs: { [blockId: nu
                     // Remove original pre
                     pre.parentNode.removeChild(pre);
                     return; // Skip the rest of the loop for svelte
+                }
+                
+                // Handle JSON blocks - display only, no execution
+                if (isJson) {
+                    // Create simple container with just language indicator and code
+                    var jsonContainer = document.createElement('div');
+                    jsonContainer.className = 'code-block-container json-container';
+                    
+                    // Create header bar with just language indicator
+                    var jsonHeaderBar = document.createElement('div');
+                    jsonHeaderBar.className = 'code-block-tabs';
+                    
+                    // Add language indicator
+                    var jsonLangIndicator = document.createElement('div');
+                    jsonLangIndicator.className = 'code-block-lang';
+                    jsonLangIndicator.innerHTML = '<span>JSON</span><span>{ }</span>';
+                    jsonHeaderBar.appendChild(jsonLangIndicator);
+                    
+                    // Create code content
+                    var jsonCodeContent = document.createElement('div');
+                    jsonCodeContent.className = 'code-block-content active';
+                    jsonCodeContent.appendChild(pre);
+                    
+                    // Insert container
+                    pre.parentNode.insertBefore(jsonContainer, pre);
+                    jsonContainer.appendChild(jsonHeaderBar);
+                    jsonContainer.appendChild(jsonCodeContent);
+                    
+                    return; // Skip the rest of the loop for json
                 }
                 
                 // Create container
