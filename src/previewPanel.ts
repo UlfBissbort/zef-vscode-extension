@@ -281,13 +281,82 @@ export function sendSvelteResult(blockId: number, result: SvelteResult, document
     }
 }
 
+/**
+ * Preserve multiple blank lines in markdown for Obsidian-style rendering.
+ * Standard markdown collapses 2+ blank lines into a single paragraph break.
+ * This function converts extra blank lines to <div class="blank-line"> elements
+ * that can be styled to show visual spacing.
+ * 
+ * Code blocks (fenced with 3+ backticks) are preserved unchanged.
+ */
+function preserveBlankLines(markdown: string): string {
+    const lines = markdown.split('\n');
+    const result: string[] = [];
+    let inCodeBlock = false;
+    let codeBlockFence = '';
+    let blankLineCount = 0;
+    
+    for (const line of lines) {
+        // Check for code block fence (3+ backticks)
+        const fenceMatch = line.match(/^(`{3,})/);
+        
+        if (fenceMatch) {
+            if (!inCodeBlock) {
+                // Entering code block
+                inCodeBlock = true;
+                codeBlockFence = fenceMatch[1];
+            } else if (line.startsWith(codeBlockFence) && line.slice(codeBlockFence.length).trim() === '') {
+                // Exiting code block (closing fence matches opening)
+                inCodeBlock = false;
+                codeBlockFence = '';
+            }
+        }
+        
+        if (inCodeBlock) {
+            // Inside code block, preserve line as-is
+            result.push(line);
+            blankLineCount = 0;
+        } else if (line.trim() === '') {
+            // Blank line outside code block
+            blankLineCount++;
+        } else {
+            // Non-blank line outside code block
+            if (blankLineCount > 0) {
+                // First blank line = standard paragraph break
+                result.push('');
+                // Extra blank lines beyond the first become visible divs
+                for (let i = 1; i < blankLineCount; i++) {
+                    result.push('<div class="blank-line"></div>');
+                    result.push('');
+                }
+            }
+            result.push(line);
+            blankLineCount = 0;
+        }
+    }
+    
+    // Handle trailing blank lines at end of document
+    if (blankLineCount > 0) {
+        result.push('');
+        for (let i = 1; i < blankLineCount; i++) {
+            result.push('<div class="blank-line"></div>');
+            result.push('');
+        }
+    }
+    
+    return result.join('\n');
+}
+
 function renderMarkdown(markdown: string): string {
     marked.setOptions({
         gfm: true,
         breaks: true,
     });
 
-    let html = marked.parse(markdown) as string;
+    // Preserve extra blank lines before parsing
+    const processedMarkdown = preserveBlankLines(markdown);
+    
+    let html = marked.parse(processedMarkdown) as string;
     
     // Remove disabled attribute from checkboxes to make them interactive
     // Marked generates: <input disabled="" type="checkbox"> for unchecked
@@ -406,6 +475,11 @@ function getWebviewContent(renderedHtml: string, existingOutputs: { [blockId: nu
         p {
             margin: 1.2em 0;
             color: var(--text-dim);
+        }
+
+        /* Preserve extra blank lines (Obsidian-style) */
+        .blank-line {
+            height: 1.5em;
         }
 
         a {
