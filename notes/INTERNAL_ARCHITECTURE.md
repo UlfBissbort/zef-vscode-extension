@@ -115,27 +115,27 @@ This is critical when multiple `.zef.md` files are open simultaneously.
 Results are embedded directly after code blocks using fenced blocks:
 
 ```markdown
-​```python
+```python
 x = 1 + 2
 x
-​```
-​````Result
+```
+````Result
 3
-​````
-​````Side Effects
+````
+````Side Effects
 []
-​````
+````
 ```
 
 For Svelte components:
 ```markdown
-​```svelte
+```svelte
 <script>let count = 0;</script>
 <button on:click={() => count++}>{count}</button>
-​```
-​````rendered-html
+```
+````rendered-html
 <!-- Compiled HTML here -->
-​````
+````
 ```
 
 ## File Organization

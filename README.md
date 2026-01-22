@@ -69,16 +69,16 @@ Define Svelte components directly in code blocks:
 
 Some explanatory text...
 
-​```python
+```python
 data = [1, 2, 3, 4, 5]
 sum(data) / len(data)  # Output: 3.0
-​```
+```
 
-​```mermaid
+```mermaid
 graph LR
     A[Input] --> B[Process]
     B --> C[Output]
-​```
+```
 ```
 
 3. Click **▶ Run** to execute code blocks

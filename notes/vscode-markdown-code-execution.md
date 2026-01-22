@@ -15,11 +15,11 @@ document.zef.md
 
 Here's some context...
 
-​```python
+```python
 import pandas as pd
 df = pd.read_csv("data.csv")
 df.head()
-​```
+```
 
 And then more explanation...
 ```
@@ -151,9 +151,9 @@ Now you see:
 
 ```
 ▶ Run
-​```python
+```python
 print("hello!")
-​```
+```
 ```
 
 ---
