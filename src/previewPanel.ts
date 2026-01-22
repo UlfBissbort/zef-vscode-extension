@@ -1204,21 +1204,19 @@ function getWebviewContent(renderedHtml: string, existingOutputs: { [blockId: nu
             }
 
             // Apply syntax highlighting
+            // NOTE: HTML blocks are NOT highlighted here - they get their own handling later
+            // to avoid corrupting the code content before it's used in the iframe srcdoc
             document.querySelectorAll('pre code').forEach(function(block) {
                 var lang = block.parentElement.getAttribute('data-lang') || '';
                 var langLower = lang.toLowerCase();
                 if (langLower === 'python' || langLower === 'rust' || langLower === 'javascript' || 
                     langLower === 'js' || langLower === 'typescript' || langLower === 'ts' || langLower === 'svelte' ||
-                    langLower === 'json' || langLower === 'zen' || langLower === 'html') {
+                    langLower === 'json' || langLower === 'zen') {
                     var code = block.textContent || '';
-                    // HTML uses its own highlighter, Svelte uses JavaScript highlighting, Zen uses Python highlighting
-                    if (langLower === 'html') {
-                        block.innerHTML = highlightHtml(code);
-                    } else {
-                        var hlLang = (langLower === 'svelte') ? 'javascript' : 
-                                     (langLower === 'zen') ? 'python' : langLower;
-                        block.innerHTML = highlightCode(code, hlLang);
-                    }
+                    // Svelte uses JavaScript highlighting, Zen uses Python highlighting
+                    var hlLang = (langLower === 'svelte') ? 'javascript' : 
+                                 (langLower === 'zen') ? 'python' : langLower;
+                    block.innerHTML = highlightCode(code, hlLang);
                 }
             });
             // Transform code blocks to have tabs
