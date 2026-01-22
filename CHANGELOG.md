@@ -5,6 +5,35 @@ All notable changes to the Zef extension will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.1.6] - 2026-01-22
+
+### Added
+
+- **Document Settings Drawer**: Elegant slide-in settings panel in the Zef View (gear icon in top-right corner) for per-document configuration.
+
+- **TOML Frontmatter Support**: Documents can now use `---zef` frontmatter blocks with TOML syntax for per-document settings. Settings are only written when they differ from defaults.
+
+- **Persist Output Settings**: Control what gets saved to the document after code execution:
+  - **Svelte**: `persist_output` (rendered HTML) - default: false
+  - **Python**: `persist_output` (Result blocks), `persist_side_effects` (Side Effects blocks) - default: true
+  - **Rust**: `persist_output` (Result blocks), `persist_side_effects` (Side Effects blocks) - default: true
+
+- **Bidirectional Settings Sync**: Settings drawer UI reflects document frontmatter state, and checkbox changes automatically update the `---zef` TOML block in the document.
+
+### Example
+
+```markdown
+---zef
+[svelte]
+persist_output = true
+
+[python]
+persist_output = false
+---
+
+# My Document
+```
+
 ## [0.1.5] - 2026-01-22
 
 ### Added
