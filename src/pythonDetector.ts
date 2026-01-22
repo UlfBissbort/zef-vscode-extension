@@ -10,6 +10,18 @@ export interface PythonInfo {
     displayName?: string;
 }
 
+const isWindows = process.platform === 'win32';
+
+/**
+ * Get the Python executable path within a virtual environment
+ */
+function getVenvPythonPath(venvDir: string): string {
+    if (isWindows) {
+        return path.join(venvDir, 'Scripts', 'python.exe');
+    }
+    return path.join(venvDir, 'bin', 'python');
+}
+
 /**
  * Detect all available Python installations on the system
  */
@@ -17,8 +29,9 @@ export function detectPythons(): PythonInfo[] {
     const pythons: PythonInfo[] = [];
     const seenPaths = new Set<string>();
 
-    // 1. Find pythons in PATH using `which -a`
-    for (const name of ['python3', 'python']) {
+    // 1. Find pythons in PATH
+    const pythonNames = isWindows ? ['python', 'python3'] : ['python3', 'python'];
+    for (const name of pythonNames) {
         const paths = findInPath(name);
         for (const p of paths) {
             const info = validatePython(p, 'PATH', undefined, seenPaths);
@@ -30,14 +43,10 @@ export function detectPythons(): PythonInfo[] {
     const workspaceFolders = vscode.workspace.workspaceFolders;
     if (workspaceFolders) {
         for (const folder of workspaceFolders) {
-            const localVenvs = [
-                path.join(folder.uri.fsPath, 'venv', 'bin', 'python'),
-                path.join(folder.uri.fsPath, '.venv', 'bin', 'python'),
-                path.join(folder.uri.fsPath, 'dev_venv', 'bin', 'python'),
-            ];
-            for (const venvPath of localVenvs) {
+            const venvNames = ['venv', '.venv', 'dev_venv'];
+            for (const venvName of venvNames) {
+                const venvPath = getVenvPythonPath(path.join(folder.uri.fsPath, venvName));
                 if (fs.existsSync(venvPath)) {
-                    const venvName = path.basename(path.dirname(path.dirname(venvPath)));
                     const info = validatePython(venvPath, 'venv (workspace)', venvName, seenPaths);
                     if (info) pythons.push(info);
                 }
@@ -45,9 +54,9 @@ export function detectPythons(): PythonInfo[] {
         }
     }
 
-    // 3. Check for pyenv versions
-    const homeDir = process.env.HOME || '';
-    if (homeDir) {
+    // 3. Check for pyenv versions (Unix/Mac only)
+    const homeDir = process.env.HOME || process.env.USERPROFILE || '';
+    if (homeDir && !isWindows) {
         const pyenvVersions = path.join(homeDir, '.pyenv', 'versions');
         if (fs.existsSync(pyenvVersions)) {
             try {
@@ -63,13 +72,19 @@ export function detectPythons(): PythonInfo[] {
                 // Ignore errors reading pyenv
             }
         }
+    }
 
-        // 4. Check for conda environments
-        for (const condaDir of ['anaconda3', 'miniconda3']) {
+    // 4. Check for conda environments
+    if (homeDir) {
+        const condaDirs = isWindows 
+            ? ['Anaconda3', 'Miniconda3', 'anaconda3', 'miniconda3']
+            : ['anaconda3', 'miniconda3'];
+            
+        for (const condaDir of condaDirs) {
             const condaBase = path.join(homeDir, condaDir);
             
             // Base conda python
-            const basePython = path.join(condaBase, 'bin', 'python');
+            const basePython = getVenvPythonPath(condaBase);
             if (fs.existsSync(basePython)) {
                 const info = validatePython(basePython, 'conda', 'base', seenPaths);
                 if (info) pythons.push(info);
@@ -81,7 +96,7 @@ export function detectPythons(): PythonInfo[] {
                 try {
                     const envs = fs.readdirSync(envsDir);
                     for (const env of envs) {
-                        const envPython = path.join(envsDir, env, 'bin', 'python');
+                        const envPython = getVenvPythonPath(path.join(envsDir, env));
                         if (fs.existsSync(envPython)) {
                             const info = validatePython(envPython, 'conda', env, seenPaths);
                             if (info) pythons.push(info);
@@ -100,12 +115,17 @@ export function detectPythons(): PythonInfo[] {
             path.join(homeDir, 'venvs'),
             path.join(homeDir, '.venvs'),
         ];
+        // On Windows, also check common locations
+        if (isWindows) {
+            venvDirs.push(path.join(homeDir, 'Envs'));  // virtualenvwrapper-win default
+        }
+        
         for (const venvDir of venvDirs) {
             if (fs.existsSync(venvDir)) {
                 try {
                     const envs = fs.readdirSync(venvDir);
                     for (const env of envs) {
-                        const envPython = path.join(venvDir, env, 'bin', 'python');
+                        const envPython = getVenvPythonPath(path.join(venvDir, env));
                         if (fs.existsSync(envPython)) {
                             const info = validatePython(envPython, 'virtualenv', env, seenPaths);
                             if (info) pythons.push(info);
@@ -122,11 +142,13 @@ export function detectPythons(): PythonInfo[] {
 }
 
 /**
- * Find all instances of a command in PATH using `which -a`
+ * Find all instances of a command in PATH
  */
 function findInPath(name: string): string[] {
     try {
-        const output = execSync(`which -a ${name}`, { encoding: 'utf-8', timeout: 5000 });
+        // Use platform-appropriate command
+        const cmd = isWindows ? `where ${name}` : `which -a ${name}`;
+        const output = execSync(cmd, { encoding: 'utf-8', timeout: 5000 });
         return output.trim().split('\n').filter(p => p.length > 0);
     } catch (e) {
         return [];
@@ -183,27 +205,41 @@ export function normalizeVenvPath(inputPath: string): string | null {
     // Expand ~ to home directory
     let p = inputPath;
     if (p.startsWith('~/')) {
-        const homeDir = process.env.HOME || '';
+        const homeDir = process.env.HOME || process.env.USERPROFILE || '';
         p = path.join(homeDir, p.slice(2));
     }
+    // Windows-style home expansion
+    if (p.startsWith('%USERPROFILE%')) {
+        const homeDir = process.env.USERPROFILE || '';
+        p = p.replace('%USERPROFILE%', homeDir);
+    }
 
-    // If path ends with bin/python, use it directly
-    if (p.endsWith('/bin/python') || p.endsWith('/bin/python3')) {
-        if (fs.existsSync(p)) {
-            return p;
+    // Check for direct executable paths
+    const executableEndings = isWindows 
+        ? ['\\Scripts\\python.exe', '\\python.exe']
+        : ['/bin/python', '/bin/python3'];
+    
+    for (const ending of executableEndings) {
+        if (p.endsWith(ending)) {
+            if (fs.existsSync(p)) {
+                return p;
+            }
+            return null;
         }
-        return null;
     }
 
-    // Check if it's a venv directory with bin/python
-    const pythonPath = path.join(p, 'bin', 'python');
-    if (fs.existsSync(pythonPath)) {
-        return pythonPath;
+    // Check if it's a venv directory - try cross-platform python path
+    const venvPython = getVenvPythonPath(p);
+    if (fs.existsSync(venvPython)) {
+        return venvPython;
     }
 
-    const python3Path = path.join(p, 'bin', 'python3');
-    if (fs.existsSync(python3Path)) {
-        return python3Path;
+    // On Unix, also try python3
+    if (!isWindows) {
+        const python3Path = path.join(p, 'bin', 'python3');
+        if (fs.existsSync(python3Path)) {
+            return python3Path;
+        }
     }
 
     // Maybe it's a direct python executable

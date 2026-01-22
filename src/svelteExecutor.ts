@@ -30,13 +30,21 @@ async function getBunPath(): Promise<string | null> {
         }
     }
     
+    const isWindows = process.platform === 'win32';
+    const ext = isWindows ? '.exe' : '';
+    
     // Common bun locations for auto-detection
     const possiblePaths = [
-        'bun',  // Try PATH first
-        path.join(os.homedir(), '.bun', 'bin', 'bun'),  // Standard bun location
-        '/usr/local/bin/bun',
-        '/usr/bin/bun',
+        'bun',  // Try PATH first (works on all platforms)
+        path.join(os.homedir(), '.bun', 'bin', `bun${ext}`),  // Standard bun location (all platforms)
     ];
+    
+    // Add platform-specific paths
+    if (!isWindows) {
+        possiblePaths.push('/usr/local/bin/bun');
+        possiblePaths.push('/usr/bin/bun');
+        possiblePaths.push('/opt/homebrew/bin/bun'); // macOS Homebrew ARM
+    }
     
     for (const bunPath of possiblePaths) {
         try {

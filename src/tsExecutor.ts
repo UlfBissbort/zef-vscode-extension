@@ -204,7 +204,8 @@ export async function getBunPath(): Promise<string> {
     
     if (configuredPath) {
         try {
-            await fs.access(configuredPath, fs.constants.X_OK);
+            // Try to run it to verify it works
+            await execAsync(`"${configuredPath}" --version`);
             cachedBunPath = configuredPath;
             return configuredPath;
         } catch {
@@ -212,17 +213,25 @@ export async function getBunPath(): Promise<string> {
         }
     }
     
+    const isWindows = process.platform === 'win32';
+    const ext = isWindows ? '.exe' : '';
+    
     // Common locations for bun
     const possiblePaths = [
-        path.join(os.homedir(), '.bun', 'bin', 'bun'),
-        '/usr/local/bin/bun',
-        '/opt/homebrew/bin/bun',
-        'bun' // Try PATH as fallback
+        'bun', // Try PATH first (works on all platforms)
+        path.join(os.homedir(), '.bun', 'bin', `bun${ext}`),  // Standard bun location (all platforms)
     ];
     
+    // Add platform-specific paths
+    if (!isWindows) {
+        possiblePaths.push('/usr/local/bin/bun');
+        possiblePaths.push('/opt/homebrew/bin/bun'); // macOS Homebrew ARM
+    }
+    
+    // Try each path by actually running bun --version
     for (const bunPath of possiblePaths) {
         try {
-            await fs.access(bunPath, fs.constants.X_OK);
+            await execAsync(`"${bunPath}" --version`);
             cachedBunPath = bunPath;
             return bunPath;
         } catch {
@@ -230,16 +239,17 @@ export async function getBunPath(): Promise<string> {
         }
     }
     
-    // Try to find via which command
+    // Try to find via platform-appropriate command
     try {
-        const { stdout } = await execAsync('which bun');
-        const bunPath = stdout.trim();
+        const findCmd = isWindows ? 'where bun' : 'which bun';
+        const { stdout } = await execAsync(findCmd);
+        const bunPath = stdout.trim().split('\n')[0]; // Take first result on Windows
         if (bunPath) {
             cachedBunPath = bunPath;
             return bunPath;
         }
     } catch {
-        // which failed
+        // Command failed
     }
     
     throw new Error('Bun not found. Please install Bun (https://bun.sh)');

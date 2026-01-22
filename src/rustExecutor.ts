@@ -304,13 +304,21 @@ async function getRustcPath(): Promise<string | null> {
         }
     }
     
+    const isWindows = process.platform === 'win32';
+    const ext = isWindows ? '.exe' : '';
+    
     // Common rustc locations for auto-detection
     const possiblePaths = [
-        'rustc',  // Try PATH first
-        path.join(os.homedir(), '.cargo', 'bin', 'rustc'),  // Standard rustup location
-        '/usr/local/bin/rustc',
-        '/usr/bin/rustc',
+        'rustc',  // Try PATH first (works on all platforms)
+        path.join(os.homedir(), '.cargo', 'bin', `rustc${ext}`),  // Standard rustup location (all platforms)
     ];
+    
+    // Add platform-specific paths
+    if (!isWindows) {
+        possiblePaths.push('/usr/local/bin/rustc');
+        possiblePaths.push('/usr/bin/rustc');
+        possiblePaths.push('/opt/homebrew/bin/rustc'); // macOS Homebrew ARM
+    }
     
     for (const rustcPath of possiblePaths) {
         try {
