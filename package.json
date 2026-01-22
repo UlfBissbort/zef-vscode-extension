@@ -43,8 +43,13 @@
     "languages": [
       {
         "id": "zef-markdown",
-        "aliases": ["Zef Markdown", "zef-markdown"],
-        "extensions": [".zef.md"],
+        "aliases": [
+          "Zef Markdown",
+          "zef-markdown"
+        ],
+        "extensions": [
+          ".zef.md"
+        ],
         "configuration": "./language-configuration.json"
       }
     ],
@@ -57,7 +62,10 @@
       {
         "scopeName": "zef.markdown.injection",
         "path": "./syntaxes/zef-markdown-injection.tmLanguage.json",
-        "injectTo": ["text.html.markdown", "text.html.markdown.zef"]
+        "injectTo": [
+          "text.html.markdown",
+          "text.html.markdown.zef"
+        ]
       }
     ],
     "commands": [
@@ -140,6 +148,11 @@
           "type": "boolean",
           "default": false,
           "description": "Enable Zef features (code execution, live preview, run buttons) for all .md files, not just .zef.md files. Power users can enable this to use Zef with any markdown file."
+        },
+        "zef.wsConnectionEnabled": {
+          "type": "boolean",
+          "default": false,
+          "description": "Enable WebSocket connection to Zef Cloud (wss://zef.app/ws-test2). Connection persists across VS Code restarts when enabled."
         }
       }
     },
@@ -188,11 +201,13 @@
     "acorn": "^8.15.0",
     "highlight.js": "^11.11.1",
     "marked": "^11.0.0",
-    "svelte": "^5.46.1"
+    "svelte": "^5.46.1",
+    "ws": "^8.19.0"
   },
   "devDependencies": {
     "@types/node": "^20.10.0",
     "@types/vscode": "^1.85.0",
+    "@types/ws": "^8.18.1",
     "@typescript-eslint/eslint-plugin": "^6.13.0",
     "@typescript-eslint/parser": "^6.13.0",
     "eslint": "^8.54.0",
