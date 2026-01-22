@@ -45,7 +45,7 @@ export interface ZefSettings {
  */
 export const DEFAULT_SETTINGS: ZefSettings = {
     svelte: {
-        persist_output: true
+        persist_output: false
     }
 };
 
@@ -129,7 +129,7 @@ export function getDocumentSettings(text: string): ZefSettings {
  */
 export function shouldPersistSvelteOutput(text: string): boolean {
     const settings = getDocumentSettings(text);
-    return settings.svelte?.persist_output ?? true;
+    return settings.svelte?.persist_output ?? false;
 }
 
 /**
@@ -150,4 +150,68 @@ export function stripFrontmatter(text: string): string {
     }
     
     return text.slice(match[0].length);
+}
+
+/**
+ * Defaults for all settings. Used to determine what to include in frontmatter.
+ */
+const SETTING_DEFAULTS: Record<string, unknown> = {
+    'svelte.persist_output': false
+};
+
+/**
+ * Update a setting in the document's frontmatter.
+ * Only writes non-default values to keep frontmatter clean.
+ * 
+ * @param text - The full document text
+ * @param settingPath - Dot-separated path like 'svelte.persist_output'
+ * @param value - The new value
+ * @returns Updated document text
+ */
+export function updateDocumentSetting(text: string, settingPath: string, value: unknown): string {
+    const defaultValue = SETTING_DEFAULTS[settingPath];
+    const isDefault = value === defaultValue;
+    
+    // Parse existing settings
+    const existingSettings = parseZefFrontmatter(text) || {};
+    
+    // Parse the setting path (e.g., 'svelte.persist_output' -> ['svelte', 'persist_output'])
+    const [section, key] = settingPath.split('.');
+    
+    // Update the settings object
+    if (isDefault) {
+        // Remove the setting if it equals default
+        if (existingSettings[section as keyof ZefSettings]) {
+            delete (existingSettings[section as keyof ZefSettings] as Record<string, unknown>)[key];
+            // Remove empty section
+            if (Object.keys(existingSettings[section as keyof ZefSettings] as object).length === 0) {
+                delete existingSettings[section as keyof ZefSettings];
+            }
+        }
+    } else {
+        // Set the value
+        if (!existingSettings[section as keyof ZefSettings]) {
+            (existingSettings as Record<string, Record<string, unknown>>)[section] = {};
+        }
+        (existingSettings[section as keyof ZefSettings] as Record<string, unknown>)[key] = value;
+    }
+    
+    // Get content without frontmatter
+    const contentWithoutFrontmatter = stripFrontmatter(text);
+    
+    // Check if we have any settings left
+    const hasSettings = Object.keys(existingSettings).length > 0;
+    
+    if (!hasSettings) {
+        // No settings, return content without frontmatter
+        return contentWithoutFrontmatter;
+    }
+    
+    // Serialize settings to TOML
+    const tomlContent = TOML.stringify(existingSettings as TOML.JsonMap);
+    
+    // Build new frontmatter block
+    const newFrontmatter = `---zef\n${tomlContent}---\n`;
+    
+    return newFrontmatter + contentWithoutFrontmatter;
 }

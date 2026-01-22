@@ -3,7 +3,7 @@ import * as path from 'path';
 import { marked } from 'marked';
 import { CellResult } from './kernelManager';
 import { isZefDocument } from './zefUtils';
-import { stripFrontmatter } from './frontmatterParser';
+import { stripFrontmatter, getDocumentSettings, updateDocumentSetting, ZefSettings } from './frontmatterParser';
 
 // Map of document URI string to its panel
 const panels: Map<string, vscode.WebviewPanel> = new Map();
@@ -150,6 +150,23 @@ export function createPreviewPanel(context: vscode.ExtensionContext): vscode.Web
             if (document) {
                 await toggleCheckboxInDocument(document, message.index, message.checked);
             }
+        } else if (message.type === 'updateSetting') {
+            // Update a setting in the document's frontmatter
+            const document = vscode.workspace.textDocuments.find(d => d.uri.toString() === docKey);
+            if (document) {
+                const currentText = document.getText();
+                const newText = updateDocumentSetting(currentText, message.setting, message.value);
+                
+                if (newText !== currentText) {
+                    const edit = new vscode.WorkspaceEdit();
+                    const fullRange = new vscode.Range(
+                        document.positionAt(0),
+                        document.positionAt(currentText.length)
+                    );
+                    edit.replace(document.uri, fullRange, newText);
+                    await vscode.workspace.applyEdit(edit);
+                }
+            }
         }
     });
 
@@ -211,7 +228,10 @@ export function updatePreview(document: vscode.TextDocument) {
         mermaidUri = panel.webview.asWebviewUri(mermaidPath).toString();
     }
     
-    panel.webview.html = getWebviewContent(html, existingResults, existingSideEffects, mermaidUri, existingRenderedHtml);
+    // Get document settings from frontmatter
+    const documentSettings = getDocumentSettings(text);
+    
+    panel.webview.html = getWebviewContent(html, existingResults, existingSideEffects, mermaidUri, existingRenderedHtml, documentSettings);
 }
 
 /**
@@ -437,7 +457,7 @@ function convertImagePaths(html: string, docDir: string, webview: vscode.Webview
     });
 }
 
-function getWebviewContent(renderedHtml: string, existingOutputs: { [blockId: number]: string } = {}, existingSideEffects: { [blockId: number]: string } = {}, mermaidUri: string = '', existingRenderedHtml: { [blockId: number]: string } = {}): string {
+function getWebviewContent(renderedHtml: string, existingOutputs: { [blockId: number]: string } = {}, existingSideEffects: { [blockId: number]: string } = {}, mermaidUri: string = '', existingRenderedHtml: { [blockId: number]: string } = {}, documentSettings: ZefSettings = {}): string {
     // Get the view width setting
     const widthPercent = vscode.workspace.getConfiguration('zef').get('viewWidthPercent', 100) as number;
     const maxWidth = Math.round(680 * widthPercent / 100);
@@ -448,6 +468,7 @@ function getWebviewContent(renderedHtml: string, existingOutputs: { [blockId: nu
     const outputsJson = escapeForScript(JSON.stringify(existingOutputs));
     const sideEffectsJson = escapeForScript(JSON.stringify(existingSideEffects));
     const renderedHtmlJson = escapeForScript(JSON.stringify(existingRenderedHtml));
+    const documentSettingsJson = escapeForScript(JSON.stringify(documentSettings));
     
     return `<!DOCTYPE html>
 <html lang="en">
@@ -1292,7 +1313,7 @@ function getWebviewContent(renderedHtml: string, existingOutputs: { [blockId: nu
                     <div class="subsection">
                         <span class="subsection-label">Svelte</span>
                         <label class="checkbox-row">
-                            <input type="checkbox" id="svelte-persist" checked />
+                            <input type="checkbox" id="svelte-persist" ${documentSettings.svelte?.persist_output ? 'checked' : ''} />
                             <span>Persist rendered output</span>
                         </label>
                     </div>
@@ -1321,6 +1342,12 @@ function getWebviewContent(renderedHtml: string, existingOutputs: { [blockId: nu
     
     ${renderedHtml}
     <script>
+        // Acquire VS Code API for messaging
+        const vscode = acquireVsCodeApi();
+        
+        // Document settings from frontmatter
+        const documentSettings = ${documentSettingsJson};
+        
         // Modal functions for HTML preview
         function openHtmlModal(htmlContent) {
             var modal = document.getElementById('html-modal');
@@ -1370,6 +1397,24 @@ function getWebviewContent(renderedHtml: string, existingOutputs: { [blockId: nu
                 header.classList.remove('expanded');
             }
         }
+        
+        // Settings change handler with debounce
+        var settingDebounceTimer = null;
+        function updateSetting(settingPath, value) {
+            clearTimeout(settingDebounceTimer);
+            settingDebounceTimer = setTimeout(function() {
+                vscode.postMessage({
+                    type: 'updateSetting',
+                    setting: settingPath,
+                    value: value
+                });
+            }, 300);
+        }
+        
+        // Initialize settings checkbox handlers
+        document.getElementById('svelte-persist').addEventListener('change', function(e) {
+            updateSetting('svelte.persist_output', e.target.checked);
+        });
         
         // Close modal when clicking overlay background
         document.getElementById('html-modal').addEventListener('click', function(e) {
@@ -1649,7 +1694,7 @@ function getWebviewContent(renderedHtml: string, existingOutputs: { [blockId: nu
             var codeBlockId = 0; // Count Python and Rust blocks to match parser
             var codeBlocks = {}; // Store code content for each block
             var blockLanguages = {}; // Store language for each block
-            var vscode = acquireVsCodeApi();
+            // Note: vscode is already acquired at the top of this script
 
             // Handle checkbox clicks to toggle task list items
             document.addEventListener('change', function(event) {
