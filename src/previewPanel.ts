@@ -831,8 +831,8 @@ function getWebviewContent(renderedHtml: string, existingOutputs: { [blockId: nu
 
         hr {
             border: none;
-            height: 1px;
-            background: linear-gradient(90deg, transparent, var(--border-color), transparent);
+            height: 1.5px;
+            background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.15), transparent);
             margin: 3rem 0;
         }
 
