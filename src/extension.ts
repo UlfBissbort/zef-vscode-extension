@@ -12,6 +12,7 @@ import { compileSvelteComponent, SvelteCompileResult } from './svelteExecutor';
 import { isZefDocument, isZefUri } from './zefUtils';
 import { ZefSettingsViewProvider } from './settingsViewProvider';
 import { initJsonValidator, disposeJsonValidator } from './jsonValidator';
+import { shouldPersistSvelteOutput } from './frontmatterParser';
 
 let statusBarItem: vscode.StatusBarItem;
 
@@ -833,6 +834,11 @@ async function writeSvelteResultToFile(blockId: number, result: SvelteCompileRes
     }
     
     if (!isZefDocument(document)) {
+        return;
+    }
+    
+    // Check frontmatter settings - if persist_output is false, don't save rendered HTML
+    if (!shouldPersistSvelteOutput(document.getText())) {
         return;
     }
     

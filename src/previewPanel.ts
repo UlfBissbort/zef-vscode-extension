@@ -3,6 +3,7 @@ import * as path from 'path';
 import { marked } from 'marked';
 import { CellResult } from './kernelManager';
 import { isZefDocument } from './zefUtils';
+import { stripFrontmatter } from './frontmatterParser';
 
 // Map of document URI string to its panel
 const panels: Map<string, vscode.WebviewPanel> = new Map();
@@ -191,7 +192,8 @@ export function updatePreview(document: vscode.TextDocument) {
     }
     
     // Remove Result, Side Effects, and rendered-html blocks for rendering
-    const cleanText = text
+    // Also strip frontmatter block if present
+    const cleanText = stripFrontmatter(text)
         .replace(/\n````(?:Result|Output)\s*\n[\s\S]*?````/g, '')
         .replace(/\n````Side Effects\s*\n[\s\S]*?````/g, '')
         .replace(/\n````rendered-html\s*\n[\s\S]*?````/g, '');

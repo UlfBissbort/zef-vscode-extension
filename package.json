@@ -205,6 +205,7 @@
     "lint": "eslint src --ext ts"
   },
   "dependencies": {
+    "@iarna/toml": "^2.2.5",
     "acorn": "^8.15.0",
     "highlight.js": "^11.11.1",
     "marked": "^11.0.0",
