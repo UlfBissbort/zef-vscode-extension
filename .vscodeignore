@@ -1,0 +1,29 @@
+# Source files (compiled to out/)
+src/
+tsconfig.json
+
+# Development files
+node_modules/
+notes/
+docs/
+.vscode/
+
+# Build artifacts and scripts
+build.py
+bun.lock
+package-lock.json
+*.vsix
+
+# Test/example files
+*.zef.md
+
+# OS files
+.DS_Store
+
+# Git
+.git/
+.gitignore
+
+# Linting/spelling
+.markdownlintrc
+cspell.json

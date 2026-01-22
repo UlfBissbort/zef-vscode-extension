@@ -2,8 +2,12 @@
   "name": "zef",
   "displayName": "Zef",
   "description": "Run Python code blocks from .zef.md files",
-  "version": "0.0.3",
+  "version": "0.1.0",
   "publisher": "zef",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/UlfBissbort/zef-vscode-extension.git"
+  },
   "engines": {
     "vscode": "^1.85.0"
   },

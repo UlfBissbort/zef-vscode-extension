@@ -48,7 +48,7 @@ fn main() {
 
 ```bash
 # Clone the repo
-git clone https://github.com/yourorg/zef-vscode-extension.git
+git clone https://github.com/UlfBissbort/zef-vscode-extension.git
 cd zef-vscode-extension
 
 # Build and install (recommended)
