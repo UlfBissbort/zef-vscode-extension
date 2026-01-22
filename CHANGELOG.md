@@ -5,6 +5,18 @@ All notable changes to the Zef extension will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.1.4] - 2026-01-22
+
+### Added
+
+- **Activity Bar Sidebar**: New Zef icon in the VS Code Activity Bar (left sidebar) with tabbed interface:
+  - **Status tab**: WebSocket connection status to Zef Cloud with toggle switch
+  - **Settings tab**: Runtime configuration (Python, Rust, Bun) and options
+
+- **Zef Cloud Connection**: Connect to Zef Cloud via WebSocket (`wss://zef.app/ws-events`). Toggle on to enable persistent connection that auto-reconnects on VS Code restart.
+
+- **New Setting**: `zef.wsConnectionEnabled` - Enable/disable WebSocket connection to Zef Cloud
+
 ## [0.1.3] - 2026-01-22
 
 ### Added

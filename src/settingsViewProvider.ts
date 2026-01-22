@@ -416,7 +416,7 @@ export class ZefSettingsViewProvider implements vscode.WebviewViewProvider {
                     <span class="connection-title">Zef Cloud</span>
                     <div class="toggle-switch ${wsEnabled ? 'on' : ''}" onclick="send('toggleWsConnection')"></div>
                 </div>
-                <div class="connection-url">wss://zef.app/ws-test2</div>
+                <div class="connection-url">wss://zef.app/ws-events</div>
                 <div class="connection-status">
                     <span class="status-dot ${statusClass}"></span>
                     <span>${statusText}</span>

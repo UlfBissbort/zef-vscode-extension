@@ -1,6 +1,6 @@
 import * as vscode from 'vscode';
 
-const WS_URL = 'wss://zef.app/ws-test2';
+const WS_URL = 'wss://zef.app/ws-events';
 
 /**
  * WebSocket connection manager for Zef Cloud
@@ -51,9 +51,10 @@ export class ZefWebSocketService {
                 this._connectionError = null;
                 this._notifyStatusChange();
                 
-                // Send initial handshake message
+                // Send initial hello message
                 this.sendMessage({
-                    type: 'handshake',
+                    type: 'hello',
+                    message: 'Hello from VSCode extension',
                     client: 'zef-vscode-extension',
                     version: vscode.extensions.getExtension('UlfBissbort.zef')?.packageJSON.version || 'unknown',
                     timestamp: new Date().toISOString()
@@ -86,10 +87,20 @@ export class ZefWebSocketService {
             });
 
             (this._ws as any).on('error', (error: Error) => {
-                console.error('Zef WebSocket: Error', error.message);
-                this._connectionError = error.message;
+                const errorMsg = error.message || 'Unknown error';
+                console.error('Zef WebSocket: Error', errorMsg);
+                console.error('Zef WebSocket: Full error:', error);
+                this._connectionError = `${errorMsg} (URL: ${WS_URL})`;
                 this._connected = false;
                 this._notifyStatusChange();
+                
+                // Show error in output channel for debugging
+                const channel = vscode.window.createOutputChannel('Zef WebSocket');
+                channel.appendLine(`[${new Date().toISOString()}] WebSocket Error:`);
+                channel.appendLine(`  URL: ${WS_URL}`);
+                channel.appendLine(`  Error: ${errorMsg}`);
+                channel.appendLine(`  Full error: ${JSON.stringify(error, Object.getOwnPropertyNames(error), 2)}`);
+                channel.show(true);
             });
 
         } catch (error: any) {
