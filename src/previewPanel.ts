@@ -1321,13 +1321,27 @@ function getWebviewContent(renderedHtml: string, existingOutputs: { [blockId: nu
                     <!-- Python Subsection -->
                     <div class="subsection">
                         <span class="subsection-label">Python</span>
-                        <span style="font-size: 12px; color: rgba(255,255,255,0.3); font-style: italic;">No settings yet</span>
+                        <label class="checkbox-row">
+                            <input type="checkbox" id="python-persist-output" ${documentSettings.python?.persist_output ? 'checked' : ''} />
+                            <span>Persist Output</span>
+                        </label>
+                        <label class="checkbox-row">
+                            <input type="checkbox" id="python-persist-side-effects" ${documentSettings.python?.persist_side_effects ? 'checked' : ''} />
+                            <span>Persist logged Side Effects</span>
+                        </label>
                     </div>
                     
                     <!-- Rust Subsection -->
                     <div class="subsection">
                         <span class="subsection-label">Rust</span>
-                        <span style="font-size: 12px; color: rgba(255,255,255,0.3); font-style: italic;">No settings yet</span>
+                        <label class="checkbox-row">
+                            <input type="checkbox" id="rust-persist-output" ${documentSettings.rust?.persist_output ? 'checked' : ''} />
+                            <span>Persist Output</span>
+                        </label>
+                        <label class="checkbox-row">
+                            <input type="checkbox" id="rust-persist-side-effects" ${documentSettings.rust?.persist_side_effects ? 'checked' : ''} />
+                            <span>Persist logged Side Effects</span>
+                        </label>
                     </div>
                     
                     <!-- TypeScript Subsection -->
@@ -1414,6 +1428,22 @@ function getWebviewContent(renderedHtml: string, existingOutputs: { [blockId: nu
         // Initialize settings checkbox handlers
         document.getElementById('svelte-persist').addEventListener('change', function(e) {
             updateSetting('svelte.persist_output', e.target.checked);
+        });
+        
+        document.getElementById('python-persist-output').addEventListener('change', function(e) {
+            updateSetting('python.persist_output', e.target.checked);
+        });
+        
+        document.getElementById('python-persist-side-effects').addEventListener('change', function(e) {
+            updateSetting('python.persist_side_effects', e.target.checked);
+        });
+        
+        document.getElementById('rust-persist-output').addEventListener('change', function(e) {
+            updateSetting('rust.persist_output', e.target.checked);
+        });
+        
+        document.getElementById('rust-persist-side-effects').addEventListener('change', function(e) {
+            updateSetting('rust.persist_side_effects', e.target.checked);
         });
         
         // Close modal when clicking overlay background

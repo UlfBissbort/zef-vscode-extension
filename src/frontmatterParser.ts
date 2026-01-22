@@ -11,23 +11,37 @@ import * as TOML from '@iarna/toml';
  * Svelte-specific settings
  */
 export interface SvelteSettings {
-    /** Whether to save rendered HTML output in the document. Default: true */
+    /** Whether to save rendered HTML output in the document. Default: false */
     persist_output?: boolean;
 }
 
 /**
- * Python-specific settings (future)
+ * Python-specific settings
  */
 export interface PythonSettings {
     /** Custom venv path for this document */
     venv?: string;
+    /** Whether to persist code output. Default: false */
+    persist_output?: boolean;
+    /** Whether to persist side effects (logging). Default: false */
+    persist_side_effects?: boolean;
+}
+
+/**
+ * Rust-specific settings
+ */
+export interface RustSettings {
+    /** Whether to persist code output. Default: false */
+    persist_output?: boolean;
+    /** Whether to persist side effects (logging). Default: false */
+    persist_side_effects?: boolean;
 }
 
 /**
  * HTML-specific settings (future)
  */
 export interface HtmlSettings {
-    /** Whether to save rendered HTML output. Default: true */
+    /** Whether to save rendered HTML output. Default: false */
     persist_output?: boolean;
 }
 
@@ -37,6 +51,7 @@ export interface HtmlSettings {
 export interface ZefSettings {
     svelte?: SvelteSettings;
     python?: PythonSettings;
+    rust?: RustSettings;
     html?: HtmlSettings;
 }
 
@@ -46,6 +61,14 @@ export interface ZefSettings {
 export const DEFAULT_SETTINGS: ZefSettings = {
     svelte: {
         persist_output: false
+    },
+    python: {
+        persist_output: false,
+        persist_side_effects: false
+    },
+    rust: {
+        persist_output: false,
+        persist_side_effects: false
     }
 };
 
@@ -116,7 +139,14 @@ export function getDocumentSettings(text: string): ZefSettings {
             ...DEFAULT_SETTINGS.svelte,
             ...parsed.svelte
         },
-        python: parsed.python,
+        python: {
+            ...DEFAULT_SETTINGS.python,
+            ...parsed.python
+        },
+        rust: {
+            ...DEFAULT_SETTINGS.rust,
+            ...parsed.rust
+        },
         html: parsed.html
     };
 }
@@ -156,7 +186,11 @@ export function stripFrontmatter(text: string): string {
  * Defaults for all settings. Used to determine what to include in frontmatter.
  */
 const SETTING_DEFAULTS: Record<string, unknown> = {
-    'svelte.persist_output': false
+    'svelte.persist_output': false,
+    'python.persist_output': false,
+    'python.persist_side_effects': false,
+    'rust.persist_output': false,
+    'rust.persist_side_effects': false
 };
 
 /**
