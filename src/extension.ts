@@ -2,7 +2,7 @@ import * as vscode from 'vscode';
 import * as fs from 'fs';
 import * as path from 'path';
 import { CodeBlockProvider, findCodeBlockAtPosition, findCodeBlocks, findCodeBlockById } from './codeBlockParser';
-import { createPreviewPanel, updatePreview, getPanel, scrollPreviewToLine, sendCellResult, setOnRunCode, getCurrentDocumentUri, sendSvelteResult } from './previewPanel';
+import { createPreviewPanel, updatePreview, getPanel, scrollPreviewToLine, sendCellResult, setOnRunCode, sendSvelteResult } from './previewPanel';
 import { getKernelManager, disposeKernelManager, CellResult } from './kernelManager';
 import { getPythonPath, showPythonPicker, showSettingsPanel, setDefaultPython } from './configManager';
 import { executeRust, RustCellResult, isRustAvailable } from './rustExecutor';
@@ -139,7 +139,8 @@ function updateStatusBar() {
 }
 
 export function activate(context: vscode.ExtensionContext) {
-    console.log('Zef extension activated');
+    console.log('Zef extension: START activation');
+    try {
 
     // Create status bar item
     statusBarItem = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Right, 100);
@@ -235,6 +236,8 @@ export function activate(context: vscode.ExtensionContext) {
         })
     );
 
+    console.log('Zef extension: Registering commands...');
+
     // Register command to run a specific code block
     context.subscriptions.push(
         vscode.commands.registerCommand('zef.runBlock', async (code: string, blockId?: number, language?: string) => {
@@ -299,17 +302,18 @@ export function activate(context: vscode.ExtensionContext) {
             }
             
             // Set up callback to run code from preview panel
-            setOnRunCode((code: string, blockId: number, language: string) => {
+            // The callback now receives documentUri to correctly target the right panel/file
+            setOnRunCode((code: string, blockId: number, language: string, documentUri: vscode.Uri) => {
                 if (language === 'rust' || language === 'rs') {
-                    runRustCode(context, code, blockId);
+                    runRustCode(context, code, blockId, documentUri);
                 } else if (language === 'javascript' || language === 'js') {
-                    runJsCode(context, code, blockId);
+                    runJsCode(context, code, blockId, documentUri);
                 } else if (language === 'typescript' || language === 'ts') {
-                    runTsCode(context, code, blockId);
+                    runTsCode(context, code, blockId, documentUri);
                 } else if (language === 'svelte') {
-                    compileSvelteBlock(context, code, blockId);
+                    compileSvelteBlock(context, code, blockId, documentUri);
                 } else {
-                    runCodeInKernel(context, code, blockId);
+                    runCodeInKernel(context, code, blockId, documentUri);
                 }
             });
             
@@ -357,9 +361,15 @@ export function activate(context: vscode.ExtensionContext) {
             kernel.showOutput();
         })
     );
+
+    console.log('Zef extension: All commands registered successfully');
+    } catch (error) {
+        console.error('Zef extension: ACTIVATION FAILED:', error);
+        vscode.window.showErrorMessage(`Zef extension failed to activate: ${error}`);
+    }
 }
 
-async function runCodeInKernel(context: vscode.ExtensionContext, code: string, blockId?: number): Promise<void> {
+async function runCodeInKernel(context: vscode.ExtensionContext, code: string, blockId?: number, documentUri?: vscode.Uri): Promise<void> {
     const pythonPath = getPythonPath();
     
     if (!pythonPath) {
@@ -386,14 +396,14 @@ async function runCodeInKernel(context: vscode.ExtensionContext, code: string, b
         
         const result = await kernel.execute(code, cellId, finalPythonPath);
         
-        // Send result to preview panel
-        if (getPanel() && blockId !== undefined) {
-            sendCellResult(blockId, result);
+        // Send result to preview panel for the specific document
+        if (blockId !== undefined) {
+            sendCellResult(blockId, result, documentUri);
         }
         
         // Write result to the file as an Output block
         if (blockId !== undefined) {
-            await writeOutputToFile(blockId, result);
+            await writeOutputToFile(blockId, result, documentUri);
         }
         
         if (result.status === 'error' && result.error) {
@@ -412,7 +422,7 @@ async function runCodeInKernel(context: vscode.ExtensionContext, code: string, b
 /**
  * Run Rust code and write results to the file
  */
-async function runRustCode(context: vscode.ExtensionContext, code: string, blockId?: number): Promise<void> {
+async function runRustCode(context: vscode.ExtensionContext, code: string, blockId?: number, documentUri?: vscode.Uri): Promise<void> {
     // Check if Rust is available
     const rustAvailable = await isRustAvailable();
     if (!rustAvailable) {
@@ -439,14 +449,14 @@ async function runRustCode(context: vscode.ExtensionContext, code: string, block
             error: result.error
         };
         
-        // Send result to preview panel
-        if (getPanel() && blockId !== undefined) {
-            sendCellResult(blockId, cellResult);
+        // Send result to preview panel for the specific document
+        if (blockId !== undefined) {
+            sendCellResult(blockId, cellResult, documentUri);
         }
         
         // Write result to the file as an Output block
         if (blockId !== undefined) {
-            await writeOutputToFile(blockId, cellResult);
+            await writeOutputToFile(blockId, cellResult, documentUri);
         }
         
         if (result.status === 'error' && result.error) {
@@ -462,7 +472,7 @@ async function runRustCode(context: vscode.ExtensionContext, code: string, block
     }
 }
 
-async function runJsCode(context: vscode.ExtensionContext, code: string, blockId?: number): Promise<void> {
+async function runJsCode(context: vscode.ExtensionContext, code: string, blockId?: number, documentUri?: vscode.Uri): Promise<void> {
     // Check if Bun is available
     const bunAvailable = await isBunAvailable();
     if (!bunAvailable) {
@@ -489,14 +499,14 @@ async function runJsCode(context: vscode.ExtensionContext, code: string, blockId
             error: result.error
         };
         
-        // Send result to preview panel
-        if (getPanel() && blockId !== undefined) {
-            sendCellResult(blockId, cellResult);
+        // Send result to preview panel for the specific document
+        if (blockId !== undefined) {
+            sendCellResult(blockId, cellResult, documentUri);
         }
         
         // Write result to the file as an Output block
         if (blockId !== undefined) {
-            await writeOutputToFile(blockId, cellResult);
+            await writeOutputToFile(blockId, cellResult, documentUri);
         }
         
         if (result.status === 'error' && result.error) {
@@ -512,7 +522,7 @@ async function runJsCode(context: vscode.ExtensionContext, code: string, blockId
     }
 }
 
-async function runTsCode(context: vscode.ExtensionContext, code: string, blockId?: number): Promise<void> {
+async function runTsCode(context: vscode.ExtensionContext, code: string, blockId?: number, documentUri?: vscode.Uri): Promise<void> {
     // Check if Bun is available (TS uses bun too)
     const bunAvailable = await isTsBunAvailable();
     if (!bunAvailable) {
@@ -539,14 +549,14 @@ async function runTsCode(context: vscode.ExtensionContext, code: string, blockId
             error: result.error
         };
         
-        // Send result to preview panel
-        if (getPanel() && blockId !== undefined) {
-            sendCellResult(blockId, cellResult);
+        // Send result to preview panel for the specific document
+        if (blockId !== undefined) {
+            sendCellResult(blockId, cellResult, documentUri);
         }
         
         // Write result to the file as an Output block
         if (blockId !== undefined) {
-            await writeOutputToFile(blockId, cellResult);
+            await writeOutputToFile(blockId, cellResult, documentUri);
         }
         
         if (result.status === 'error' && result.error) {
@@ -565,21 +575,21 @@ async function runTsCode(context: vscode.ExtensionContext, code: string, blockId
 /**
  * Compile a Svelte component and write the rendered HTML to the file
  */
-async function compileSvelteBlock(context: vscode.ExtensionContext, code: string, blockId?: number): Promise<void> {
+async function compileSvelteBlock(context: vscode.ExtensionContext, code: string, blockId?: number, documentUri?: vscode.Uri): Promise<void> {
     try {
         // Show compiling indicator
         vscode.window.setStatusBarMessage('$(sync~spin) Compiling Svelte...', 5000);
         
         const result = await compileSvelteComponent(code, context.extensionPath);
         
-        // Send result to preview panel
-        if (getPanel() && blockId !== undefined) {
-            sendSvelteResult(blockId, result);
+        // Send result to preview panel for the specific document
+        if (blockId !== undefined) {
+            sendSvelteResult(blockId, result, documentUri);
         }
         
         // Write result to the file as a rendered-html block
         if (blockId !== undefined) {
-            await writeSvelteResultToFile(blockId, result);
+            await writeSvelteResultToFile(blockId, result, documentUri);
         }
         
         if (result.success) {
@@ -596,19 +606,20 @@ async function compileSvelteBlock(context: vscode.ExtensionContext, code: string
 /**
  * Write the Svelte compilation result to the file as a rendered-html block
  */
-async function writeSvelteResultToFile(blockId: number, result: SvelteCompileResult): Promise<void> {
-    // Get document from preview panel or active editor
+async function writeSvelteResultToFile(blockId: number, result: SvelteCompileResult, documentUri?: vscode.Uri): Promise<void> {
+    // Get document from the provided URI, or fall back to active editor
     let document: vscode.TextDocument | undefined;
     let editor: vscode.TextEditor | undefined;
     
-    const previewDocUri = getCurrentDocumentUri();
-    if (previewDocUri) {
-        editor = vscode.window.visibleTextEditors.find(e => e.document.uri.toString() === previewDocUri.toString());
+    // Use the provided documentUri if available (passed from the panel that initiated the compile)
+    const targetDocUri = documentUri;
+    if (targetDocUri) {
+        editor = vscode.window.visibleTextEditors.find(e => e.document.uri.toString() === targetDocUri.toString());
         if (editor) {
             document = editor.document;
         } else {
             try {
-                document = await vscode.workspace.openTextDocument(previewDocUri);
+                document = await vscode.workspace.openTextDocument(targetDocUri);
                 editor = await vscode.window.showTextDocument(document, vscode.ViewColumn.One, true);
             } catch (e) {
                 // Silently fail, will try fallback
@@ -656,21 +667,21 @@ async function writeSvelteResultToFile(blockId: number, result: SvelteCompileRes
 /**
  * Write the execution result to the file as an Output block after the code block
  */
-async function writeOutputToFile(blockId: number, result: CellResult): Promise<void> {
-    // Try to get the document from the preview panel's tracked URI first
+async function writeOutputToFile(blockId: number, result: CellResult, documentUri?: vscode.Uri): Promise<void> {
+    // Use the provided documentUri if available (passed from the panel that initiated the run)
     let document: vscode.TextDocument | undefined;
     let editor: vscode.TextEditor | undefined;
     
-    const previewDocUri = getCurrentDocumentUri();
-    if (previewDocUri) {
+    const targetDocUri = documentUri;
+    if (targetDocUri) {
         // Find editor for this document, or open it
-        editor = vscode.window.visibleTextEditors.find(e => e.document.uri.toString() === previewDocUri.toString());
+        editor = vscode.window.visibleTextEditors.find(e => e.document.uri.toString() === targetDocUri.toString());
         if (editor) {
             document = editor.document;
         } else {
             // Document might be open but not visible, try to get it
             try {
-                document = await vscode.workspace.openTextDocument(previewDocUri);
+                document = await vscode.workspace.openTextDocument(targetDocUri);
                 // We need an editor to make edits, so show the document
                 editor = await vscode.window.showTextDocument(document, vscode.ViewColumn.One, true);
             } catch (e) {

@@ -108,6 +108,11 @@ code --install-extension zef-*.vsix --force
 
 After installing, reload VS Code: **Cmd+Shift+P** → **Reload Window**
 
+## Documentation
+
+- **[Internal Architecture](notes/INTERNAL_ARCHITECTURE.md)** — How the extension works under the hood
+- **[Architecture Overview](notes/ARCHITECTURE.md)** — High-level design and file structure
+
 ## Requirements
 
 - VS Code 1.85.0 or higher

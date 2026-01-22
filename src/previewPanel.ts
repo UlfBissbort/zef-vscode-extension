@@ -5,10 +5,10 @@ import { CellResult } from './kernelManager';
 
 // Map of document URI string to its panel
 const panels: Map<string, vscode.WebviewPanel> = new Map();
-let onRunCodeCallback: ((code: string, blockId: number, language: string) => void) | undefined;
+let onRunCodeCallback: ((code: string, blockId: number, language: string, documentUri: vscode.Uri) => void) | undefined;
 let extensionPath: string | undefined;
 
-export function setOnRunCode(callback: (code: string, blockId: number, language: string) => void) {
+export function setOnRunCode(callback: (code: string, blockId: number, language: string, documentUri: vscode.Uri) => void) {
     onRunCodeCallback = callback;
 }
 
@@ -124,7 +124,8 @@ export function createPreviewPanel(context: vscode.ExtensionContext): vscode.Web
     // Handle messages from the webview
     panel.webview.onDidReceiveMessage(async message => {
         if (message.type === 'runCode' && onRunCodeCallback) {
-            onRunCodeCallback(message.code, message.blockId, message.language || 'python');
+            // Pass the document URI so the callback knows which document initiated the run
+            onRunCodeCallback(message.code, message.blockId, message.language || 'python', docUri);
         } else if (message.type === 'scrollToSource') {
             // Navigate editor to this line
             const editor = vscode.window.activeTextEditor;
