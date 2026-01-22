@@ -1,4 +1,5 @@
 import * as vscode from 'vscode';
+import { isZefDocument } from './zefUtils';
 
 export interface CodeBlock {
     range: vscode.Range;
@@ -139,6 +140,11 @@ export class CodeBlockProvider implements vscode.CodeLensProvider {
         document: vscode.TextDocument,
         _token: vscode.CancellationToken
     ): vscode.CodeLens[] {
+        // Only provide CodeLenses for Zef documents
+        if (!isZefDocument(document)) {
+            return [];
+        }
+        
         const codeLenses: vscode.CodeLens[] = [];
         const blocks = findCodeBlocks(document);
 

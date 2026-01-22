@@ -151,6 +151,7 @@ export async function showSettingsPanel(): Promise<void> {
     const config = vscode.workspace.getConfiguration('zef');
     const rustcPath = config.get<string>('rustcPath');
     const bunPath = config.get<string>('bunPath');
+    const treatAllMarkdownAsZef = config.get<boolean>('treatAllMarkdownAsZef', false);
     
     interface SettingsQuickPickItem extends vscode.QuickPickItem {
         action: string;
@@ -174,6 +175,12 @@ export async function showSettingsPanel(): Promise<void> {
             description: bunAvailable ? (bunPath || 'Auto-detected') : 'Not found',
             detail: bunAvailable ? 'Bun is available for JavaScript/TypeScript' : 'Configure path or install from bun.sh',
             action: 'configureBun',
+        },
+        {
+            label: `${treatAllMarkdownAsZef ? '$(check)' : '$(circle-outline)'} Treat All .md Files as Zef`,
+            description: treatAllMarkdownAsZef ? 'Enabled' : 'Disabled',
+            detail: 'Enable Zef features (run buttons, preview) for regular .md files',
+            action: 'toggleTreatAllMd',
         },
         {
             label: '$(folder) Set Notebook Virtual Environment',
@@ -267,6 +274,16 @@ export async function showSettingsPanel(): Promise<void> {
             } else if (action?.action === 'install') {
                 vscode.env.openExternal(vscode.Uri.parse('https://bun.sh/'));
             }
+            break;
+        }
+        case 'toggleTreatAllMd': {
+            const newValue = !treatAllMarkdownAsZef;
+            await config.update('treatAllMarkdownAsZef', newValue, vscode.ConfigurationTarget.Global);
+            vscode.window.showInformationMessage(
+                newValue 
+                    ? 'Zef features now enabled for all .md files' 
+                    : 'Zef features now only available for .zef.md files'
+            );
             break;
         }
         case 'restartKernel':

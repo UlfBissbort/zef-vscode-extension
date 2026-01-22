@@ -2,6 +2,7 @@ import * as vscode from 'vscode';
 import * as path from 'path';
 import { marked } from 'marked';
 import { CellResult } from './kernelManager';
+import { isZefDocument } from './zefUtils';
 
 // Map of document URI string to its panel
 const panels: Map<string, vscode.WebviewPanel> = new Map();
@@ -62,8 +63,14 @@ function getPanelForDocument(uri: vscode.Uri): vscode.WebviewPanel | undefined {
 export function createPreviewPanel(context: vscode.ExtensionContext): vscode.WebviewPanel | undefined {
     const editor = vscode.window.activeTextEditor;
     
-    if (!editor || !editor.document.fileName.endsWith('.zef.md')) {
-        vscode.window.showWarningMessage('Zef: Open a .zef.md file first');
+    if (!editor || !isZefDocument(editor.document)) {
+        const config = vscode.workspace.getConfiguration('zef');
+        const treatAllMd = config.get<boolean>('treatAllMarkdownAsZef', false);
+        if (!treatAllMd && editor?.document.fileName.endsWith('.md')) {
+            vscode.window.showWarningMessage('Zef: Enable "Treat All Markdown as Zef" in settings to preview .md files');
+        } else {
+            vscode.window.showWarningMessage('Zef: Open a .zef.md file first');
+        }
         return undefined;
     }
     

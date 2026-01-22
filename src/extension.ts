@@ -9,6 +9,7 @@ import { executeRust, RustCellResult, isRustAvailable } from './rustExecutor';
 import { executeJs, JsCellResult, isBunAvailable } from './jsExecutor';
 import { executeTs, TsCellResult, isBunAvailable as isTsBunAvailable } from './tsExecutor';
 import { compileSvelteComponent, SvelteCompileResult } from './svelteExecutor';
+import { isZefDocument, isZefUri } from './zefUtils';
 
 let statusBarItem: vscode.StatusBarItem;
 
@@ -62,13 +63,13 @@ class ZefImagePasteProvider implements vscode.DocumentPasteEditProvider {
     }
 }
 
-// File decoration provider for .zef.md files
+// File decoration provider for Zef markdown files
 class ZefFileDecorationProvider implements vscode.FileDecorationProvider {
     private _onDidChangeFileDecorations = new vscode.EventEmitter<vscode.Uri | vscode.Uri[] | undefined>();
     readonly onDidChangeFileDecorations = this._onDidChangeFileDecorations.event;
 
     provideFileDecoration(uri: vscode.Uri): vscode.FileDecoration | undefined {
-        if (!uri.fsPath.endsWith('.zef.md')) {
+        if (!isZefUri(uri)) {
             return undefined;
         }
 
@@ -111,7 +112,7 @@ const codeBlockDecorationType = vscode.window.createTextEditorDecorationType({
 });
 
 function updateDecorations(editor: vscode.TextEditor) {
-    if (!editor.document.fileName.endsWith('.zef.md')) {
+    if (!isZefDocument(editor.document)) {
         return;
     }
 
@@ -157,7 +158,7 @@ export function activate(context: vscode.ExtensionContext) {
     // Listen for diagnostic changes to update decorations
     context.subscriptions.push(
         vscode.languages.onDidChangeDiagnostics(event => {
-            const zefUris = event.uris.filter(uri => uri.fsPath.endsWith('.zef.md'));
+            const zefUris = event.uris.filter(uri => isZefUri(uri));
             if (zefUris.length > 0) {
                 zefFileDecorationProvider.refresh(zefUris);
             }
@@ -177,11 +178,11 @@ export function activate(context: vscode.ExtensionContext) {
         )
     );
 
-    // Register CodeLens provider for .zef.md files
+    // Register CodeLens provider for .zef.md files (and .md files when setting enabled)
     const codeLensProvider = new CodeBlockProvider();
     context.subscriptions.push(
         vscode.languages.registerCodeLensProvider(
-            { pattern: '**/*.zef.md' },
+            { pattern: '**/*.md' },
             codeLensProvider
         )
     );
@@ -207,7 +208,7 @@ export function activate(context: vscode.ExtensionContext) {
             if (editor && event.document === editor.document) {
                 updateDecorations(editor);
                 // Also update preview panel if open
-                if (getPanel() && editor.document.fileName.endsWith('.zef.md')) {
+                if (getPanel() && isZefDocument(editor.document)) {
                     updatePreview(editor.document);
                 }
             }
@@ -217,7 +218,7 @@ export function activate(context: vscode.ExtensionContext) {
     // Sync scroll from editor to preview
     context.subscriptions.push(
         vscode.window.onDidChangeTextEditorVisibleRanges(event => {
-            if (getPanel() && event.textEditor.document.fileName.endsWith('.zef.md')) {
+            if (getPanel() && isZefDocument(event.textEditor.document)) {
                 const visibleRange = event.visibleRanges[0];
                 if (visibleRange) {
                     // Scroll preview to the first visible line
@@ -267,9 +268,15 @@ export function activate(context: vscode.ExtensionContext) {
                 return;
             }
 
-            // Only work in .zef.md files
-            if (!editor.document.fileName.endsWith('.zef.md')) {
-                vscode.window.showWarningMessage('Zef: Only works in .zef.md files');
+            // Only work in Zef markdown files (or regular .md when setting enabled)
+            if (!isZefDocument(editor.document)) {
+                const config = vscode.workspace.getConfiguration('zef');
+                const treatAllMd = config.get<boolean>('treatAllMarkdownAsZef', false);
+                if (!treatAllMd && editor.document.fileName.endsWith('.md')) {
+                    vscode.window.showWarningMessage('Zef: Enable "Treat All Markdown as Zef" in settings to use this feature with .md files');
+                } else {
+                    vscode.window.showWarningMessage('Zef: Only works in .zef.md files');
+                }
                 return;
             }
 
@@ -296,8 +303,14 @@ export function activate(context: vscode.ExtensionContext) {
     context.subscriptions.push(
         vscode.commands.registerCommand('zef.openPreview', () => {
             const editor = vscode.window.activeTextEditor;
-            if (!editor || !editor.document.fileName.endsWith('.zef.md')) {
-                vscode.window.showWarningMessage('Zef: Open a .zef.md file first');
+            if (!editor || !isZefDocument(editor.document)) {
+                const config = vscode.workspace.getConfiguration('zef');
+                const treatAllMd = config.get<boolean>('treatAllMarkdownAsZef', false);
+                if (!treatAllMd && editor?.document.fileName.endsWith('.md')) {
+                    vscode.window.showWarningMessage('Zef: Enable "Treat All Markdown as Zef" in settings to preview .md files');
+                } else {
+                    vscode.window.showWarningMessage('Zef: Open a .zef.md file first');
+                }
                 return;
             }
             
@@ -787,7 +800,7 @@ async function writeSvelteResultToFile(blockId: number, result: SvelteCompileRes
         document = editor.document;
     }
     
-    if (!document.fileName.endsWith('.zef.md')) {
+    if (!isZefDocument(document)) {
         return;
     }
     
@@ -851,7 +864,7 @@ async function writeOutputToFile(blockId: number, result: CellResult, documentUr
         document = editor.document;
     }
     
-    if (!document.fileName.endsWith('.zef.md')) {
+    if (!isZefDocument(document)) {
         return;
     }
     

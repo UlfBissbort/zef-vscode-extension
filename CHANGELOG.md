@@ -5,6 +5,16 @@ All notable changes to the Zef extension will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.1.3] - 2026-01-22
+
+### Added
+
+- **Treat All Markdown as Zef**: New setting `zef.treatAllMarkdownAsZef` allows power users to enable Zef features (run buttons, live preview, code execution) for all `.md` files, not just `.zef.md` files. Toggle from Settings Panel or VS Code settings.
+
+### Fixed
+
+- **Linux/Windows Keyboard Shortcuts**: Fixed preview keybinding (`Ctrl+Shift+V`) not working on Linux and Windows. Now uses proper `key` + `mac` pattern matching VS Code's markdown preview.
+
 ## [0.1.2] - 2026-01-22
 
 ### Added
