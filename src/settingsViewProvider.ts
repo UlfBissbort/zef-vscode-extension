@@ -450,6 +450,18 @@ export class ZefSettingsViewProvider implements vscode.WebviewViewProvider {
         function send(command, data) {
             vscode.postMessage({ command: command, tab: data });
         }
+        
+        // Debounced slider handler
+        let sliderTimeout = null;
+        function onSliderInput(value) {
+            document.getElementById('widthValue').textContent = value + '%';
+            if (sliderTimeout) {
+                clearTimeout(sliderTimeout);
+            }
+            sliderTimeout = setTimeout(() => {
+                send('setViewWidth', value);
+            }, 500);
+        }
     </script>
 </body>
 </html>`;
@@ -538,8 +550,7 @@ export class ZefSettingsViewProvider implements vscode.WebviewViewProvider {
                         <span class="slider-value" id="widthValue">${viewWidthPercent}%</span>
                     </div>
                     <input type="range" id="viewWidth" min="70" max="150" step="5" value="${viewWidthPercent}" 
-                        oninput="document.getElementById('widthValue').textContent = this.value + '%'"
-                        onchange="send('setViewWidth', this.value)">
+                        oninput="onSliderInput(this.value)">
                 </div>
             </div>
             

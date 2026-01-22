@@ -2,7 +2,7 @@ import * as vscode from 'vscode';
 import * as fs from 'fs';
 import * as path from 'path';
 import { CodeBlockProvider, findCodeBlockAtPosition, findCodeBlocks, findCodeBlockById, findDisplayCodeBlocks } from './codeBlockParser';
-import { createPreviewPanel, updatePreview, getPanel, scrollPreviewToLine, sendCellResult, setOnRunCode, sendSvelteResult } from './previewPanel';
+import { createPreviewPanel, updatePreview, getPanel, scrollPreviewToLine, sendCellResult, setOnRunCode, sendSvelteResult, refreshAllPanels } from './previewPanel';
 import { getKernelManager, disposeKernelManager, CellResult } from './kernelManager';
 import { getPythonPath, showPythonPicker, showSettingsPanel, setDefaultPython } from './configManager';
 import { executeRust, RustCellResult, isRustAvailable } from './rustExecutor';
@@ -261,6 +261,10 @@ export function activate(context: vscode.ExtensionContext) {
         vscode.workspace.onDidChangeConfiguration(event => {
             if (event.affectsConfiguration('zef')) {
                 updateStatusBar();
+                // Refresh preview panels when view width changes
+                if (event.affectsConfiguration('zef.viewWidthPercent')) {
+                    refreshAllPanels();
+                }
             }
         })
     );

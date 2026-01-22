@@ -213,6 +213,18 @@ export function updatePreview(document: vscode.TextDocument) {
 }
 
 /**
+ * Refresh all open preview panels (e.g., when settings change)
+ */
+export function refreshAllPanels(): void {
+    for (const [docUri, _panel] of panels) {
+        const document = vscode.workspace.textDocuments.find(d => d.uri.toString() === docUri);
+        if (document) {
+            updatePreview(document);
+        }
+    }
+}
+
+/**
  * Get the panel for the active editor's document (if exists)
  */
 export function getPanel(): vscode.WebviewPanel | undefined {
