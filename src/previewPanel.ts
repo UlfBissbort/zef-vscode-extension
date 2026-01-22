@@ -1277,13 +1277,7 @@ function getWebviewContent(renderedHtml: string, existingOutputs: { [blockId: nu
                     <span class="accordion-icon" id="general-icon">−</span>
                 </div>
                 <div class="accordion-content" id="general-content">
-                    <div class="field">
-                        <label>Theme</label>
-                        <select id="general-theme">
-                            <option value="dark">Dark</option>
-                            <option value="light">Light</option>
-                        </select>
-                    </div>
+                    <span class="subsection-label" style="opacity: 0.5; font-style: italic;">No settings yet</span>
                 </div>
             </div>
             
@@ -1306,28 +1300,19 @@ function getWebviewContent(renderedHtml: string, existingOutputs: { [blockId: nu
                     <!-- Python Subsection -->
                     <div class="subsection">
                         <span class="subsection-label">Python</span>
-                        <div class="field">
-                            <label>Custom venv path</label>
-                            <input type="text" id="python-venv" placeholder="./venv" />
-                        </div>
+                        <span style="font-size: 12px; color: rgba(255,255,255,0.3); font-style: italic;">No settings yet</span>
                     </div>
                     
                     <!-- Rust Subsection -->
                     <div class="subsection">
                         <span class="subsection-label">Rust</span>
-                        <label class="checkbox-row">
-                            <input type="checkbox" id="rust-check" />
-                            <span>Check mode only</span>
-                        </label>
+                        <span style="font-size: 12px; color: rgba(255,255,255,0.3); font-style: italic;">No settings yet</span>
                     </div>
                     
                     <!-- TypeScript Subsection -->
                     <div class="subsection">
                         <span class="subsection-label">TypeScript</span>
-                        <label class="checkbox-row">
-                            <input type="checkbox" id="ts-strict" checked />
-                            <span>Strict mode</span>
-                        </label>
+                        <span style="font-size: 12px; color: rgba(255,255,255,0.3); font-style: italic;">No settings yet</span>
                     </div>
                 </div>
             </div>
