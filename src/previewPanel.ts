@@ -1012,12 +1012,13 @@ function getWebviewContent(renderedHtml: string, existingOutputs: { [blockId: nu
             // Apply syntax highlighting
             document.querySelectorAll('pre code').forEach(function(block) {
                 var lang = block.parentElement.getAttribute('data-lang') || '';
-                if (lang === 'python' || lang === 'rust' || lang === 'javascript' || 
-                    lang === 'js' || lang === 'typescript' || lang === 'ts' || lang === 'svelte' ||
-                    lang === 'json') {
+                var langLower = lang.toLowerCase();
+                if (langLower === 'python' || langLower === 'rust' || langLower === 'javascript' || 
+                    langLower === 'js' || langLower === 'typescript' || langLower === 'ts' || langLower === 'svelte' ||
+                    langLower === 'json') {
                     var code = block.textContent || '';
                     // Svelte uses JavaScript/HTML highlighting
-                    var hlLang = (lang === 'svelte') ? 'javascript' : lang;
+                    var hlLang = (langLower === 'svelte') ? 'javascript' : langLower;
                     block.innerHTML = highlightCode(code, hlLang);
                 }
             });
@@ -1058,13 +1059,14 @@ function getWebviewContent(renderedHtml: string, existingOutputs: { [blockId: nu
             
             document.querySelectorAll('pre').forEach(function(pre) {
                 var lang = pre.getAttribute('data-lang') || 'code';
-                var isPython = (lang === 'python' || lang === 'py');
-                var isRust = (lang === 'rust' || lang === 'rs');
-                var isJs = (lang === 'javascript' || lang === 'js');
-                var isTs = (lang === 'typescript' || lang === 'ts');
-                var isMermaid = (lang === 'mermaid');
-                var isSvelte = (lang === 'svelte');
-                var isJson = (lang === 'json');
+                var langLower = lang.toLowerCase();
+                var isPython = (langLower === 'python' || langLower === 'py');
+                var isRust = (langLower === 'rust' || langLower === 'rs');
+                var isJs = (langLower === 'javascript' || langLower === 'js');
+                var isTs = (langLower === 'typescript' || langLower === 'ts');
+                var isMermaid = (langLower === 'mermaid');
+                var isSvelte = (langLower === 'svelte');
+                var isJson = (langLower === 'json');
                 var isExecutable = isPython || isRust || isJs || isTs || isSvelte;
                 
                 // Only assign blockId to executable blocks to match the parser
@@ -1288,12 +1290,14 @@ function getWebviewContent(renderedHtml: string, existingOutputs: { [blockId: nu
                     // Create code content
                     var jsonCodeContent = document.createElement('div');
                     jsonCodeContent.className = 'code-block-content active';
-                    jsonCodeContent.appendChild(pre);
                     
-                    // Insert container
+                    // Insert container BEFORE moving the pre element
                     pre.parentNode.insertBefore(jsonContainer, pre);
                     jsonContainer.appendChild(jsonHeaderBar);
                     jsonContainer.appendChild(jsonCodeContent);
+                    
+                    // Now move pre into the code content
+                    jsonCodeContent.appendChild(pre);
                     
                     return; // Skip the rest of the loop for json
                 }
@@ -1341,10 +1345,7 @@ function getWebviewContent(renderedHtml: string, existingOutputs: { [blockId: nu
                 });
                 
                 // Add Run button for Python, Rust, JavaScript, and TypeScript blocks
-                var isPython = (lang === 'python' || lang === 'py');
-                var isRust = (lang === 'rust' || lang === 'rs');
-                var isJs = (lang === 'javascript' || lang === 'js');
-                var isTs = (lang === 'typescript' || lang === 'ts');
+                // (reuse the isPython, isRust, isJs, isTs already computed above)
                 if (isPython || isRust || isJs || isTs) {
                     var runBtn = document.createElement('button');
                     runBtn.className = 'code-block-run';
@@ -1365,7 +1366,7 @@ function getWebviewContent(renderedHtml: string, existingOutputs: { [blockId: nu
                                 language: thisLang
                             });
                         };
-                    })(currentBlockId, lang);
+                    })(currentBlockId, langLower);
                     tabsBar.appendChild(runBtn);
                 }
                 
@@ -1373,17 +1374,17 @@ function getWebviewContent(renderedHtml: string, existingOutputs: { [blockId: nu
                 var langIndicator = document.createElement('div');
                 langIndicator.className = 'code-block-lang';
                 var emoji = '';
-                var langName = lang;
-                if (lang === 'python' || lang === 'py') {
+                var langName = langLower;
+                if (isPython) {
                     emoji = '🐍';
                     langName = 'Python';
-                } else if (lang === 'rust' || lang === 'rs') {
+                } else if (isRust) {
                     emoji = '🦀';
                     langName = 'Rust';
-                } else if (lang === 'javascript' || lang === 'js') {
+                } else if (isJs) {
                     emoji = '📜';
                     langName = 'JavaScript';
-                } else if (lang === 'typescript' || lang === 'ts') {
+                } else if (isTs) {
                     emoji = '📘';
                     langName = 'TypeScript';
                 }

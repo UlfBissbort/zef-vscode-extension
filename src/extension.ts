@@ -11,6 +11,7 @@ import { executeTs, TsCellResult, isBunAvailable as isTsBunAvailable } from './t
 import { compileSvelteComponent, SvelteCompileResult } from './svelteExecutor';
 import { isZefDocument, isZefUri } from './zefUtils';
 import { ZefSettingsViewProvider } from './settingsViewProvider';
+import { initJsonValidator, disposeJsonValidator } from './jsonValidator';
 
 let statusBarItem: vscode.StatusBarItem;
 
@@ -196,6 +197,9 @@ export function activate(context: vscode.ExtensionContext) {
             codeLensProvider
         )
     );
+
+    // Initialize JSON validator for syntax checking in JSON code blocks
+    initJsonValidator(context);
 
     // Apply decorations to active editor on activation
     if (vscode.window.activeTextEditor) {
@@ -951,4 +955,5 @@ async function writeOutputToFile(blockId: number, result: CellResult, documentUr
 
 export function deactivate() {
     disposeKernelManager();
+    disposeJsonValidator();
 }
