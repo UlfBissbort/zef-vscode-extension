@@ -424,6 +424,10 @@ function convertImagePaths(html: string, docDir: string, webview: vscode.Webview
 }
 
 function getWebviewContent(renderedHtml: string, existingOutputs: { [blockId: number]: string } = {}, existingSideEffects: { [blockId: number]: string } = {}, mermaidUri: string = '', existingRenderedHtml: { [blockId: number]: string } = {}): string {
+    // Get the view width setting
+    const widthPercent = vscode.workspace.getConfiguration('zef').get('viewWidthPercent', 100) as number;
+    const maxWidth = Math.round(680 * widthPercent / 100);
+    
     // Serialize existing outputs, side effects, and rendered HTML as JSON for the webview
     // Escape </script> to prevent premature script tag termination in HTML
     const escapeForScript = (json: string) => json.replace(/<\/script>/gi, '<\\/script>');
@@ -464,7 +468,7 @@ function getWebviewContent(renderedHtml: string, existingOutputs: { [blockId: nu
             color: var(--text-color);
             background-color: var(--bg-color);
             padding: 3rem 2rem;
-            max-width: 680px;
+            max-width: ${maxWidth}px;
             margin: 0 auto;
             letter-spacing: 0.02em;
         }

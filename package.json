@@ -153,6 +153,13 @@
           "type": "boolean",
           "default": false,
           "description": "Enable WebSocket connection to Zef Cloud (wss://zef.app/ws-test2). Connection persists across VS Code restarts when enabled."
+        },
+        "zef.viewWidthPercent": {
+          "type": "number",
+          "default": 100,
+          "minimum": 70,
+          "maximum": 150,
+          "description": "Width of Zef View as percentage of default width (100% = 680px, range: 70-150%)"
         }
       }
     },
