@@ -57,7 +57,17 @@
       {
         "language": "zef-markdown",
         "scopeName": "text.html.markdown.zef",
-        "path": "./syntaxes/zef-markdown.tmLanguage.json"
+        "path": "./syntaxes/zef-markdown.tmLanguage.json",
+        "embeddedLanguages": {
+          "meta.embedded.block.python": "python",
+          "meta.embedded.block.rust": "rust",
+          "meta.embedded.block.javascript": "javascript",
+          "meta.embedded.block.typescript": "typescript",
+          "meta.embedded.block.json": "json",
+          "meta.embedded.block.html": "html",
+          "meta.embedded.block.css": "css",
+          "meta.embedded.block.svelte": "svelte"
+        }
       },
       {
         "scopeName": "zef.markdown.injection",
@@ -65,7 +75,10 @@
         "injectTo": [
           "text.html.markdown",
           "text.html.markdown.zef"
-        ]
+        ],
+        "embeddedLanguages": {
+          "meta.embedded.block.python": "python"
+        }
       }
     ],
     "commands": [
