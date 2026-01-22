@@ -633,6 +633,13 @@ async function runTsCode(context: vscode.ExtensionContext, code: string, blockId
  * Compile a Svelte component and write the rendered HTML to the file
  */
 async function compileSvelteBlock(context: vscode.ExtensionContext, code: string, blockId?: number, documentUri?: vscode.Uri): Promise<void> {
+    // Check if Bun is available (required for Svelte compilation)
+    const bunAvailable = await isBunAvailable();
+    if (!bunAvailable) {
+        await handleMissingRuntime('bun');
+        return;
+    }
+    
     try {
         // Show compiling indicator
         vscode.window.setStatusBarMessage('$(sync~spin) Compiling Svelte...', 5000);
@@ -653,7 +660,19 @@ async function compileSvelteBlock(context: vscode.ExtensionContext, code: string
             // Show compile time in green status bar
             vscode.window.setStatusBarMessage(`$(check) Svelte: Compiled in ${result.compileTime}ms`, 3000);
         } else {
-            vscode.window.showErrorMessage(`Zef Svelte: ${result.error}`);
+            // Check if error is about Svelte not being found
+            if (result.error?.includes('svelte/compiler') || result.error?.includes("Cannot find module")) {
+                const action = await vscode.window.showErrorMessage(
+                    'Svelte compiler not found. The extension may need to be reinstalled.',
+                    'View Docs',
+                    'Dismiss'
+                );
+                if (action === 'View Docs') {
+                    vscode.env.openExternal(vscode.Uri.parse('https://github.com/UlfBissbort/zef-vscode-extension/blob/main/docs/RUNTIME_REQUIREMENTS.md#svelte'));
+                }
+            } else {
+                vscode.window.showErrorMessage(`Zef Svelte: ${result.error}`);
+            }
         }
     } catch (e: any) {
         vscode.window.showErrorMessage(`Zef Svelte: Compilation failed - ${e.message}`);

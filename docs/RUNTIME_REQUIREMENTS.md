@@ -12,7 +12,7 @@ Zef supports executing code in multiple languages:
 | Rust | rustc compiler | [Rust Setup](#rust) |
 | JavaScript | Bun | [Bun Setup](#bun) |
 | TypeScript | Bun | [Bun Setup](#bun) |
-| Svelte | Bun | [Bun Setup](#bun) |
+| Svelte | Bun | [Svelte Setup](#svelte) |
 
 ---
 
@@ -192,14 +192,72 @@ If Bun is installed to the default location (`~/.bun/bin/bun`), Zef will auto-de
 
 ---
 
+## Svelte
+
+### What is Svelte?
+
+Svelte is a modern frontend framework that compiles components to efficient JavaScript at build time. In Zef, you can write Svelte components directly in your `.zef.md` files and see them rendered live.
+
+### Do I Need to Install Svelte?
+
+**No!** The Svelte compiler is bundled with the Zef extension. You don't need to install Svelte separately.
+
+However, you **do need Bun** installed to run the compiler. See [Bun Setup](#bun) above.
+
+### How It Works
+
+1. You write a Svelte component in a `svelte` code block
+2. Zef uses Bun to run the bundled Svelte compiler
+3. The component is compiled and rendered inline in your document
+
+### Example
+
+```svelte
+<script>
+  let count = 0;
+</script>
+
+<button on:click={() => count++}>
+  Clicked {count} times
+</button>
+
+<style>
+  button {
+    background: #0a0a0a;
+    color: white;
+    padding: 12px 24px;
+    border-radius: 8px;
+  }
+</style>
+```
+
+### Troubleshooting Svelte
+
+**"Bun runtime not found"**  
+Svelte compilation requires Bun. Install it from [bun.sh](https://bun.sh).
+
+**"Svelte compiler not found"**  
+This is rare and means the extension's bundled Svelte is missing. Try:
+1. Uninstall the Zef extension
+2. Reinstall from the marketplace
+3. Reload VS Code
+
+**Component doesn't render**  
+- Check the error message in the output
+- Ensure your Svelte syntax is correct (Svelte 5 runes are supported)
+- Look for compilation errors in the "Side Effects" tab
+
+---
+
 ## Troubleshooting
 
 ### "Runtime not found" Error
 
-When you see this error, Zef couldn't find the required runtime. The error message provides two options:
+When you see this error, Zef couldn't find the required runtime. The error message provides three options:
 
-1. **Configure Path** - Opens settings to specify a custom path if the runtime is installed in a non-standard location
-2. **Install Instructions** - Opens the official installation page for the runtime
+1. **Install It** - Opens the official installation page
+2. **Configure Path** - Opens settings to specify a custom path
+3. **View Docs** - Opens this documentation
 
 ### Checking Runtime Status
 
