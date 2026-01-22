@@ -10,6 +10,7 @@ import { executeJs, JsCellResult, isBunAvailable } from './jsExecutor';
 import { executeTs, TsCellResult, isBunAvailable as isTsBunAvailable } from './tsExecutor';
 import { compileSvelteComponent, SvelteCompileResult } from './svelteExecutor';
 import { isZefDocument, isZefUri } from './zefUtils';
+import { ZefSettingsViewProvider } from './settingsViewProvider';
 
 let statusBarItem: vscode.StatusBarItem;
 
@@ -148,6 +149,15 @@ export function activate(context: vscode.ExtensionContext) {
     statusBarItem.command = 'zef.settings';
     context.subscriptions.push(statusBarItem);
     updateStatusBar();
+
+    // Register the settings view provider for the sidebar
+    const settingsViewProvider = new ZefSettingsViewProvider(context.extensionUri);
+    context.subscriptions.push(
+        vscode.window.registerWebviewViewProvider(
+            ZefSettingsViewProvider.viewType,
+            settingsViewProvider
+        )
+    );
 
     // Register file decoration provider for .zef.md files
     zefFileDecorationProvider = new ZefFileDecorationProvider();

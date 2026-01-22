@@ -17,10 +17,29 @@
   ],
   "activationEvents": [
     "onLanguage:markdown",
-    "onLanguage:zef-markdown"
+    "onLanguage:zef-markdown",
+    "onView:zef.settingsView"
   ],
   "main": "./out/extension.js",
   "contributes": {
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "zef-sidebar",
+          "title": "Zef",
+          "icon": "resources/zef-icon.svg"
+        }
+      ]
+    },
+    "views": {
+      "zef-sidebar": [
+        {
+          "type": "webview",
+          "id": "zef.settingsView",
+          "name": "Settings"
+        }
+      ]
+    },
     "languages": [
       {
         "id": "zef-markdown",
