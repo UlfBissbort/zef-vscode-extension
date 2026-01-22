@@ -63,12 +63,12 @@ export const DEFAULT_SETTINGS: ZefSettings = {
         persist_output: false
     },
     python: {
-        persist_output: false,
-        persist_side_effects: false
+        persist_output: true,
+        persist_side_effects: true
     },
     rust: {
-        persist_output: false,
-        persist_side_effects: false
+        persist_output: true,
+        persist_side_effects: true
     }
 };
 
@@ -187,10 +187,10 @@ export function stripFrontmatter(text: string): string {
  */
 const SETTING_DEFAULTS: Record<string, unknown> = {
     'svelte.persist_output': false,
-    'python.persist_output': false,
-    'python.persist_side_effects': false,
-    'rust.persist_output': false,
-    'rust.persist_side_effects': false
+    'python.persist_output': true,
+    'python.persist_side_effects': true,
+    'rust.persist_output': true,
+    'rust.persist_side_effects': true
 };
 
 /**
