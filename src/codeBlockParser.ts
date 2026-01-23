@@ -24,7 +24,8 @@ export function findCodeBlocks(document: vscode.TextDocument): CodeBlock[] {
     
     // Match ```python ... ```, ```rust ... ```, ```javascript ... ```, ```js ... ```, 
     // ```typescript ... ```, ```ts ... ```, and ```svelte ... ``` blocks
-    const regex = /```(python|rust|javascript|js|typescript|ts|svelte)\s*\n([\s\S]*?)```/g;
+    // Case-insensitive to support Python, PYTHON, Svelte, SVELTE, etc.
+    const regex = /```(python|rust|javascript|js|typescript|ts|svelte)\s*\n([\s\S]*?)```/gi;
     let match;
     let blockId = 0;
     
@@ -32,7 +33,7 @@ export function findCodeBlocks(document: vscode.TextDocument): CodeBlock[] {
         blockId++;
         const startOffset = match.index;
         const endOffset = match.index + match[0].length;
-        const language = match[1];  // 'python' or 'rust'
+        const language = match[1].toLowerCase();  // Normalize to lowercase
         
         const startPos = document.positionAt(startOffset);
         const endPos = document.positionAt(endOffset);
