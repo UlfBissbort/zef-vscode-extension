@@ -193,8 +193,7 @@ export function updatePreview(document: vscode.TextDocument) {
     
     // Find all executable code blocks and their associated output blocks
     // This includes Python, Rust, JS/TS (with Result/Side Effects) and Svelte (with rendered-html)
-    // Case-insensitive to support Python, PYTHON, Svelte, SVELTE, etc.
-    const codeBlockRegex = /```(?:python|rust|javascript|js|typescript|ts|svelte)\s*\n[\s\S]*?```(\s*\n````(?:Result|Output)\s*\n([\s\S]*?)````)?(\s*\n````Side Effects\s*\n([\s\S]*?)````)?(\s*\n````rendered-html\s*\n([\s\S]*?)````)?/gi;
+    const codeBlockRegex = /```(?:python|rust|javascript|js|typescript|ts|svelte)\s*\n[\s\S]*?```(\s*\n````(?:Result|Output)\s*\n([\s\S]*?)````)?(\s*\n````Side Effects\s*\n([\s\S]*?)````)?(\s*\n````rendered-html\s*\n([\s\S]*?)````)?/g;
     let match;
     while ((match = codeBlockRegex.exec(text)) !== null) {
         codeBlockIndex++;
