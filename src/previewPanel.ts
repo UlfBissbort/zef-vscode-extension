@@ -243,15 +243,30 @@ export function updatePreview(document: vscode.TextDocument) {
     
     // Get mermaid script URI if extension path is available
     let mermaidUri = '';
+    let katexCssUri = '';
+    let katexJsUri = '';
+    let katexAutoRenderUri = '';
+    let katexFontsUri = '';
     if (extensionPath) {
         const mermaidPath = vscode.Uri.file(path.join(extensionPath, 'assets', 'mermaid.min.js'));
         mermaidUri = panel.webview.asWebviewUri(mermaidPath).toString();
+        
+        // KaTeX assets for LaTeX math rendering
+        const katexCssPath = vscode.Uri.file(path.join(extensionPath, 'assets', 'katex.min.css'));
+        katexCssUri = panel.webview.asWebviewUri(katexCssPath).toString();
+        const katexJsPath = vscode.Uri.file(path.join(extensionPath, 'assets', 'katex.min.js'));
+        katexJsUri = panel.webview.asWebviewUri(katexJsPath).toString();
+        const katexAutoRenderPath = vscode.Uri.file(path.join(extensionPath, 'assets', 'katex-auto-render.min.js'));
+        katexAutoRenderUri = panel.webview.asWebviewUri(katexAutoRenderPath).toString();
+        // Fonts directory URI for CSS font-face resolution
+        const katexFontsPath = vscode.Uri.file(path.join(extensionPath, 'assets', 'fonts'));
+        katexFontsUri = panel.webview.asWebviewUri(katexFontsPath).toString();
     }
     
     // Get document settings from frontmatter
     const documentSettings = getDocumentSettings(text);
     
-    panel.webview.html = getWebviewContent(html, existingResults, existingSideEffects, mermaidUri, existingRenderedHtml, documentSettings);
+    panel.webview.html = getWebviewContent(html, existingResults, existingSideEffects, mermaidUri, existingRenderedHtml, documentSettings, katexCssUri, katexJsUri, katexAutoRenderUri, katexFontsUri);
 }
 
 /**
@@ -477,7 +492,7 @@ function convertImagePaths(html: string, docDir: string, webview: vscode.Webview
     });
 }
 
-function getWebviewContent(renderedHtml: string, existingOutputs: { [blockId: number]: string } = {}, existingSideEffects: { [blockId: number]: string } = {}, mermaidUri: string = '', existingRenderedHtml: { [blockId: number]: string } = {}, documentSettings: ZefSettings = {}): string {
+function getWebviewContent(renderedHtml: string, existingOutputs: { [blockId: number]: string } = {}, existingSideEffects: { [blockId: number]: string } = {}, mermaidUri: string = '', existingRenderedHtml: { [blockId: number]: string } = {}, documentSettings: ZefSettings = {}, katexCssUri: string = '', katexJsUri: string = '', katexAutoRenderUri: string = '', katexFontsUri: string = ''): string {
     // Get the view width setting
     const widthPercent = vscode.workspace.getConfiguration('zef').get('viewWidthPercent', 100) as number;
     const maxWidth = Math.round(680 * widthPercent / 100);
@@ -496,6 +511,32 @@ function getWebviewContent(renderedHtml: string, existingOutputs: { [blockId: nu
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Zef Preview</title>
+    ${katexCssUri ? `
+    <!-- KaTeX CSS for LaTeX math rendering -->
+    <link rel="stylesheet" href="${katexCssUri}">
+    <style>
+        /* Override KaTeX font paths to use webview URIs */
+        @font-face { font-family: KaTeX_AMS; src: url('${katexFontsUri}/KaTeX_AMS-Regular.woff2') format('woff2'); font-weight: normal; font-style: normal; }
+        @font-face { font-family: KaTeX_Caligraphic; src: url('${katexFontsUri}/KaTeX_Caligraphic-Bold.woff2') format('woff2'); font-weight: bold; font-style: normal; }
+        @font-face { font-family: KaTeX_Caligraphic; src: url('${katexFontsUri}/KaTeX_Caligraphic-Regular.woff2') format('woff2'); font-weight: normal; font-style: normal; }
+        @font-face { font-family: KaTeX_Fraktur; src: url('${katexFontsUri}/KaTeX_Fraktur-Bold.woff2') format('woff2'); font-weight: bold; font-style: normal; }
+        @font-face { font-family: KaTeX_Fraktur; src: url('${katexFontsUri}/KaTeX_Fraktur-Regular.woff2') format('woff2'); font-weight: normal; font-style: normal; }
+        @font-face { font-family: KaTeX_Main; src: url('${katexFontsUri}/KaTeX_Main-Bold.woff2') format('woff2'); font-weight: bold; font-style: normal; }
+        @font-face { font-family: KaTeX_Main; src: url('${katexFontsUri}/KaTeX_Main-Italic.woff2') format('woff2'); font-weight: normal; font-style: italic; }
+        @font-face { font-family: KaTeX_Main; src: url('${katexFontsUri}/KaTeX_Main-Regular.woff2') format('woff2'); font-weight: normal; font-style: normal; }
+        @font-face { font-family: KaTeX_Math; src: url('${katexFontsUri}/KaTeX_Math-BoldItalic.woff2') format('woff2'); font-weight: bold; font-style: italic; }
+        @font-face { font-family: KaTeX_Math; src: url('${katexFontsUri}/KaTeX_Math-Italic.woff2') format('woff2'); font-weight: normal; font-style: italic; }
+        @font-face { font-family: KaTeX_SansSerif; src: url('${katexFontsUri}/KaTeX_SansSerif-Bold.woff2') format('woff2'); font-weight: bold; font-style: normal; }
+        @font-face { font-family: KaTeX_SansSerif; src: url('${katexFontsUri}/KaTeX_SansSerif-Italic.woff2') format('woff2'); font-weight: normal; font-style: italic; }
+        @font-face { font-family: KaTeX_SansSerif; src: url('${katexFontsUri}/KaTeX_SansSerif-Regular.woff2') format('woff2'); font-weight: normal; font-style: normal; }
+        @font-face { font-family: KaTeX_Script; src: url('${katexFontsUri}/KaTeX_Script-Regular.woff2') format('woff2'); font-weight: normal; font-style: normal; }
+        @font-face { font-family: KaTeX_Size1; src: url('${katexFontsUri}/KaTeX_Size1-Regular.woff2') format('woff2'); font-weight: normal; font-style: normal; }
+        @font-face { font-family: KaTeX_Size2; src: url('${katexFontsUri}/KaTeX_Size2-Regular.woff2') format('woff2'); font-weight: normal; font-style: normal; }
+        @font-face { font-family: KaTeX_Size3; src: url('${katexFontsUri}/KaTeX_Size3-Regular.woff2') format('woff2'); font-weight: normal; font-style: normal; }
+        @font-face { font-family: KaTeX_Size4; src: url('${katexFontsUri}/KaTeX_Size4-Regular.woff2') format('woff2'); font-weight: normal; font-style: normal; }
+        @font-face { font-family: KaTeX_Typewriter; src: url('${katexFontsUri}/KaTeX_Typewriter-Regular.woff2') format('woff2'); font-weight: normal; font-style: normal; }
+    </style>
+    ` : ''}
     <style>
         /* Elegant dark theme inspired by AKB landing page */
         :root {
@@ -620,6 +661,40 @@ function getWebviewContent(renderedHtml: string, existingOutputs: { [blockId: nu
         .mermaid svg {
             max-width: 100%;
             height: auto;
+        }
+
+        /* KaTeX math equations */
+        .katex-display {
+            margin: 1.5em 0;
+            overflow-x: auto;
+            overflow-y: hidden;
+            text-align: center;
+            padding: 0 5px;
+        }
+        
+        .katex {
+            font-size: 1.1em;
+            color: var(--text-color);
+        }
+        
+        .katex-display .katex {
+            font-size: 1.21em;
+        }
+        
+        .katex-display > .katex {
+            overflow-x: unset;
+            padding: 0.5em 0;
+        }
+        
+        /* Scrollbar for long equations */
+        .katex-display::-webkit-scrollbar {
+            height: 4px;
+            background: transparent;
+        }
+        
+        .katex-display::-webkit-scrollbar-thumb {
+            background-color: var(--border-color);
+            border-radius: 2px;
         }
 
         /* Svelte preview */
@@ -2579,6 +2654,26 @@ function getWebviewContent(renderedHtml: string, existingOutputs: { [blockId: nu
             // Render all mermaid diagrams (already created by the tab handling code)
             mermaid.run({ nodes: document.querySelectorAll('.mermaid') });
         }
+    </script>` : ''}
+    ${katexJsUri ? `<script src="${katexJsUri}"></script>
+    <script src="${katexAutoRenderUri}"></script>
+    <script>
+        // Initialize KaTeX auto-render for LaTeX math equations
+        document.addEventListener("DOMContentLoaded", function() {
+            if (typeof renderMathInElement !== 'undefined') {
+                renderMathInElement(document.body, {
+                    delimiters: [
+                        {left: '$$', right: '$$', display: true},
+                        {left: '$', right: '$', display: false},
+                        {left: '\\\\[', right: '\\\\]', display: true},
+                        {left: '\\\\(', right: '\\\\)', display: false}
+                    ],
+                    throwOnError: false,
+                    ignoredTags: ['script', 'noscript', 'style', 'textarea', 'pre', 'code'],
+                    ignoredClasses: ['mermaid']
+                });
+            }
+        });
     </script>` : ''}
 </body>
 </html>`;

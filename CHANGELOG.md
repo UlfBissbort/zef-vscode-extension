@@ -5,6 +5,17 @@ All notable changes to the Zef extension will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.1.8] - 2026-01-27
+
+### Added
+
+- **LaTeX Math Equations**: Full support for LaTeX math rendering using KaTeX.
+  - Inline math: `$E = mc^2$` renders inline with text
+  - Display math: `$$...$$` renders as centered block equations
+  - Supports Greek letters, matrices, fractions, integrals, and more
+  - Math inside code blocks is correctly excluded from rendering
+  - Obsidian-compatible syntax
+
 ## [0.1.7] - 2026-01-27
 
 ### Added
