@@ -167,6 +167,25 @@ export function createPreviewPanel(context: vscode.ExtensionContext): vscode.Web
                     await vscode.workspace.applyEdit(edit);
                 }
             }
+        } else if (message.type === 'exportMermaidSvg') {
+            // Export mermaid diagram as SVG file
+            const svgContent = message.svgContent;
+            if (svgContent) {
+                // Get the document folder for default save location
+                const docFolder = path.dirname(docUri.fsPath);
+                const defaultUri = vscode.Uri.file(path.join(docFolder, 'mermaid-diagram.svg'));
+                
+                const saveUri = await vscode.window.showSaveDialog({
+                    defaultUri: defaultUri,
+                    filters: { 'SVG Image': ['svg'] },
+                    title: 'Export Mermaid Diagram as SVG'
+                });
+                
+                if (saveUri) {
+                    await vscode.workspace.fs.writeFile(saveUri, Buffer.from(svgContent, 'utf8'));
+                    vscode.window.showInformationMessage(`Saved diagram to ${path.basename(saveUri.fsPath)}`);
+                }
+            }
         }
     });
 
@@ -691,7 +710,39 @@ function getWebviewContent(renderedHtml: string, existingOutputs: { [blockId: nu
         
         /* For blocks without a Run button (like mermaid, json, zen, html), push lang indicator to right */
         .mermaid-container .code-block-lang {
+            /* margin-left handled by spacer for mermaid */
+        }
+        
+        /* Mermaid export button - elegant minimal style */
+        .mermaid-export-btn {
+            padding: 4px 10px;
+            font-size: 0.7rem;
+            letter-spacing: 0.05em;
+            color: var(--text-dim);
+            background: transparent;
+            border: 1px solid var(--border-color);
+            border-radius: 4px;
+            cursor: pointer;
+            transition: all 0.2s;
             margin-left: auto;
+            margin-right: 8px;
+            display: flex;
+            align-items: center;
+            gap: 4px;
+        }
+        
+        .mermaid-export-btn:hover {
+            color: var(--text-muted);
+            background: rgba(255, 255, 255, 0.05);
+            border-color: var(--text-dim);
+        }
+        
+        .mermaid-export-btn svg {
+            width: 12px;
+            height: 12px;
+            stroke: currentColor;
+            fill: none;
+            stroke-width: 2;
         }
         
         .json-container .code-block-lang {
@@ -1509,6 +1560,58 @@ function getWebviewContent(renderedHtml: string, existingOutputs: { [blockId: nu
             }
         }
 
+        // Export mermaid diagram as SVG file
+        function exportMermaidAsSvg(container) {
+            try {
+                // Find the SVG element inside the mermaid container
+                var svgElement = container.querySelector('.mermaid svg');
+                if (!svgElement) {
+                    console.error('No SVG found in mermaid diagram');
+                    return;
+                }
+                
+                // Clone the SVG to avoid modifying the original
+                var svgClone = svgElement.cloneNode(true);
+                
+                // Add XML namespace if not present
+                if (!svgClone.getAttribute('xmlns')) {
+                    svgClone.setAttribute('xmlns', 'http://www.w3.org/2000/svg');
+                }
+                
+                // Add Mermaid's internal styles for proper standalone rendering
+                var styleElement = document.createElement('style');
+                styleElement.textContent = \`
+                    .node rect, .node circle, .node ellipse, .node polygon, .node path { fill: #1f2937; stroke: #4b5563; stroke-width: 1px; }
+                    .node .label { color: #e5e7eb; }
+                    .node text { fill: #e5e7eb; }
+                    .edgeLabel { background-color: #1f2937; }
+                    .edgeLabel text { fill: #e5e7eb; }
+                    .edgePath .path { stroke: #6b7280; }
+                    .arrowheadPath { fill: #6b7280; }
+                    .cluster rect { fill: #111827; stroke: #374151; }
+                    .cluster text { fill: #9ca3af; }
+                    .label { color: #e5e7eb; }
+                    text { fill: #e5e7eb; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; }
+                \`;
+                svgClone.insertBefore(styleElement, svgClone.firstChild);
+                
+                // Serialize to string
+                var serializer = new XMLSerializer();
+                var svgString = serializer.serializeToString(svgClone);
+                
+                // Add XML declaration
+                svgString = '<?xml version="1.0" encoding="UTF-8"?>\\n' + svgString;
+                
+                // Send to VS Code extension to save via file dialog
+                vscode.postMessage({
+                    type: 'exportMermaidSvg',
+                    svgContent: svgString
+                });
+            } catch (err) {
+                console.error('Failed to export SVG:', err);
+            }
+        }
+
         (function() {
             // Existing outputs, side effects, and rendered HTML loaded from file
             var existingOutputs = ${outputsJson};
@@ -1817,6 +1920,18 @@ function getWebviewContent(renderedHtml: string, existingOutputs: { [blockId: nu
                         })(mermaidContainer, tab);
                         mermaidTabsBar.appendChild(tab);
                     });
+                    
+                    // Add SVG export button
+                    var mermaidExportBtn = document.createElement('button');
+                    mermaidExportBtn.className = 'mermaid-export-btn';
+                    mermaidExportBtn.title = 'Export as SVG';
+                    mermaidExportBtn.innerHTML = '<svg viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>SVG';
+                    mermaidExportBtn.onclick = (function(container) {
+                        return function() {
+                            exportMermaidAsSvg(container);
+                        };
+                    })(mermaidContainer);
+                    mermaidTabsBar.appendChild(mermaidExportBtn);
                     
                     // Add language indicator
                     var mermaidLangIndicator = document.createElement('div');
