@@ -40,6 +40,18 @@ interface ExcalidrawData {
   files?: BinaryFiles;
 }
 
+// Default appState for dark theme with white stroke color
+const defaultAppState = {
+  viewBackgroundColor: '#121212',
+  currentItemStrokeColor: '#ffffff',
+  currentItemBackgroundColor: 'transparent',
+  currentItemFillStyle: 'solid',
+  currentItemStrokeWidth: 2,
+  currentItemRoughness: 1,
+  currentItemOpacity: 100,
+  theme: 'dark',
+};
+
 function App() {
   const [initialData, setInitialData] = useState<ExcalidrawData | null>(null);
   const [isReady, setIsReady] = useState(false);
@@ -63,8 +75,16 @@ function App() {
       
       if (message.type === 'loadExcalidraw') {
         const data = message.data as ExcalidrawData;
-        setInitialData(data);
-        currentDataRef.current = data;
+        // Merge default appState with incoming data
+        const mergedData: ExcalidrawData = {
+          ...data,
+          appState: {
+            ...defaultAppState,
+            ...data.appState,
+          }
+        };
+        setInitialData(mergedData);
+        currentDataRef.current = mergedData;
         setIsReady(true);
       }
       
