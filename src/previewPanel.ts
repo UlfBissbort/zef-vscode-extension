@@ -92,7 +92,8 @@ function convertPythonToMarkdown(pythonSource: string): string {
     let result = '';
     for (const segment of segments) {
         if (segment.type === 'markdown') {
-            result += segment.content.join('\n') + '\n\n';
+            // Dedent to remove common leading whitespace (handles indented """md blocks)
+            result += dedentText(segment.content.join('\n')) + '\n\n';
         } else {
             result += '```python\n' + segment.content.join('\n') + '\n```\n\n';
         }
@@ -116,8 +117,8 @@ function convertRustToMarkdown(rustSource: string): string {
     let remaining = rustSource;
     let lastIndex = 0;
     
-    // Match /*md ... */ blocks (with optional leading whitespace on the line)
-    const mdBlockRegex = /\/\*md\s*([\s\S]*?)\*\//g;
+    // Match /*md ... */ blocks - don't consume whitespace after /*md so dedent works correctly
+    const mdBlockRegex = /\/\*md([\s\S]*?)\*\//g;
     let match;
     
     while ((match = mdBlockRegex.exec(rustSource)) !== null) {
@@ -128,9 +129,10 @@ function convertRustToMarkdown(rustSource: string): string {
         }
         
         // Add the markdown content (captured group 1)
-        const mdContent = match[1].trim();
-        if (mdContent) {
-            segments.push({ type: 'markdown', content: mdContent });
+        // Dedent to remove common leading whitespace (handles indented /*md blocks)
+        const mdContent = dedentText(match[1]);
+        if (mdContent.trim()) {
+            segments.push({ type: 'markdown', content: mdContent.trim() });
         }
         
         lastIndex = match.index + match[0].length;
@@ -153,6 +155,36 @@ function convertRustToMarkdown(rustSource: string): string {
     }
     
     return result;
+}
+
+/**
+ * Removes common leading whitespace from all lines of text.
+ * Useful for dedenting markdown inside indented code blocks.
+ */
+function dedentText(text: string): string {
+    const lines = text.split('\n');
+    
+    // Find minimum indentation from ALL non-empty lines
+    let minIndent = Infinity;
+    
+    for (const line of lines) {
+        if (line.trim().length > 0) {
+            const indent = line.match(/^(\s*)/)?.[1].length || 0;
+            minIndent = Math.min(minIndent, indent);
+        }
+    }
+    
+    if (minIndent === Infinity || minIndent === 0) {
+        return text;
+    }
+    
+    // Remove the common indentation from all lines
+    return lines.map(line => {
+        if (line.length >= minIndent) {
+            return line.substring(minIndent);
+        }
+        return line;
+    }).join('\n');
 }
 
 /**
