@@ -9,12 +9,28 @@ type AppState = any;
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type BinaryFiles = any;
 
+// Debounce utility - generic version for any function
+function debounce<T extends (...args: Parameters<T>) => void>(fn: T, delay: number): (...args: Parameters<T>) => void {
+  let timeoutId: ReturnType<typeof setTimeout>;
+  return (...args: Parameters<T>) => {
+    clearTimeout(timeoutId);
+    timeoutId = setTimeout(() => fn(...args), delay);
+  };
+}
+
 // Define vscode API type
-declare const acquireVsCodeApi: () => {
+interface VsCodeApi {
   postMessage: (message: unknown) => void;
   getState: () => unknown;
   setState: (state: unknown) => void;
-};
+}
+
+// The vscode API is exposed by the parent HTML as window.vscodeApi
+declare global {
+  interface Window {
+    vscodeApi?: VsCodeApi;
+  }
+}
 
 interface ExcalidrawData {
   type?: string;
@@ -27,15 +43,16 @@ interface ExcalidrawData {
 function App() {
   const [initialData, setInitialData] = useState<ExcalidrawData | null>(null);
   const [isReady, setIsReady] = useState(false);
-  const vscodeRef = useRef<ReturnType<typeof acquireVsCodeApi> | null>(null);
+  const vscodeRef = useRef<VsCodeApi | null>(null);
   const currentDataRef = useRef<ExcalidrawData | null>(null);
   
-  // Get the VSCode API once
+  // Get the VSCode API from window (set by parent HTML)
   useEffect(() => {
-    try {
-      vscodeRef.current = acquireVsCodeApi();
-    } catch {
-      console.log('Not running in VSCode webview');
+    if (window.vscodeApi) {
+      vscodeRef.current = window.vscodeApi;
+      console.log('VSCode API acquired from window');
+    } else {
+      console.log('Not running in VSCode webview - window.vscodeApi not found');
     }
   }, []);
 
@@ -72,13 +89,27 @@ function App() {
     return () => window.removeEventListener('message', handleMessage);
   }, []);
 
+  // Debounced function to send updates to extension
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const sendUpdate = useCallback(
+    debounce((data: ExcalidrawData) => {
+      if (vscodeRef.current) {
+        vscodeRef.current.postMessage({
+          type: 'excalidrawChanged',
+          data: data
+        });
+      }
+    }, 500),
+    []
+  );
+
   // Handle Excalidraw changes
   const handleChange = useCallback((
     elements: readonly ExcalidrawElement[],
     appState: AppState,
     files: BinaryFiles
   ) => {
-    currentDataRef.current = {
+    const newData: ExcalidrawData = {
       type: 'excalidraw',
       version: 2,
       elements: elements as ExcalidrawElement[],
@@ -98,7 +129,11 @@ function App() {
       },
       files: files
     };
-  }, []);
+    currentDataRef.current = newData;
+    
+    // Send debounced update to extension for live preview
+    sendUpdate(newData);
+  }, [sendUpdate]);
 
   if (!isReady) {
     return (

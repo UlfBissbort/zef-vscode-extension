@@ -46,6 +46,59 @@ async function toggleCheckboxInDocument(document: vscode.TextDocument, checkboxI
     }
 }
 
+/**
+ * Update an Excalidraw code block in the document
+ * @param document The document to update
+ * @param blockId The ID of the block (excalidraw-{index} or excalidraw-{timestamp})
+ * @param newContent The new JSON content
+ * @returns true if the block was found and updated
+ */
+async function updateExcalidrawBlock(document: vscode.TextDocument, blockId: string, newContent: string): Promise<boolean> {
+    const text = document.getText();
+    
+    // Extract the block index from blockId (e.g., "excalidraw-0" -> 0)
+    const idMatch = blockId.match(/^excalidraw-(\d+)$/);
+    if (!idMatch) {
+        console.log('Invalid blockId format:', blockId);
+        return false;
+    }
+    const targetIndex = parseInt(idMatch[1], 10);
+    
+    // Find all excalidraw code blocks (matching how the webview counts them)
+    // Match ```excalidraw (with optional attributes like width=wide)
+    // Note: We only match 'excalidraw' blocks, not 'json' blocks, to match webview counting
+    const excalidrawBlockRegex = /```excalidraw[^\n]*\n([\s\S]*?)```/gi;
+    let match;
+    let blockIndex = 0;
+    
+    while ((match = excalidrawBlockRegex.exec(text)) !== null) {
+        // Count ALL excalidraw blocks, not just those with valid JSON
+        // This matches how the webview counts them
+        if (blockIndex === targetIndex) {
+            // Found the block to update
+            const blockStart = match.index;
+            const blockEnd = match.index + match[0].length;
+            
+            // Extract the attributes from the original code fence (like width=wide)
+            const firstLine = match[0].split('\n')[0];
+            const attributes = firstLine.substring(3); // Remove the leading ```
+            const newBlock = `\`\`\`${attributes}\n${newContent}\n\`\`\``;
+            
+            const edit = new vscode.WorkspaceEdit();
+            const startPos = document.positionAt(blockStart);
+            const endPos = document.positionAt(blockEnd);
+            edit.replace(document.uri, new vscode.Range(startPos, endPos), newBlock);
+            await vscode.workspace.applyEdit(edit);
+            console.log('Updated excalidraw block:', blockId);
+            return true;
+        }
+        blockIndex++;
+    }
+    
+    console.log('Could not find excalidraw block:', blockId, 'found', blockIndex, 'blocks');
+    return false;
+}
+
 export function getCurrentDocumentUri(): vscode.Uri | undefined {
     // Return the URI of the first panel's document (for backwards compatibility)
     const firstKey = panels.keys().next().value;
@@ -196,11 +249,29 @@ export function createPreviewPanel(context: vscode.ExtensionContext): vscode.Web
                     message.data,
                     message.blockId,
                     docUri,
-                    (blockId: string, updatedData: object) => {
-                        // Handle save - update the code block in the document
-                        // For now, just log - full implementation would update the markdown
-                        console.log('Excalidraw saved:', blockId, updatedData);
-                        vscode.window.showInformationMessage('Excalidraw drawing saved. Copy the JSON to update your document.');
+                    async (blockId: string, updatedData: object) => {
+                        // Update the excalidraw code block in the document
+                        console.log('[Excalidraw] Save callback called, blockId:', blockId, 'docKey:', docKey);
+                        const document = vscode.workspace.textDocuments.find(d => d.uri.toString() === docKey);
+                        if (document) {
+                            console.log('[Excalidraw] Found document, applying update');
+                            const newJson = JSON.stringify(updatedData, null, 2);
+                            const updated = await updateExcalidrawBlock(document, blockId, newJson);
+                            if (!updated) {
+                                console.log('[Excalidraw] Could not find Excalidraw block to update:', blockId);
+                            } else {
+                                console.log('[Excalidraw] Successfully updated block:', blockId);
+                                // Manually refresh the preview since programmatic edits may not trigger the change listener
+                                // Re-fetch the document to get the updated content
+                                const updatedDoc = vscode.workspace.textDocuments.find(d => d.uri.toString() === docKey);
+                                if (updatedDoc) {
+                                    updatePreview(updatedDoc);
+                                }
+                            }
+                        } else {
+                            console.log('[Excalidraw] Document not found for key:', docKey);
+                            console.log('[Excalidraw] Available docs:', vscode.workspace.textDocuments.map(d => d.uri.toString()));
+                        }
                     }
                 );
             }
@@ -2152,6 +2223,7 @@ function getWebviewContent(renderedHtml: string, existingOutputs: { [blockId: nu
             });
             // Transform code blocks to have tabs
             var codeBlockId = 0; // Count Python and Rust blocks to match parser
+            var excalidrawBlockId = 0; // Count excalidraw blocks for identification
             var codeBlocks = {}; // Store code content for each block
             var blockLanguages = {}; // Store language for each block
             // Note: vscode is already acquired at the top of this script
@@ -2221,6 +2293,10 @@ function getWebviewContent(renderedHtml: string, existingOutputs: { [blockId: nu
                     console.log('[Excalidraw] Detected excalidraw block, lang:', lang, 'codeContent length:', codeContent.length);
                     var excalidrawContainer = document.createElement('div');
                     excalidrawContainer.className = 'code-block-container excalidraw-container';
+                    // Assign a stable block ID for live updates
+                    var currentExcalidrawBlockId = 'excalidraw-' + excalidrawBlockId;
+                    excalidrawContainer.setAttribute('data-excalidraw-id', currentExcalidrawBlockId);
+                    excalidrawBlockId++;
 
                     var widthMode = pre.getAttribute('data-zef-width') || '';
                     if (widthMode === 'wide') {
@@ -2268,9 +2344,8 @@ function getWebviewContent(renderedHtml: string, existingOutputs: { [blockId: nu
                                 if (!data.elements) {
                                     data = { type: 'excalidraw', version: 2, elements: [], appState: { viewBackgroundColor: '#1a1a2e' }, files: {} };
                                 }
-                                // Generate a unique block ID from the container
-                                var blockId = container.getAttribute('data-excalidraw-id') || 'excalidraw-' + Date.now();
-                                container.setAttribute('data-excalidraw-id', blockId);
+                                // Use the stable block ID assigned during rendering
+                                var blockId = container.getAttribute('data-excalidraw-id');
                                 // Send message to extension to open Excalidraw editor panel
                                 vscode.postMessage({
                                     type: 'openExcalidrawEditor',
@@ -2282,7 +2357,7 @@ function getWebviewContent(renderedHtml: string, existingOutputs: { [blockId: nu
                                 vscode.postMessage({
                                     type: 'openExcalidrawEditor',
                                     data: { type: 'excalidraw', version: 2, elements: [], appState: { viewBackgroundColor: '#1a1a2e' }, files: {} },
-                                    blockId: 'excalidraw-new'
+                                    blockId: container.getAttribute('data-excalidraw-id') || 'excalidraw-0'
                                 });
                             }
                         };

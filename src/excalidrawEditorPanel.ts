@@ -36,10 +36,21 @@ export class ExcalidrawEditorPanel {
                 switch (message.type) {
                     case 'ready':
                         // Webview is ready, send any pending data
+                        console.log('[ExcalidrawEditorPanel] Webview ready');
                         break;
                     case 'saveExcalidraw':
+                        console.log('[ExcalidrawEditorPanel] Save request, blockId:', this._currentBlockId);
                         if (this._onSaveCallback && this._currentBlockId) {
                             this._onSaveCallback(this._currentBlockId, message.data);
+                        }
+                        break;
+                    case 'excalidrawChanged':
+                        // Live update - update the document with new data
+                        console.log('[ExcalidrawEditorPanel] Live update, blockId:', this._currentBlockId, 'hasCallback:', !!this._onSaveCallback);
+                        if (this._onSaveCallback && this._currentBlockId) {
+                            this._onSaveCallback(this._currentBlockId, message.data);
+                        } else {
+                            console.log('[ExcalidrawEditorPanel] Missing callback or blockId');
                         }
                         break;
                 }
