@@ -48,8 +48,17 @@ Press **Cmd+Shift+V** to open a beautifully rendered preview:
 
 - Elegant dark theme with minimalist styling
 - **Mermaid diagrams** rendered automatically
+- **Excalidraw diagrams** rendered from `excalidraw` fenced blocks
 - Syntax highlighting for all major languages
 - Live updates as you type
+
+Excalidraw blocks render by default and include a Source Code tab. You can optionally widen a block:
+
+````markdown
+```excalidraw width=wide
+{ "type": "excalidraw", "version": 2, "elements": [], "appState": { "viewBackgroundColor": "#0b0b0b" } }
+```
+````
 
 ### Svelte Components
 

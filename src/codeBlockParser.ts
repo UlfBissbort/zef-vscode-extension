@@ -116,8 +116,8 @@ export function findDisplayCodeBlocks(document: vscode.TextDocument): DisplayCod
     const blocks: DisplayCodeBlock[] = [];
     const text = document.getText();
     
-    // Match ```zen ... ```, ```json ... ```, and ```html ... ``` blocks (case insensitive)
-    const regex = /```(zen|json|html)\s*\n([\s\S]*?)```/gi;
+    // Match ```zen ... ```, ```json ... ```, ```html ... ```, and ```excalidraw ... ``` blocks (case insensitive)
+    const regex = /```(zen|json|html|excalidraw|exaclidraw)\s*\n([\s\S]*?)```/gi;
     let match;
     
     while ((match = regex.exec(text)) !== null) {

@@ -438,9 +438,30 @@ function preserveBlankLines(markdown: string): string {
 }
 
 function renderMarkdown(markdown: string): string {
+    const escapeHtml = (value: string) => value
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+
+    const renderer = new marked.Renderer();
+    renderer.code = (code, infostring) => {
+        const info = (infostring || '').trim();
+        const infoParts = info.split(/\s+/);
+        const lang = infoParts[0] || '';
+        const meta = infoParts.slice(1).join(' ');
+        const widthMatch = meta.match(/\bwidth\s*=\s*([^\s]+)/i);
+        const widthValue = widthMatch?.[1];
+        const widthAttr = widthValue ? ` data-zef-width="${escapeHtml(widthValue)}"` : '';
+        const langClass = lang ? ` class="language-${escapeHtml(lang)}"` : '';
+        return `<pre${widthAttr}><code${langClass}>${escapeHtml(code)}</code></pre>\n`;
+    };
+
     marked.setOptions({
         gfm: true,
         breaks: true,
+        renderer
     });
 
     // Preserve extra blank lines before parsing
@@ -661,6 +682,37 @@ function getWebviewContent(renderedHtml: string, existingOutputs: { [blockId: nu
         .mermaid svg {
             max-width: 100%;
             height: auto;
+        }
+
+        /* Excalidraw diagrams */
+        .excalidraw-container {
+            margin: 1.5rem 0;
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            overflow: hidden;
+        }
+
+        .excalidraw-rendered {
+            padding: 1rem;
+            background: #0b0b0b;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .excalidraw-rendered svg {
+            max-width: 100%;
+            height: auto;
+        }
+
+        .excalidraw-wide {
+            width: min(100vw - 4rem, 1100px);
+            margin-left: calc(50% - 50vw);
+        }
+
+        .excalidraw-full {
+            width: calc(100vw - 4rem);
+            margin-left: calc(50% - 50vw);
         }
 
         /* KaTeX math equations */
@@ -1687,6 +1739,156 @@ function getWebviewContent(renderedHtml: string, existingOutputs: { [blockId: nu
             }
         }
 
+        // Excalidraw rendering helpers
+        function parseExcalidrawData(raw) {
+            try {
+                var data = JSON.parse(raw);
+                if (!data) return null;
+                // Standard Excalidraw file format
+                if (data.type === 'excalidraw' && data.elements) {
+                    return data;
+                }
+                // Allow raw scenes with elements/appState/files
+                if (data.elements) {
+                    return {
+                        type: 'excalidraw',
+                        version: data.version || 2,
+                        source: data.source || 'zef',
+                        elements: data.elements,
+                        appState: data.appState || {},
+                        files: data.files || {}
+                    };
+                }
+                return null;
+            } catch (err) {
+                return null;
+            }
+        }
+
+        function renderExcalidrawSvg(elements, bgColor) {
+            // Calculate bounds of all elements
+            var minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+            var visibleElements = elements.filter(function(el) { return !el.isDeleted; });
+            
+            if (visibleElements.length === 0) {
+                // Empty scene placeholder
+                return '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 200" width="100%" height="auto">' +
+                    '<rect width="400" height="200" fill="' + (bgColor || '#1a1a2e') + '"/>' +
+                    '<text x="200" y="90" text-anchor="middle" fill="#6c6c8a" font-family="system-ui, sans-serif" font-size="16">Empty Excalidraw Canvas</text>' +
+                    '<text x="200" y="115" text-anchor="middle" fill="#4a4a5a" font-family="system-ui, sans-serif" font-size="12">Add elements to your drawing</text>' +
+                    '</svg>';
+            }
+
+            visibleElements.forEach(function(el) {
+                var x = el.x || 0;
+                var y = el.y || 0;
+                var w = el.width || 0;
+                var h = el.height || 0;
+                minX = Math.min(minX, x);
+                minY = Math.min(minY, y);
+                maxX = Math.max(maxX, x + w);
+                maxY = Math.max(maxY, y + h);
+                // Handle points for line/arrow/freedraw
+                if (el.points && el.points.length) {
+                    el.points.forEach(function(pt) {
+                        minX = Math.min(minX, x + pt[0]);
+                        minY = Math.min(minY, y + pt[1]);
+                        maxX = Math.max(maxX, x + pt[0]);
+                        maxY = Math.max(maxY, y + pt[1]);
+                    });
+                }
+            });
+
+            var padding = 20;
+            var width = Math.max(100, maxX - minX + padding * 2);
+            var height = Math.max(60, maxY - minY + padding * 2);
+            var offsetX = -minX + padding;
+            var offsetY = -minY + padding;
+
+            var svgParts = [];
+            svgParts.push('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ' + width + ' ' + height + '" width="100%" height="auto">');
+            svgParts.push('<rect width="' + width + '" height="' + height + '" fill="' + (bgColor || '#1a1a2e') + '"/>');
+
+            visibleElements.forEach(function(el) {
+                var x = (el.x || 0) + offsetX;
+                var y = (el.y || 0) + offsetY;
+                var w = el.width || 0;
+                var h = el.height || 0;
+                var stroke = el.strokeColor || '#ffffff';
+                var fill = el.backgroundColor || 'transparent';
+                var sw = el.strokeWidth || 1;
+                var opacity = (el.opacity != null ? el.opacity / 100 : 1);
+
+                if (el.type === 'rectangle') {
+                    var rx = el.roundness ? Math.min(w, h) * 0.1 : 0;
+                    svgParts.push('<rect x="' + x + '" y="' + y + '" width="' + w + '" height="' + h + '" rx="' + rx + '" stroke="' + stroke + '" stroke-width="' + sw + '" fill="' + fill + '" opacity="' + opacity + '"/>');
+                } else if (el.type === 'ellipse') {
+                    var cx = x + w / 2;
+                    var cy = y + h / 2;
+                    svgParts.push('<ellipse cx="' + cx + '" cy="' + cy + '" rx="' + (w / 2) + '" ry="' + (h / 2) + '" stroke="' + stroke + '" stroke-width="' + sw + '" fill="' + fill + '" opacity="' + opacity + '"/>');
+                } else if (el.type === 'diamond') {
+                    var pts = [
+                        (x + w / 2) + ',' + y,
+                        (x + w) + ',' + (y + h / 2),
+                        (x + w / 2) + ',' + (y + h),
+                        x + ',' + (y + h / 2)
+                    ].join(' ');
+                    svgParts.push('<polygon points="' + pts + '" stroke="' + stroke + '" stroke-width="' + sw + '" fill="' + fill + '" opacity="' + opacity + '"/>');
+                } else if (el.type === 'line' || el.type === 'arrow' || el.type === 'freedraw') {
+                    if (el.points && el.points.length > 1) {
+                        var pathD = 'M ' + (x + el.points[0][0]) + ' ' + (y + el.points[0][1]);
+                        for (var i = 1; i < el.points.length; i++) {
+                            pathD += ' L ' + (x + el.points[i][0]) + ' ' + (y + el.points[i][1]);
+                        }
+                        var markerEnd = el.type === 'arrow' ? ' marker-end="url(#arrowhead)"' : '';
+                        svgParts.push('<path d="' + pathD + '" stroke="' + stroke + '" stroke-width="' + sw + '" fill="none" opacity="' + opacity + '"' + markerEnd + '/>');
+                    }
+                } else if (el.type === 'text') {
+                    var fontSize = el.fontSize || 16;
+                    var textContent = (el.text || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+                    svgParts.push('<text x="' + x + '" y="' + (y + fontSize) + '" fill="' + stroke + '" font-size="' + fontSize + '" font-family="system-ui, sans-serif" opacity="' + opacity + '">' + textContent + '</text>');
+                }
+            });
+
+            // Add arrowhead marker definition if needed
+            var hasArrows = visibleElements.some(function(el) { return el.type === 'arrow'; });
+            if (hasArrows) {
+                svgParts.splice(1, 0, '<defs><marker id="arrowhead" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto"><polygon points="0 0, 10 3.5, 0 7" fill="#ffffff"/></marker></defs>');
+            }
+
+            svgParts.push('</svg>');
+            return svgParts.join('');
+        }
+
+        function renderExcalidraw(target, raw, widthMode) {
+            console.log('[Excalidraw] renderExcalidraw called with target:', target, 'raw length:', (raw || '').length, 'widthMode:', widthMode);
+            try {
+                var trimmedRaw = (raw || '').trim();
+                var data;
+                
+                if (!trimmedRaw) {
+                    // Empty scene - show nice placeholder
+                    console.log('[Excalidraw] Empty scene, rendering placeholder');
+                    target.innerHTML = renderExcalidrawSvg([], '#1a1a2e');
+                    return;
+                }
+
+                data = parseExcalidrawData(trimmedRaw);
+                console.log('[Excalidraw] Parsed data:', data);
+                if (!data) {
+                    target.innerHTML = '<div style="color: var(--text-dim); font-style: italic; padding: 20px;">Invalid Excalidraw JSON</div>';
+                    return;
+                }
+
+                var bgColor = (data.appState && data.appState.viewBackgroundColor) || '#1a1a2e';
+                var svgHtml = renderExcalidrawSvg(data.elements || [], bgColor);
+                target.innerHTML = svgHtml;
+            } catch (err) {
+                console.error('Failed to render Excalidraw:', err);
+                target.innerHTML = '<div style="color: var(--text-dim); font-style: italic; padding: 20px;">Failed to render Excalidraw: ' + err.message + '</div>';
+            }
+        }
+
         (function() {
             // Existing outputs, side effects, and rendered HTML loaded from file
             var existingOutputs = ${outputsJson};
@@ -1891,11 +2093,12 @@ function getWebviewContent(renderedHtml: string, existingOutputs: { [blockId: nu
                 var langLower = lang.toLowerCase();
                 if (langLower === 'python' || langLower === 'rust' || langLower === 'javascript' || 
                     langLower === 'js' || langLower === 'typescript' || langLower === 'ts' || langLower === 'svelte' ||
-                    langLower === 'json' || langLower === 'zen') {
+                    langLower === 'json' || langLower === 'zen' || langLower === 'excalidraw') {
                     var code = block.textContent || '';
                     // Svelte uses JavaScript highlighting, Zen uses Python highlighting
                     var hlLang = (langLower === 'svelte') ? 'javascript' : 
-                                 (langLower === 'zen') ? 'python' : langLower;
+                                 (langLower === 'zen') ? 'python' : 
+                                 (langLower === 'excalidraw') ? 'json' : langLower;
                     block.innerHTML = highlightCode(code, hlLang);
                 }
             });
@@ -1942,6 +2145,7 @@ function getWebviewContent(renderedHtml: string, existingOutputs: { [blockId: nu
                 var isJs = (langLower === 'javascript' || langLower === 'js');
                 var isTs = (langLower === 'typescript' || langLower === 'ts');
                 var isMermaid = (langLower === 'mermaid');
+                var isExcalidraw = (langLower === 'excalidraw' || langLower === 'exaclidraw');
                 var isSvelte = (langLower === 'svelte');
                 var isJson = (langLower === 'json');
                 var isZen = (langLower === 'zen');
@@ -1964,6 +2168,67 @@ function getWebviewContent(renderedHtml: string, existingOutputs: { [blockId: nu
                     blockLanguages[currentBlockId] = lang;
                 }
                 
+                // Handle Excalidraw blocks specially
+                if (isExcalidraw) {
+                    console.log('[Excalidraw] Detected excalidraw block, lang:', lang, 'codeContent length:', codeContent.length);
+                    var excalidrawContainer = document.createElement('div');
+                    excalidrawContainer.className = 'code-block-container excalidraw-container';
+
+                    var widthMode = pre.getAttribute('data-zef-width') || '';
+                    if (widthMode === 'wide') {
+                        excalidrawContainer.classList.add('excalidraw-wide');
+                    } else if (widthMode === 'full') {
+                        excalidrawContainer.classList.add('excalidraw-full');
+                    }
+
+                    var excalidrawTabsBar = document.createElement('div');
+                    excalidrawTabsBar.className = 'code-block-tabs';
+
+                    var excalidrawTabs = ['Rendered', 'Source Code'];
+                    excalidrawTabs.forEach(function(tabName, index) {
+                        var tab = document.createElement('button');
+                        tab.className = 'code-block-tab' + (index === 0 ? ' active' : '');
+                        tab.textContent = tabName;
+                        tab.setAttribute('data-tab', tabName.toLowerCase().replace(' ', '-'));
+                        tab.onclick = (function(thisContainer, thisTab) {
+                            return function() {
+                                thisContainer.querySelectorAll('.code-block-tab').forEach(function(t) {
+                                    t.classList.remove('active');
+                                });
+                                thisTab.classList.add('active');
+                                thisContainer.querySelectorAll('.code-block-content').forEach(function(c) {
+                                    c.classList.remove('active');
+                                });
+                                var tabId = thisTab.getAttribute('data-tab');
+                                thisContainer.querySelector('.excalidraw-' + tabId).classList.add('active');
+                            };
+                        })(excalidrawContainer, tab);
+                        excalidrawTabsBar.appendChild(tab);
+                    });
+
+                    var excalidrawLangIndicator = document.createElement('div');
+                    excalidrawLangIndicator.className = 'code-block-lang';
+                    excalidrawLangIndicator.textContent = 'Excalidraw';
+                    excalidrawTabsBar.appendChild(excalidrawLangIndicator);
+
+                    var excalidrawRenderedContent = document.createElement('div');
+                    excalidrawRenderedContent.className = 'code-block-content excalidraw-rendered active';
+
+                    var excalidrawSourceContent = document.createElement('div');
+                    excalidrawSourceContent.className = 'code-block-content excalidraw-source-code';
+
+                    // Insert container before pre (while pre is still in original DOM)
+                    pre.parentNode.insertBefore(excalidrawContainer, pre);
+                    excalidrawContainer.appendChild(excalidrawTabsBar);
+                    excalidrawContainer.appendChild(excalidrawRenderedContent);
+                    excalidrawContainer.appendChild(excalidrawSourceContent);
+                    // Now move pre into the source content container
+                    excalidrawSourceContent.appendChild(pre);
+
+                    renderExcalidraw(excalidrawRenderedContent, codeContent, widthMode);
+                    return;
+                }
+
                 // Handle mermaid blocks specially
                 if (isMermaid) {
                     // Create container for mermaid with tabs
