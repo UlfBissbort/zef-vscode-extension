@@ -581,10 +581,21 @@ function renderMarkdown(markdown: string): string {
         renderer
     });
 
+    // Protect multi-line $$ math blocks from `breaks: true` converting newlines to <br>
+    // Replace newlines inside $$...$$ with a placeholder, then restore after marked parsing
+    const mathPlaceholder = '\u0000MATH_NEWLINE\u0000';
+    let protectedMarkdown = markdown.replace(/\$\$([\s\S]*?)\$\$/g, (match, content) => {
+        // Replace newlines with placeholder inside math blocks
+        return '$$' + content.replace(/\n/g, mathPlaceholder) + '$$';
+    });
+
     // Preserve extra blank lines before parsing
-    const processedMarkdown = preserveBlankLines(markdown);
+    const processedMarkdown = preserveBlankLines(protectedMarkdown);
     
     let html = marked.parse(processedMarkdown) as string;
+    
+    // Restore newlines in math blocks (now safely past the breaks: true processing)
+    html = html.replace(new RegExp(mathPlaceholder, 'g'), '\n');
     
     // Remove disabled attribute from checkboxes to make them interactive
     // Marked generates: <input disabled="" type="checkbox"> for unchecked
