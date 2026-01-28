@@ -19,6 +19,7 @@
     "onLanguage:markdown",
     "onLanguage:zef-markdown",
     "onLanguage:python",
+    "onLanguage:rust",
     "onView:zef.settingsView"
   ],
   "main": "./out/extension.js",
@@ -120,19 +121,19 @@
       {
         "command": "zef.runBlockAtCursor",
         "key": "shift+enter",
-        "when": "editorLangId == zef-markdown || editorLangId == python || (editorLangId == markdown && config.zef.treatAllMarkdownAsZef)"
+        "when": "editorLangId == zef-markdown || editorLangId == python || editorLangId == rust || (editorLangId == markdown && config.zef.treatAllMarkdownAsZef)"
       },
       {
         "command": "zef.runBlockAtCursor",
         "key": "ctrl+enter",
         "mac": "cmd+enter",
-        "when": "editorLangId == zef-markdown || editorLangId == python || (editorLangId == markdown && config.zef.treatAllMarkdownAsZef)"
+        "when": "editorLangId == zef-markdown || editorLangId == python || editorLangId == rust || (editorLangId == markdown && config.zef.treatAllMarkdownAsZef)"
       },
       {
         "command": "zef.openPreview",
         "key": "ctrl+shift+v",
         "mac": "cmd+shift+v",
-        "when": "editorLangId == zef-markdown || editorLangId == python || (editorLangId == markdown && config.zef.treatAllMarkdownAsZef)"
+        "when": "editorLangId == zef-markdown || editorLangId == python || editorLangId == rust || (editorLangId == markdown && config.zef.treatAllMarkdownAsZef)"
       }
     ],
     "configuration": {

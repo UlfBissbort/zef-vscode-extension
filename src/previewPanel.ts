@@ -2,7 +2,7 @@ import * as vscode from 'vscode';
 import * as path from 'path';
 import { marked } from 'marked';
 import { CellResult } from './kernelManager';
-import { isZefDocument, isZefPythonFile } from './zefUtils';
+import { isZefDocument, isZefPythonFile, isZefRustFile } from './zefUtils';
 import { stripFrontmatter, getDocumentSettings, updateDocumentSetting, ZefSettings } from './frontmatterParser';
 import { ExcalidrawEditorPanel, generateExcalidrawUid } from './excalidrawEditorPanel';
 
@@ -95,6 +95,60 @@ function convertPythonToMarkdown(pythonSource: string): string {
             result += segment.content.join('\n') + '\n\n';
         } else {
             result += '```python\n' + segment.content.join('\n') + '\n```\n\n';
+        }
+    }
+    
+    return result;
+}
+
+/**
+ * Converts Rust source code to markdown for preview rendering.
+ * 
+ * Segments marked with /*md ... * / are extracted as markdown.
+ * All other code is wrapped in ```rust fenced blocks.
+ * 
+ * @param rustSource The Rust file content
+ * @returns Markdown string suitable for renderMarkdown()
+ */
+function convertRustToMarkdown(rustSource: string): string {
+    const segments: Array<{type: 'code' | 'markdown', content: string}> = [];
+    
+    let remaining = rustSource;
+    let lastIndex = 0;
+    
+    // Match /*md ... */ blocks (with optional leading whitespace on the line)
+    const mdBlockRegex = /\/\*md\s*([\s\S]*?)\*\//g;
+    let match;
+    
+    while ((match = mdBlockRegex.exec(rustSource)) !== null) {
+        // Add code before this match
+        const codeBefore = rustSource.substring(lastIndex, match.index);
+        if (codeBefore.trim()) {
+            segments.push({ type: 'code', content: codeBefore });
+        }
+        
+        // Add the markdown content (captured group 1)
+        const mdContent = match[1].trim();
+        if (mdContent) {
+            segments.push({ type: 'markdown', content: mdContent });
+        }
+        
+        lastIndex = match.index + match[0].length;
+    }
+    
+    // Add remaining code after last match
+    const codeAfter = rustSource.substring(lastIndex);
+    if (codeAfter.trim()) {
+        segments.push({ type: 'code', content: codeAfter });
+    }
+    
+    // Convert segments to markdown
+    let result = '';
+    for (const segment of segments) {
+        if (segment.type === 'markdown') {
+            result += segment.content + '\n\n';
+        } else {
+            result += '```rust\n' + segment.content.trim() + '\n```\n\n';
         }
     }
     
@@ -409,8 +463,11 @@ export function updatePreview(document: vscode.TextDocument) {
     
     // For Python files, convert to markdown representation first
     const isPythonFile = isZefPythonFile(document);
+    const isRustFile = isZefRustFile(document);
     if (isPythonFile) {
         text = convertPythonToMarkdown(text);
+    } else if (isRustFile) {
+        text = convertRustToMarkdown(text);
     }
     
     // Extract existing Result, Side Effects, and rendered-html blocks before removing them
@@ -438,8 +495,8 @@ export function updatePreview(document: vscode.TextDocument) {
     }
     
     // Remove Result, Side Effects, and rendered-html blocks for rendering
-    // Also strip frontmatter block if present (not needed for Python files already converted)
-    const cleanText = isPythonFile ? text : stripFrontmatter(text)
+    // Also strip frontmatter block if present (not needed for Python/Rust files already converted)
+    const cleanText = (isPythonFile || isRustFile) ? text : stripFrontmatter(text)
         .replace(/\n````(?:Result|Output)\s*\n[\s\S]*?````/g, '')
         .replace(/\n````Side Effects\s*\n[\s\S]*?````/g, '')
         .replace(/\n````rendered-html\s*\n[\s\S]*?````/g, '');

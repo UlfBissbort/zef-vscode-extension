@@ -408,7 +408,7 @@ export function activate(context: vscode.ExtensionContext) {
                 if (!treatAllMd && editor.document.fileName.endsWith('.md')) {
                     vscode.window.showWarningMessage('Zef: Enable "Treat All Markdown as Zef" in settings to use this feature with .md files');
                 } else {
-                    vscode.window.showWarningMessage('Zef: Only works in .zef.md or .py files');
+                    vscode.window.showWarningMessage('Zef: Only works in .zef.md, .py, or .rs files');
                 }
                 return;
             }
@@ -442,7 +442,7 @@ export function activate(context: vscode.ExtensionContext) {
                 if (!treatAllMd && editor?.document.fileName.endsWith('.md')) {
                     vscode.window.showWarningMessage('Zef: Enable "Treat All Markdown as Zef" in settings to preview .md files');
                 } else {
-                    vscode.window.showWarningMessage('Zef: Open a .zef.md or .py file first');
+                    vscode.window.showWarningMessage('Zef: Open a .zef.md, .py, or .rs file first');
                 }
                 return;
             }
