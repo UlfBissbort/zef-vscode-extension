@@ -581,12 +581,18 @@ function renderMarkdown(markdown: string): string {
         renderer
     });
 
-    // Protect multi-line $$ math blocks from `breaks: true` converting newlines to <br>
-    // Replace newlines inside $$...$$ with a placeholder, then restore after marked parsing
-    const mathPlaceholder = '\u0000MATH_NEWLINE\u0000';
+    // Protect math blocks from marked's transformations:
+    // 1. `breaks: true` converts newlines to <br>
+    // 2. Marked converts \\ to \ (escaping backslashes)
+    // Both break LaTeX rendering, especially for aligned environments
+    const mathNewlinePlaceholder = '\u0000MATH_NEWLINE\u0000';
+    const mathDoubleBackslashPlaceholder = '\u0000MATH_DBLBACKSLASH\u0000';
     let protectedMarkdown = markdown.replace(/\$\$([\s\S]*?)\$\$/g, (match, content) => {
-        // Replace newlines with placeholder inside math blocks
-        return '$$' + content.replace(/\n/g, mathPlaceholder) + '$$';
+        // Replace \\ with placeholder first (before it gets converted to \)
+        let protected_ = content.replace(/\\\\/g, mathDoubleBackslashPlaceholder);
+        // Replace newlines with placeholder
+        protected_ = protected_.replace(/\n/g, mathNewlinePlaceholder);
+        return '$$' + protected_ + '$$';
     });
 
     // Preserve extra blank lines before parsing
@@ -594,8 +600,9 @@ function renderMarkdown(markdown: string): string {
     
     let html = marked.parse(processedMarkdown) as string;
     
-    // Restore newlines in math blocks (now safely past the breaks: true processing)
-    html = html.replace(new RegExp(mathPlaceholder, 'g'), '\n');
+    // Restore double backslashes and newlines in math blocks
+    html = html.replace(new RegExp(mathDoubleBackslashPlaceholder, 'g'), '\\\\');
+    html = html.replace(new RegExp(mathNewlinePlaceholder, 'g'), '\n');
     
     // Remove disabled attribute from checkboxes to make them interactive
     // Marked generates: <input disabled="" type="checkbox"> for unchecked
