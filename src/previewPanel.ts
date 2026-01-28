@@ -4,7 +4,7 @@ import { marked } from 'marked';
 import { CellResult } from './kernelManager';
 import { isZefDocument } from './zefUtils';
 import { stripFrontmatter, getDocumentSettings, updateDocumentSetting, ZefSettings } from './frontmatterParser';
-import { ExcalidrawEditorPanel } from './excalidrawEditorPanel';
+import { ExcalidrawEditorPanel, generateExcalidrawUid } from './excalidrawEditorPanel';
 
 // Map of document URI string to its panel
 const panels: Map<string, vscode.WebviewPanel> = new Map();
@@ -47,55 +47,48 @@ async function toggleCheckboxInDocument(document: vscode.TextDocument, checkboxI
 }
 
 /**
- * Update an Excalidraw code block in the document
+ * Update an Excalidraw code block in the document by its UID.
  * @param document The document to update
- * @param blockId The ID of the block (excalidraw-{index} or excalidraw-{timestamp})
+ * @param uid The unique ID of the excalidraw block (stored in the JSON data)
  * @param newContent The new JSON content
  * @returns true if the block was found and updated
  */
-async function updateExcalidrawBlock(document: vscode.TextDocument, blockId: string, newContent: string): Promise<boolean> {
+async function updateExcalidrawBlockByUid(document: vscode.TextDocument, uid: string, newContent: string): Promise<boolean> {
     const text = document.getText();
     
-    // Extract the block index from blockId (e.g., "excalidraw-0" -> 0)
-    const idMatch = blockId.match(/^excalidraw-(\d+)$/);
-    if (!idMatch) {
-        console.log('Invalid blockId format:', blockId);
-        return false;
-    }
-    const targetIndex = parseInt(idMatch[1], 10);
-    
-    // Find all excalidraw code blocks (matching how the webview counts them)
-    // Match ```excalidraw (with optional attributes like width=wide)
-    // Note: We only match 'excalidraw' blocks, not 'json' blocks, to match webview counting
+    // Find all excalidraw code blocks
     const excalidrawBlockRegex = /```excalidraw[^\n]*\n([\s\S]*?)```/gi;
     let match;
-    let blockIndex = 0;
     
     while ((match = excalidrawBlockRegex.exec(text)) !== null) {
-        // Count ALL excalidraw blocks, not just those with valid JSON
-        // This matches how the webview counts them
-        if (blockIndex === targetIndex) {
-            // Found the block to update
-            const blockStart = match.index;
-            const blockEnd = match.index + match[0].length;
-            
-            // Extract the attributes from the original code fence (like width=wide)
-            const firstLine = match[0].split('\n')[0];
-            const attributes = firstLine.substring(3); // Remove the leading ```
-            const newBlock = `\`\`\`${attributes}\n${newContent}\n\`\`\``;
-            
-            const edit = new vscode.WorkspaceEdit();
-            const startPos = document.positionAt(blockStart);
-            const endPos = document.positionAt(blockEnd);
-            edit.replace(document.uri, new vscode.Range(startPos, endPos), newBlock);
-            await vscode.workspace.applyEdit(edit);
-            console.log('Updated excalidraw block:', blockId);
-            return true;
+        const blockContent = match[1];
+        
+        // Try to parse the JSON to check for matching UID
+        try {
+            const data = JSON.parse(blockContent);
+            if (data.uid === uid) {
+                // Found the block with matching UID
+                const blockStart = match.index;
+                const blockEnd = match.index + match[0].length;
+                
+                // Extract the attributes from the original code fence (like width=wide)
+                const firstLine = match[0].split('\n')[0];
+                const attributes = firstLine.substring(3); // Remove the leading ```
+                const newBlock = `\`\`\`${attributes}\n${newContent}\n\`\`\``;
+                
+                const edit = new vscode.WorkspaceEdit();
+                const startPos = document.positionAt(blockStart);
+                const endPos = document.positionAt(blockEnd);
+                edit.replace(document.uri, new vscode.Range(startPos, endPos), newBlock);
+                await vscode.workspace.applyEdit(edit);
+                return true;
+            }
+        } catch (e) {
+            // Invalid JSON, skip this block
+            continue;
         }
-        blockIndex++;
     }
     
-    console.log('Could not find excalidraw block:', blockId, 'found', blockIndex, 'blocks');
     return false;
 }
 
@@ -244,33 +237,68 @@ export function createPreviewPanel(context: vscode.ExtensionContext): vscode.Web
             // Open the Excalidraw editor panel
             if (extensionPath) {
                 const extensionUri = vscode.Uri.file(extensionPath);
+                let excalidrawData = message.data as { uid?: string; [key: string]: unknown };
+                
+                // Ensure the data has a unique ID
+                let uid = excalidrawData.uid;
+                if (!uid) {
+                    // Generate a new UID
+                    uid = generateExcalidrawUid();
+                    excalidrawData = { ...excalidrawData, uid };
+                    
+                    // Update the document with the new UID before opening editor
+                    const document = vscode.workspace.textDocuments.find(d => d.uri.toString() === docKey);
+                    if (document && message.blockId) {
+                        // We need to update by index first since it doesn't have a UID yet
+                        const idMatch = message.blockId.match(/^excalidraw-(\d+)$/);
+                        if (idMatch) {
+                            const targetIndex = parseInt(idMatch[1], 10);
+                            const text = document.getText();
+                            const excalidrawBlockRegex = /```excalidraw[^\n]*\n([\s\S]*?)```/gi;
+                            let match;
+                            let blockIndex = 0;
+                            
+                            while ((match = excalidrawBlockRegex.exec(text)) !== null) {
+                                if (blockIndex === targetIndex) {
+                                    const blockStart = match.index;
+                                    const blockEnd = match.index + match[0].length;
+                                    const firstLine = match[0].split('\n')[0];
+                                    const attributes = firstLine.substring(3);
+                                    const newJson = JSON.stringify(excalidrawData, null, 2);
+                                    const newBlock = `\`\`\`${attributes}\n${newJson}\n\`\`\``;
+                                    
+                                    const edit = new vscode.WorkspaceEdit();
+                                    const startPos = document.positionAt(blockStart);
+                                    const endPos = document.positionAt(blockEnd);
+                                    edit.replace(document.uri, new vscode.Range(startPos, endPos), newBlock);
+                                    await vscode.workspace.applyEdit(edit);
+                                    break;
+                                }
+                                blockIndex++;
+                            }
+                        }
+                    }
+                }
+                
+                // Open the editor panel with the UID
                 ExcalidrawEditorPanel.open(
                     extensionUri,
-                    message.data,
-                    message.blockId,
+                    excalidrawData,
+                    uid,
                     docUri,
-                    async (blockId: string, updatedData: object) => {
-                        // Update the excalidraw code block in the document
-                        console.log('[Excalidraw] Save callback called, blockId:', blockId, 'docKey:', docKey);
+                    async (savedUid: string, updatedData: object) => {
+                        // Update the excalidraw code block in the document by UID
                         const document = vscode.workspace.textDocuments.find(d => d.uri.toString() === docKey);
                         if (document) {
-                            console.log('[Excalidraw] Found document, applying update');
                             const newJson = JSON.stringify(updatedData, null, 2);
-                            const updated = await updateExcalidrawBlock(document, blockId, newJson);
-                            if (!updated) {
-                                console.log('[Excalidraw] Could not find Excalidraw block to update:', blockId);
-                            } else {
-                                console.log('[Excalidraw] Successfully updated block:', blockId);
-                                // Manually refresh the preview since programmatic edits may not trigger the change listener
-                                // Re-fetch the document to get the updated content
+                            const updated = await updateExcalidrawBlockByUid(document, savedUid, newJson);
+                            if (updated) {
+                                // Manually refresh the preview
                                 const updatedDoc = vscode.workspace.textDocuments.find(d => d.uri.toString() === docKey);
                                 if (updatedDoc) {
                                     updatePreview(updatedDoc);
                                 }
                             }
-                        } else {
-                            console.log('[Excalidraw] Document not found for key:', docKey);
-                            console.log('[Excalidraw] Available docs:', vscode.workspace.textDocuments.map(d => d.uri.toString()));
                         }
                     }
                 );
@@ -1892,7 +1920,7 @@ function getWebviewContent(renderedHtml: string, existingOutputs: { [blockId: nu
             if (visibleElements.length === 0) {
                 // Empty scene placeholder
                 return '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 200" width="100%" height="auto">' +
-                    '<rect width="400" height="200" fill="' + (bgColor || '#1a1a2e') + '"/>' +
+                    '<rect width="400" height="200" fill="' + (bgColor || '#121212') + '"/>' +
                     '<text x="200" y="90" text-anchor="middle" fill="#6c6c8a" font-family="system-ui, sans-serif" font-size="16">Empty Excalidraw Canvas</text>' +
                     '<text x="200" y="115" text-anchor="middle" fill="#4a4a5a" font-family="system-ui, sans-serif" font-size="12">Add elements to your drawing</text>' +
                     '</svg>';
@@ -1926,7 +1954,7 @@ function getWebviewContent(renderedHtml: string, existingOutputs: { [blockId: nu
 
             var svgParts = [];
             svgParts.push('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ' + width + ' ' + height + '" width="100%" height="auto">');
-            svgParts.push('<rect width="' + width + '" height="' + height + '" fill="' + (bgColor || '#1a1a2e') + '"/>');
+            svgParts.push('<rect width="' + width + '" height="' + height + '" fill="' + (bgColor || '#121212') + '"/>');
 
             visibleElements.forEach(function(el) {
                 var x = (el.x || 0) + offsetX;
@@ -1988,7 +2016,7 @@ function getWebviewContent(renderedHtml: string, existingOutputs: { [blockId: nu
                 if (!trimmedRaw) {
                     // Empty scene - show nice placeholder
                     console.log('[Excalidraw] Empty scene, rendering placeholder');
-                    target.innerHTML = renderExcalidrawSvg([], '#1a1a2e');
+                    target.innerHTML = renderExcalidrawSvg([], '#121212');
                     return;
                 }
 
@@ -1999,7 +2027,7 @@ function getWebviewContent(renderedHtml: string, existingOutputs: { [blockId: nu
                     return;
                 }
 
-                var bgColor = (data.appState && data.appState.viewBackgroundColor) || '#1a1a2e';
+                var bgColor = (data.appState && data.appState.viewBackgroundColor) || '#121212';
                 var svgHtml = renderExcalidrawSvg(data.elements || [], bgColor);
                 target.innerHTML = svgHtml;
             } catch (err) {
@@ -2342,7 +2370,7 @@ function getWebviewContent(renderedHtml: string, existingOutputs: { [blockId: nu
                                 var data = JSON.parse(rawJson || '{}');
                                 // Ensure it has the right structure
                                 if (!data.elements) {
-                                    data = { type: 'excalidraw', version: 2, elements: [], appState: { viewBackgroundColor: '#1a1a2e' }, files: {} };
+                                    data = { type: 'excalidraw', version: 2, elements: [], appState: { viewBackgroundColor: '#121212' }, files: {} };
                                 }
                                 // Use the stable block ID assigned during rendering
                                 var blockId = container.getAttribute('data-excalidraw-id');
@@ -2356,7 +2384,7 @@ function getWebviewContent(renderedHtml: string, existingOutputs: { [blockId: nu
                                 console.error('Failed to parse Excalidraw JSON:', e);
                                 vscode.postMessage({
                                     type: 'openExcalidrawEditor',
-                                    data: { type: 'excalidraw', version: 2, elements: [], appState: { viewBackgroundColor: '#1a1a2e' }, files: {} },
+                                    data: { type: 'excalidraw', version: 2, elements: [], appState: { viewBackgroundColor: '#121212' }, files: {} },
                                     blockId: container.getAttribute('data-excalidraw-id') || 'excalidraw-0'
                                 });
                             }

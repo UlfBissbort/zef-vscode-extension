@@ -35,21 +35,26 @@ declare global {
 interface ExcalidrawData {
   type?: string;
   version?: number;
+  uid?: string;  // Unique ID for tracking this block across edits
   elements: ExcalidrawElement[];
   appState?: Partial<AppState>;
   files?: BinaryFiles;
 }
 
-// Default appState for dark theme with white stroke color
+// Default appState for dark theme
 const defaultAppState = {
-  viewBackgroundColor: '#121212',
-  currentItemStrokeColor: '#ffffff',
+  viewBackgroundColor: '#080808',
+  currentItemStrokeColor: '#ada7a7',
   currentItemBackgroundColor: 'transparent',
   currentItemFillStyle: 'solid',
   currentItemStrokeWidth: 2,
   currentItemRoughness: 1,
   currentItemOpacity: 100,
-  theme: 'dark',
+  currentItemFontFamily: 5,
+  currentItemFontSize: 20,
+  currentItemTextAlign: 'left',
+  currentItemRoundness: 'round',
+  gridSize: 20,
 };
 
 function App() {
@@ -132,6 +137,7 @@ function App() {
     const newData: ExcalidrawData = {
       type: 'excalidraw',
       version: 2,
+      uid: currentDataRef.current?.uid,  // Preserve the UID
       elements: elements as ExcalidrawElement[],
       appState: {
         viewBackgroundColor: appState.viewBackgroundColor,
@@ -183,7 +189,6 @@ function App() {
           files: initialData.files || {}
         } : undefined}
         onChange={handleChange}
-        theme="dark"
       />
     </div>
   );

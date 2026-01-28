@@ -1,28 +1,40 @@
 import * as vscode from 'vscode';
-import * as path from 'path';
 
 /**
- * Manages the Excalidraw editor webview panel.
- * Opens as a separate tab where users can edit Excalidraw drawings.
+ * Generate a unique ID for an excalidraw block.
+ * Uses timestamp + random component for uniqueness.
+ */
+export function generateExcalidrawUid(): string {
+    return Date.now().toString(36) + Math.random().toString(36).substr(2, 9);
+}
+
+/**
+ * Manages Excalidraw editor webview panels.
+ * Supports multiple panels for editing different excalidraw blocks.
  */
 export class ExcalidrawEditorPanel {
-    public static currentPanel: ExcalidrawEditorPanel | undefined;
+    // Map of panel key (documentUri:uid) to panel instance
+    private static panels: Map<string, ExcalidrawEditorPanel> = new Map();
     private static readonly viewType = 'zef.excalidrawEditor';
 
     private readonly _panel: vscode.WebviewPanel;
     private readonly _extensionUri: vscode.Uri;
     private _disposables: vscode.Disposable[] = [];
     
-    private _currentBlockId: string | undefined;
-    private _currentDocumentUri: vscode.Uri | undefined;
-    private _onSaveCallback: ((blockId: string, data: object) => void) | undefined;
+    private _uid: string;
+    private _documentUri: vscode.Uri;
+    private _onSaveCallback: ((uid: string, data: object) => void) | undefined;
 
     private constructor(
         panel: vscode.WebviewPanel,
-        extensionUri: vscode.Uri
+        extensionUri: vscode.Uri,
+        uid: string,
+        documentUri: vscode.Uri
     ) {
         this._panel = panel;
         this._extensionUri = extensionUri;
+        this._uid = uid;
+        this._documentUri = documentUri;
 
         // Set the webview's initial html content
         this._update();
@@ -35,22 +47,17 @@ export class ExcalidrawEditorPanel {
             message => {
                 switch (message.type) {
                     case 'ready':
-                        // Webview is ready, send any pending data
-                        console.log('[ExcalidrawEditorPanel] Webview ready');
+                        // Webview is ready
                         break;
                     case 'saveExcalidraw':
-                        console.log('[ExcalidrawEditorPanel] Save request, blockId:', this._currentBlockId);
-                        if (this._onSaveCallback && this._currentBlockId) {
-                            this._onSaveCallback(this._currentBlockId, message.data);
+                        if (this._onSaveCallback) {
+                            this._onSaveCallback(this._uid, message.data);
                         }
                         break;
                     case 'excalidrawChanged':
                         // Live update - update the document with new data
-                        console.log('[ExcalidrawEditorPanel] Live update, blockId:', this._currentBlockId, 'hasCallback:', !!this._onSaveCallback);
-                        if (this._onSaveCallback && this._currentBlockId) {
-                            this._onSaveCallback(this._currentBlockId, message.data);
-                        } else {
-                            console.log('[ExcalidrawEditorPanel] Missing callback or blockId');
+                        if (this._onSaveCallback) {
+                            this._onSaveCallback(this._uid, message.data);
                         }
                         break;
                 }
@@ -61,31 +68,51 @@ export class ExcalidrawEditorPanel {
     }
 
     /**
-     * Opens the Excalidraw editor panel with the given data.
+     * Get the unique key for a panel based on document URI and block UID.
+     */
+    private static getPanelKey(documentUri: vscode.Uri, uid: string): string {
+        return `${documentUri.toString()}:${uid}`;
+    }
+
+    /**
+     * Opens or reveals an Excalidraw editor panel for the given block.
+     * @param extensionUri The extension's URI (for accessing assets)
+     * @param data The excalidraw data (must include 'uid' property)
+     * @param uid The unique ID of the excalidraw block
+     * @param documentUri The document containing the excalidraw block
+     * @param onSave Callback when data is saved/changed
      */
     public static open(
         extensionUri: vscode.Uri,
         data: object,
-        blockId: string,
+        uid: string,
         documentUri: vscode.Uri,
-        onSave: (blockId: string, data: object) => void
+        onSave: (uid: string, data: object) => void
     ) {
-        const column = vscode.window.activeTextEditor
-            ? vscode.window.activeTextEditor.viewColumn
-            : undefined;
-
-        // If we already have a panel, show it and update data
-        if (ExcalidrawEditorPanel.currentPanel) {
-            ExcalidrawEditorPanel.currentPanel._panel.reveal(column);
-            ExcalidrawEditorPanel.currentPanel.loadData(data, blockId, documentUri, onSave);
+        const key = ExcalidrawEditorPanel.getPanelKey(documentUri, uid);
+        
+        // Check if panel already exists for this block
+        const existingPanel = ExcalidrawEditorPanel.panels.get(key);
+        if (existingPanel) {
+            // Reveal existing panel and update callback
+            existingPanel._panel.reveal();
+            existingPanel._onSaveCallback = onSave;
+            // Send updated data in case it changed externally
+            existingPanel._panel.webview.postMessage({
+                type: 'loadExcalidraw',
+                data: data
+            });
             return;
         }
 
-        // Otherwise, create a new panel
+        // Determine the view column - prefer beside the active editor
+        const column = vscode.ViewColumn.Beside;
+
+        // Create a new panel
         const panel = vscode.window.createWebviewPanel(
             ExcalidrawEditorPanel.viewType,
-            'Excalidraw Editor',
-            column || vscode.ViewColumn.One,
+            `Excalidraw - ${uid.substring(0, 8)}`,
+            column,
             {
                 enableScripts: true,
                 retainContextWhenHidden: true,
@@ -95,42 +122,48 @@ export class ExcalidrawEditorPanel {
             }
         );
 
-        ExcalidrawEditorPanel.currentPanel = new ExcalidrawEditorPanel(panel, extensionUri);
-        ExcalidrawEditorPanel.currentPanel.loadData(data, blockId, documentUri, onSave);
-    }
-
-    /**
-     * Loads Excalidraw data into the editor.
-     */
-    public loadData(
-        data: object,
-        blockId: string,
-        documentUri: vscode.Uri,
-        onSave: (blockId: string, data: object) => void
-    ) {
-        this._currentBlockId = blockId;
-        this._currentDocumentUri = documentUri;
-        this._onSaveCallback = onSave;
-
-        // Send data to the webview
-        this._panel.webview.postMessage({
+        const editorPanel = new ExcalidrawEditorPanel(panel, extensionUri, uid, documentUri);
+        editorPanel._onSaveCallback = onSave;
+        
+        // Register in the map
+        ExcalidrawEditorPanel.panels.set(key, editorPanel);
+        
+        // Send initial data
+        panel.webview.postMessage({
             type: 'loadExcalidraw',
             data: data
         });
     }
 
     /**
-     * Request save from the editor.
+     * Close all panels associated with a specific document.
      */
-    public requestSave() {
-        this._panel.webview.postMessage({
-            type: 'requestSave'
-        });
+    public static closeAllForDocument(documentUri: vscode.Uri): void {
+        const prefix = documentUri.toString() + ':';
+        for (const [key, panel] of ExcalidrawEditorPanel.panels) {
+            if (key.startsWith(prefix)) {
+                panel.dispose();
+            }
+        }
+    }
+
+    /**
+     * Get all active panel UIDs for a document.
+     */
+    public static getActiveUidsForDocument(documentUri: vscode.Uri): string[] {
+        const prefix = documentUri.toString() + ':';
+        const uids: string[] = [];
+        for (const key of ExcalidrawEditorPanel.panels.keys()) {
+            if (key.startsWith(prefix)) {
+                const uid = key.substring(prefix.length);
+                uids.push(uid);
+            }
+        }
+        return uids;
     }
 
     private _update() {
         const webview = this._panel.webview;
-        this._panel.title = 'Excalidraw Editor';
         this._panel.webview.html = this._getHtmlForWebview(webview);
     }
 
@@ -142,7 +175,7 @@ export class ExcalidrawEditorPanel {
         const scriptUri = webview.asWebviewUri(vscode.Uri.joinPath(editorPath, 'excalidraw-editor.js'));
         const stylesUri = webview.asWebviewUri(vscode.Uri.joinPath(editorPath, 'index.css'));
         
-        // We need to handle all the chunk files
+        // Base URI for dynamic imports
         const baseUri = webview.asWebviewUri(editorPath);
 
         // Use a nonce to allow inline scripts
@@ -193,9 +226,11 @@ export class ExcalidrawEditorPanel {
     }
 
     public dispose() {
-        ExcalidrawEditorPanel.currentPanel = undefined;
+        // Remove from the map
+        const key = ExcalidrawEditorPanel.getPanelKey(this._documentUri, this._uid);
+        ExcalidrawEditorPanel.panels.delete(key);
 
-        // Clean up our resources
+        // Clean up resources
         this._panel.dispose();
 
         while (this._disposables.length) {
