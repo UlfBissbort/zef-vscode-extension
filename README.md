@@ -9,7 +9,8 @@ Zef brings the power of Jupyter notebooks to Markdown files:
 - **Lightweight** — Plain text files, no special notebook format
 - **Executable** — Run code blocks directly in VS Code
 - **Embeddable results** — Output is stored inline, share files with results included
-- **Beautiful rendering** — Dark theme preview with mermaid diagrams and syntax highlighting
+- **Beautiful rendering** — Dark theme preview with LaTeX math, Mermaid diagrams, and Excalidraw sketches
+- **Inline editing** — Edit Excalidraw diagrams directly in VS Code with a visual editor
 - **Svelte components** — Define and render interactive components inline
 
 ## Features
@@ -47,18 +48,34 @@ For large inputs or outputs, Zef uses a **content-hashing system**:
 Press **Cmd+Shift+V** to open a beautifully rendered preview:
 
 - Elegant dark theme with minimalist styling
+- **LaTeX math equations** with KaTeX — use `$...$` for inline and `$$...$$` for block equations
 - **Mermaid diagrams** rendered automatically
-- **Excalidraw diagrams** rendered from `excalidraw` fenced blocks
+- **Excalidraw diagrams** with inline editing — click the ✏️ pencil icon to edit directly in VS Code
 - Syntax highlighting for all major languages
+- **Auto-folding** of Excalidraw blocks to keep your document readable
 - Live updates as you type
 
-Excalidraw blocks render by default and include a Source Code tab. You can optionally widen a block:
+Excalidraw blocks render by default and include a Source Code tab. Click the pencil icon to open an interactive editor panel. You can optionally widen a block:
 
 ````markdown
 ```excalidraw width=wide
 { "type": "excalidraw", "version": 2, "elements": [], "appState": { "viewBackgroundColor": "#0b0b0b" } }
 ```
 ````
+
+### LaTeX Math Equations
+
+Render beautiful mathematical notation with KaTeX:
+
+**Inline math:** Write `$E = mc^2$` to render inline equations.
+
+**Block equations:** Use double dollar signs for centered equations:
+
+```markdown
+$$
+\int_{-\infty}^{\infty} e^{-x^2} dx = \sqrt{\pi}
+$$
+```
 
 ### Svelte Components
 
@@ -107,17 +124,20 @@ graph LR
 
 ### Quick Build (Recommended)
 
-Use the build script for a clean, reliable build process:
+Use the interactive build script:
 
 ```bash
-# Build only
-python3 scripts/build.py
+# Interactive mode - shows menu with options
+python3 build.py
 
-# Clean build and install
-python3 scripts/build.py --clean --install
+# Development workflow (build + local install)
+python3 build.py dev
 
-# Bump version and build
-python3 scripts/build.py --bump patch --install
+# Clean dev build
+python3 build.py dev --clean
+
+# Publish to marketplace (bumps version automatically)
+python3 build.py publish
 ```
 
 The build script handles:

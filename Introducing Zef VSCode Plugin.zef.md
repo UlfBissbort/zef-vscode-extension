@@ -1,12 +1,12 @@
 # Introducing the Zef VSCode Plugin
 
-**Jupyter notebooks, evolved. Write Markdown. Run Python and Rust. Reproduce anything.**
+**Jupyter notebooks, evolved. Write Markdown. Run Python and Rust. Render LaTeX math. Sketch with Excalidraw. Reproduce anything.**
 
 ---
 
 ## The 10-Second Pitch
 
-The Zef VSCode Plugin turns `.zef.md` files into executable documents. Write prose with Python and Rust code together. Run code blocks interactively. Every result is automatically tracked and reproducible.
+The Zef VSCode Plugin turns `.zef.md` files into executable documents. Write prose with Python and Rust code together. Render beautiful LaTeX equations. Embed hand-drawn diagrams with Excalidraw. Every result is automatically tracked and reproducible.
 
 ---
 
@@ -30,8 +30,40 @@ sequenceDiagram
     S-->>C2: "Hello!"    
 ```
 
+## LaTeX Math Equations
 
+Zef renders beautiful mathematical notation with KaTeX. Write inline math like $E = mc^2$ or $\nabla \cdot \mathbf{E} = \frac{\rho}{\epsilon_0}$ directly in your text.
 
+For complex equations, use block math:
+
+$$\int_{-\infty}^{\infty} e^{-x^2} dx = \sqrt{\pi}$$
+
+The quadratic formula: 
+$$x = \frac{-b \pm \sqrt{b^2 - 4ac}}{2a}$$
+
+Maxwell's equations in differential form:
+$$
+\begin{aligned}
+\nabla \cdot \mathbf{E} &= \frac{\rho}{\epsilon_0} \\
+\nabla \cdot \mathbf{B} &= 0 \\
+\nabla \times \mathbf{E} &= -\frac{\partial \mathbf{B}}{\partial t} \\
+\nabla \times \mathbf{B} &= \mu_0 \mathbf{J} + \mu_0 \epsilon_0 \frac{\partial \mathbf{E}}{\partial t}
+\end{aligned}
+$$
+
+## Excalidraw Diagrams
+
+Embed hand-drawn style diagrams directly in your documents. Click the ✏️ pencil icon to edit inline!
+
+```excalidraw
+{"type":"excalidraw","version":2,"source":"zef","elements":[{"id":"rect1","type":"rectangle","x":100,"y":50,"width":120,"height":60,"strokeColor":"#1e90ff","backgroundColor":"transparent","fillStyle":"solid","strokeWidth":2,"roughness":1,"seed":1},{"id":"text1","type":"text","x":115,"y":70,"width":90,"height":25,"text":"Your Idea","fontSize":16,"fontFamily":1,"textAlign":"center","strokeColor":"#1e90ff"},{"id":"arrow1","type":"arrow","x":220,"y":80,"width":60,"height":0,"strokeColor":"#ff6b6b","strokeWidth":2,"points":[[0,0],[60,0]]},{"id":"rect2","type":"rectangle","x":280,"y":50,"width":120,"height":60,"strokeColor":"#10b981","backgroundColor":"transparent","fillStyle":"solid","strokeWidth":2,"roughness":1,"seed":2},{"id":"text2","type":"text","x":295,"y":70,"width":90,"height":25,"text":"Reality","fontSize":16,"fontFamily":1,"textAlign":"center","strokeColor":"#10b981"}],"appState":{"viewBackgroundColor":"#0b0b0b"}}
+```
+
+Excalidraw blocks:
+- Render inline with your markdown
+- Auto-fold in the editor to keep your document clean
+- Support `width=wide` option for larger diagrams
+- Have syntax highlighting for the JSON content
 
 
 ## See It in Action
@@ -192,7 +224,9 @@ Every function and value is tracked by hash. Six months later, you can reproduce
 | | Jupyter | Zef |
 |---|---------|-----|
 | **Editor** | Basic web UI | Full VS Code |
-| **Languages** | Python only | Python + Rust |
+| **Languages** | Python only | Python, Rust, JS/TS |
+| **Math** | MathJax in output | LaTeX in prose + output |
+| **Diagrams** | Image files | Excalidraw inline editing |
 | **State** | Hidden, fragile | Tracked, reproducible |
 | **Sharing** | Export files | Share by hash |
 | **Dependencies** | requirements.txt 🙏 | Locked by hash |
@@ -292,7 +326,7 @@ print(f"Document executed: {datetime.datetime.now()}")
 [
     ET.UnmanagedEffect(
         what='stdout',
-        content='Document executed: 2026-01-12 12:17:59.572127'
+        content='Document executed: 2026-01-28 15:44:50.110171'
     )
 ]
 ````
