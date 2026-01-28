@@ -105,6 +105,29 @@ graph LR
 
 ## Building from Source
 
+### Quick Build (Recommended)
+
+Use the build script for a clean, reliable build process:
+
+```bash
+# Build only
+python3 scripts/build.py
+
+# Clean build and install
+python3 scripts/build.py --clean --install
+
+# Bump version and build
+python3 scripts/build.py --bump patch --install
+```
+
+The build script handles:
+- Cleaning stale build artifacts
+- Removing old extension versions
+- Version management
+- Installation verification
+
+### Manual Build
+
 ```bash
 git clone https://github.com/UlfBissbort/zef-vscode-extension.git
 cd zef-vscode-extension
