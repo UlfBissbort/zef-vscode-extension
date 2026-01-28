@@ -4,6 +4,7 @@ import { marked } from 'marked';
 import { CellResult } from './kernelManager';
 import { isZefDocument } from './zefUtils';
 import { stripFrontmatter, getDocumentSettings, updateDocumentSetting, ZefSettings } from './frontmatterParser';
+import { ExcalidrawEditorPanel } from './excalidrawEditorPanel';
 
 // Map of document URI string to its panel
 const panels: Map<string, vscode.WebviewPanel> = new Map();
@@ -185,6 +186,23 @@ export function createPreviewPanel(context: vscode.ExtensionContext): vscode.Web
                     await vscode.workspace.fs.writeFile(saveUri, Buffer.from(svgContent, 'utf8'));
                     vscode.window.showInformationMessage(`Saved diagram to ${path.basename(saveUri.fsPath)}`);
                 }
+            }
+        } else if (message.type === 'openExcalidrawEditor') {
+            // Open the Excalidraw editor panel
+            if (extensionPath) {
+                const extensionUri = vscode.Uri.file(extensionPath);
+                ExcalidrawEditorPanel.open(
+                    extensionUri,
+                    message.data,
+                    message.blockId,
+                    docUri,
+                    (blockId: string, updatedData: object) => {
+                        // Handle save - update the code block in the document
+                        // For now, just log - full implementation would update the markdown
+                        console.log('Excalidraw saved:', blockId, updatedData);
+                        vscode.window.showInformationMessage('Excalidraw drawing saved. Copy the JSON to update your document.');
+                    }
+                );
             }
         }
     });
@@ -1223,6 +1241,36 @@ function getWebviewContent(renderedHtml: string, existingOutputs: { [blockId: nu
             position: relative;
         }
         
+        /* Excalidraw expand button in tabs bar */
+        .excalidraw-expand-btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            padding: 4px 8px;
+            margin-left: auto;
+            font-size: 11px;
+            color: rgba(255, 255, 255, 0.5);
+            background: transparent;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 4px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+        
+        .excalidraw-expand-btn:hover {
+            color: rgba(255, 255, 255, 0.9);
+            background: rgba(255, 255, 255, 0.05);
+            border-color: rgba(255, 255, 255, 0.2);
+        }
+        
+        .excalidraw-expand-btn svg {
+            width: 12px;
+            height: 12px;
+            stroke: currentColor;
+            stroke-width: 2;
+            fill: none;
+        }
+        
         /* Settings Drawer Styles */
         .drawer-trigger {
             position: fixed;
@@ -2205,6 +2253,41 @@ function getWebviewContent(renderedHtml: string, existingOutputs: { [blockId: nu
                         })(excalidrawContainer, tab);
                         excalidrawTabsBar.appendChild(tab);
                     });
+
+                    // Add expand button to tabs bar
+                    var excalidrawExpandBtn = document.createElement('button');
+                    excalidrawExpandBtn.className = 'excalidraw-expand-btn';
+                    excalidrawExpandBtn.title = 'Open editor';
+                    excalidrawExpandBtn.innerHTML = '<svg viewBox="0 0 24 24"><polyline points="15 3 21 3 21 9"></polyline><polyline points="9 21 3 21 3 15"></polyline><line x1="21" y1="3" x2="14" y2="10"></line><line x1="3" y1="21" x2="10" y2="14"></line></svg>Edit';
+                    excalidrawExpandBtn.onclick = (function(rawJson, container) {
+                        return function() {
+                            // Parse the JSON and send to extension to open editor panel
+                            try {
+                                var data = JSON.parse(rawJson || '{}');
+                                // Ensure it has the right structure
+                                if (!data.elements) {
+                                    data = { type: 'excalidraw', version: 2, elements: [], appState: { viewBackgroundColor: '#1a1a2e' }, files: {} };
+                                }
+                                // Generate a unique block ID from the container
+                                var blockId = container.getAttribute('data-excalidraw-id') || 'excalidraw-' + Date.now();
+                                container.setAttribute('data-excalidraw-id', blockId);
+                                // Send message to extension to open Excalidraw editor panel
+                                vscode.postMessage({
+                                    type: 'openExcalidrawEditor',
+                                    data: data,
+                                    blockId: blockId
+                                });
+                            } catch (e) {
+                                console.error('Failed to parse Excalidraw JSON:', e);
+                                vscode.postMessage({
+                                    type: 'openExcalidrawEditor',
+                                    data: { type: 'excalidraw', version: 2, elements: [], appState: { viewBackgroundColor: '#1a1a2e' }, files: {} },
+                                    blockId: 'excalidraw-new'
+                                });
+                            }
+                        };
+                    })(codeContent, excalidrawContainer);
+                    excalidrawTabsBar.appendChild(excalidrawExpandBtn);
 
                     var excalidrawLangIndicator = document.createElement('div');
                     excalidrawLangIndicator.className = 'code-block-lang';
