@@ -361,48 +361,127 @@ Welcome to reproducible interactive computing. 🚀
 
 Embed live, interactive Svelte components directly in your documents. Minimal code, maximum impact.
 
-### Animated Gradient Button
+### Live Terminal Demo
 
-A sleek button with an animated gradient border. Hover to see the glow intensify:
+An animated terminal that types code with a blinking cursor. Click to restart the animation:
 
 ```svelte
 <script>
-  let clicked = 0;
+  const commands = [
+    { prompt: '❯', text: 'zef run analysis.zef.md', delay: 60 },
+    { prompt: '', text: '  ✓ Loading data...', delay: 40, color: '#6ee7b7' },
+    { prompt: '', text: '  ✓ Running 12 code blocks', delay: 40, color: '#6ee7b7' },
+    { prompt: '', text: '  ✓ Computed 847 hashes', delay: 40, color: '#6ee7b7' },
+    { prompt: '', text: '', delay: 200 },
+    { prompt: '❯', text: 'echo "Reproducible by design ✨"', delay: 50 },
+    { prompt: '', text: 'Reproducible by design ✨', delay: 0, color: '#c4b5fd' },
+  ];
+  
+  let lines = $state([]);
+  let currentLine = $state(0);
+  let currentChar = $state(0);
+  let showCursor = $state(true);
+  let isTyping = $state(true);
+  
+  function reset() {
+    lines = [];
+    currentLine = 0;
+    currentChar = 0;
+    isTyping = true;
+    typeNext();
+  }
+  
+  function typeNext() {
+    if (currentLine >= commands.length) {
+      isTyping = false;
+      return;
+    }
+    
+    const cmd = commands[currentLine];
+    const fullText = cmd.prompt ? `${cmd.prompt} ${cmd.text}` : cmd.text;
+    
+    if (currentChar === 0) {
+      lines = [...lines, { text: '', color: cmd.color }];
+    }
+    
+    if (currentChar < fullText.length) {
+      lines[lines.length - 1].text = fullText.slice(0, currentChar + 1);
+      lines = [...lines.slice(0, -1), lines[lines.length - 1]];
+      currentChar++;
+      setTimeout(typeNext, cmd.delay || 50);
+    } else {
+      currentLine++;
+      currentChar = 0;
+      setTimeout(typeNext, 300);
+    }
+  }
+  
+  $effect(() => { typeNext(); });
+  $effect(() => {
+    const interval = setInterval(() => { showCursor = !showCursor; }, 530);
+    return () => clearInterval(interval);
+  });
 </script>
 
-<button on:click={() => clicked++}>
-  {clicked === 0 ? 'Click me' : `Clicked ${clicked}×`}
+<button class="terminal" onclick={reset}>
+  <div class="header">
+    <span class="dot red"></span>
+    <span class="dot yellow"></span>
+    <span class="dot green"></span>
+    <span class="title">zef — zsh</span>
+  </div>
+  <div class="content">
+    {#each lines as line, i}
+      <div class="line" style:color={line.color || '#e4e4e7'}>
+        {line.text}{#if i === lines.length - 1 && showCursor}<span class="cursor">▋</span>{/if}
+      </div>
+    {/each}
+    {#if lines.length === 0}<span class="cursor" class:blink={showCursor}>▋</span>{/if}
+  </div>
+  <div class="hint">Click to restart</div>
 </button>
 
 <style>
-  button {
-    padding: 12px 28px;
-    font-size: 14px;
-    font-weight: 500;
-    color: #fafafa;
-    background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
-    border: 1px solid transparent;
-    border-radius: 8px;
-    cursor: pointer;
-    position: relative;
+  .terminal {
+    all: unset;
+    display: block;
+    width: 100%;
+    max-width: 480px;
+    background: #0c0c0e;
+    border: 1px solid rgba(255,255,255,0.08);
+    border-radius: 12px;
     overflow: hidden;
-    transition: all 0.3s ease;
+    cursor: pointer;
+    transition: transform 0.2s, box-shadow 0.2s;
   }
-  button::before {
-    content: '';
-    position: absolute;
-    inset: -2px;
-    background: linear-gradient(90deg, #667eea, #764ba2, #f093fb, #667eea);
-    background-size: 300% 100%;
-    z-index: -1;
-    border-radius: 10px;
-    animation: gradient 3s linear infinite;
-    opacity: 0.5;
-    transition: opacity 0.3s;
+  .terminal:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 20px 40px rgba(0,0,0,0.4);
   }
-  button:hover::before { opacity: 1; }
-  button:hover { transform: translateY(-2px); box-shadow: 0 10px 40px rgba(102, 126, 234, 0.3); }
-  @keyframes gradient { 0% { background-position: 0% 50%; } 100% { background-position: 300% 50%; } }
+  .header {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 10px 14px;
+    background: rgba(255,255,255,0.03);
+    border-bottom: 1px solid rgba(255,255,255,0.06);
+  }
+  .dot { width: 10px; height: 10px; border-radius: 50%; }
+  .red { background: #ff5f56; }
+  .yellow { background: #ffbd2e; }
+  .green { background: #27ca40; }
+  .title { margin-left: auto; font-size: 11px; color: #52525b; font-family: system-ui; }
+  .content {
+    padding: 16px;
+    font-family: 'SF Mono', 'Fira Code', monospace;
+    font-size: 13px;
+    line-height: 1.6;
+    min-height: 140px;
+  }
+  .line { white-space: pre; }
+  .cursor { color: #10b981; animation: pulse 1s infinite; }
+  .hint { padding: 8px 16px; font-size: 10px; color: #3f3f46; text-align: center; border-top: 1px solid rgba(255,255,255,0.04); }
+  @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.5; } }
 </style>
 ```
 
