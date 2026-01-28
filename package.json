@@ -1,8 +1,8 @@
 {
   "name": "zef",
   "displayName": "Zef",
-  "description": "Executable Markdown — run Python, Rust, TypeScript with live preview, mermaid diagrams, Svelte components, and LaTeX math",
-  "version": "0.1.8",
+  "description": "Executable Markdown \u2014 run Python, Rust, TypeScript with live preview, mermaid diagrams, Svelte components, and LaTeX math",
+  "version": "0.1.9",
   "publisher": "UlfBissbort",
   "icon": "icon.png",
   "repository": {
