@@ -5,6 +5,26 @@ All notable changes to the Zef extension will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.1.12] - 2026-01-28
+
+### Added
+
+- **Rust File Preview**: Support for `.rs` files with `/*md ... */` markdown blocks. Press `Cmd+Shift+P` → "Zef: Show Preview" on any Rust file to see rendered documentation.
+
+- **Python File Preview**: Support for `.py` files with `"""md ... """` markdown blocks. Self-documenting Python scripts with live preview.
+
+- **Rust Polymorphism Tutorial**: New example file `rust_polymorphism_tutorial.rs` demonstrating:
+  - Enums vs Traits comparison with Mermaid diagrams
+  - Algebraic data type mathematics (sum types, memory layout)
+  - VTable structure and dynamic dispatch visualization
+  - Fully compilable and runnable Rust code
+
+### Fixed
+
+- **LaTeX Aligned Environments**: Fixed `\\` line breaks in LaTeX aligned/matrix environments being converted to single backslash by markdown parser.
+
+- **Indented Markdown Blocks**: Fixed dedent for `/*md` blocks inside functions/structs where indentation wasn't properly removed.
+
 ## [0.1.8] - 2026-01-27
 
 ### Added

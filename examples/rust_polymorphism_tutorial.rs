@@ -436,33 +436,18 @@ fn print_areas_dynamic(shapes: &[&dyn Drawable]) {
 ### Memory Layout Comparison
 
 ```mermaid
-graph TB
-    subgraph "Enum: Vec&lt;Shape&gt;"
-        direction LR
-        E1["[tag|radius]"]
-        E2["[tag|w|h]"]
-        E3["[tag|b|h]"]
+%%{init: {'theme': 'dark'}}%%
+flowchart LR
+    subgraph enum["Enum: Vec&lt;Shape&gt; (inline, contiguous)"]
+        E1["tag|r"] --> E2["tag|w|h"] --> E3["tag|b|h"]
     end
     
-    subgraph "Trait Objects: Vec&lt;&dyn Drawable&gt;"
-        direction LR
-        T1["[ptr|vptr]"]
-        T2["[ptr|vptr]"]
+    subgraph trait["Trait: Vec&lt;&dyn Drawable&gt; (fat pointers)"]
+        T1["ptr|vptr"] --> T2["ptr|vptr"]
     end
     
-    subgraph "Heap Data"
-        H1["Circle{r}"]
-        H2["Rect{w,h}"]
-    end
-    
-    T1 --> H1
-    T2 --> H2
-    
-    style E1 fill:#667eea,color:#fff
-    style E2 fill:#667eea,color:#fff
-    style E3 fill:#667eea,color:#fff
-    style T1 fill:#10b981,color:#fff
-    style T2 fill:#10b981,color:#fff
+    T1 -.-> H1["Circle{r}"]
+    T2 -.-> H2["Rect{w,h}"]
 ```
 
 | Property | Enum | Trait Object |
@@ -471,23 +456,11 @@ graph TB
 | **Cache** | Contiguous, cache-friendly | Pointer chasing, less cache-friendly |
 | **Extension** | Closed (modify enum) | Open (impl Trait) |
 
-```mermaid
-graph TB
-    subgraph Enums
-        E1[✓ Pattern matching]
-        E2[✓ Data + behavior together]
-        E3[✗ Closed to extension]
-    end
-    
-    subgraph Traits
-        T1[✓ Open to extension]
-        T2[✓ Zero-cost with generics]
-        T3[✓ Trait objects for flexibility]
-    end
-    
-    style Enums fill:#667eea,color:#fff
-    style Traits fill:#10b981,color:#fff
-```
+### Summary
+
+**Enums**: Pattern matching + data/behavior together, but closed to extension
+
+**Traits**: Open to extension + zero-cost with generics + flexibility with trait objects
 */
 
 /*md
