@@ -35,8 +35,23 @@ pub struct Circle {
 impl Circle {
     /*md
     ### Circle Methods
+
+    Calculate properties of a circle.    
     
-    Calculate properties of a circle.
+    We can also use latex here:
+    $$C = 2 \pi r$$
+
+
+    or use inline math: $C = 2 \pi r$.
+    or mermaid diagrams:
+
+    ```mermaid
+    graph TD
+        A[Circle] --> B[Area]
+        A --> C[Circumference]
+    ```
+
+
     */
     
     pub fn new(radius: f64) -> Self {
