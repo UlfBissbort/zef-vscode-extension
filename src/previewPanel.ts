@@ -2,7 +2,7 @@ import * as vscode from 'vscode';
 import * as path from 'path';
 import { marked } from 'marked';
 import { CellResult } from './kernelManager';
-import { isZefDocument } from './zefUtils';
+import { isZefDocument, isZefPythonFile } from './zefUtils';
 import { stripFrontmatter, getDocumentSettings, updateDocumentSetting, ZefSettings } from './frontmatterParser';
 import { ExcalidrawEditorPanel, generateExcalidrawUid } from './excalidrawEditorPanel';
 
@@ -13,6 +13,92 @@ let extensionPath: string | undefined;
 
 export function setOnRunCode(callback: (code: string, blockId: number, language: string, documentUri: vscode.Uri) => void) {
     onRunCodeCallback = callback;
+}
+
+/**
+ * Converts Python source code to markdown for preview rendering.
+ * 
+ * Segments marked with """md ... """ are extracted as markdown.
+ * All other code is wrapped in ```python fenced blocks.
+ * 
+ * @param pythonSource The Python file content
+ * @returns Markdown string suitable for renderMarkdown()
+ */
+function convertPythonToMarkdown(pythonSource: string): string {
+    const lines = pythonSource.split('\n');
+    const segments: Array<{type: 'code' | 'markdown', content: string[]}> = [];
+    
+    let currentType: 'code' | 'markdown' = 'code';
+    let currentContent: string[] = [];
+    
+    for (let i = 0; i < lines.length; i++) {
+        const line = lines[i];
+        
+        if (currentType === 'code') {
+            // Check for """md or '''md at start of line (allowing leading whitespace)
+            const trimmed = line.trimStart();
+            if (trimmed.startsWith('"""md') || trimmed.startsWith("'''md")) {
+                // Save current code segment if non-empty
+                if (currentContent.some(l => l.trim())) {
+                    segments.push({ type: 'code', content: currentContent });
+                }
+                currentContent = [];
+                currentType = 'markdown';
+                
+                // If there's content after """md on same line, include it
+                const quoteType = trimmed.startsWith('"""md') ? '"""md' : "'''md";
+                const afterMarker = trimmed.substring(quoteType.length);
+                if (afterMarker.trim()) {
+                    currentContent.push(afterMarker);
+                }
+            } else {
+                currentContent.push(line);
+            }
+        } else {
+            // In markdown mode - look for closing """ or '''
+            const closingIndex = line.indexOf('"""') !== -1 ? line.indexOf('"""') : line.indexOf("'''");
+            if (closingIndex !== -1) {
+                // Include content before the closing quotes
+                const beforeClosing = line.substring(0, closingIndex);
+                if (beforeClosing.trim()) {
+                    currentContent.push(beforeClosing);
+                }
+                
+                // Save markdown segment
+                if (currentContent.length > 0) {
+                    segments.push({ type: 'markdown', content: currentContent });
+                }
+                currentContent = [];
+                currentType = 'code';
+                
+                // If there's code after """ on same line, include it
+                const quoteType = line.indexOf('"""') !== -1 ? '"""' : "'''";
+                const afterClosing = line.substring(closingIndex + 3);
+                if (afterClosing.trim()) {
+                    currentContent.push(afterClosing);
+                }
+            } else {
+                currentContent.push(line);
+            }
+        }
+    }
+    
+    // Don't forget the last segment
+    if (currentContent.some(l => l.trim())) {
+        segments.push({ type: currentType, content: currentContent });
+    }
+    
+    // Convert segments to markdown
+    let result = '';
+    for (const segment of segments) {
+        if (segment.type === 'markdown') {
+            result += segment.content.join('\n') + '\n\n';
+        } else {
+            result += '```python\n' + segment.content.join('\n') + '\n```\n\n';
+        }
+    }
+    
+    return result;
 }
 
 /**
@@ -319,7 +405,13 @@ export function updatePreview(document: vscode.TextDocument) {
         return;
     }
 
-    const text = document.getText();
+    let text = document.getText();
+    
+    // For Python files, convert to markdown representation first
+    const isPythonFile = isZefPythonFile(document);
+    if (isPythonFile) {
+        text = convertPythonToMarkdown(text);
+    }
     
     // Extract existing Result, Side Effects, and rendered-html blocks before removing them
     const existingResults: { [blockId: number]: string } = {};
@@ -346,8 +438,8 @@ export function updatePreview(document: vscode.TextDocument) {
     }
     
     // Remove Result, Side Effects, and rendered-html blocks for rendering
-    // Also strip frontmatter block if present
-    const cleanText = stripFrontmatter(text)
+    // Also strip frontmatter block if present (not needed for Python files already converted)
+    const cleanText = isPythonFile ? text : stripFrontmatter(text)
         .replace(/\n````(?:Result|Output)\s*\n[\s\S]*?````/g, '')
         .replace(/\n````Side Effects\s*\n[\s\S]*?````/g, '')
         .replace(/\n````rendered-html\s*\n[\s\S]*?````/g, '');
