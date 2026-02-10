@@ -1081,17 +1081,46 @@ function getWebviewContent(renderedHtml: string, existingOutputs: { [blockId: nu
         }
         .svelte-preview-frame {
             width: 100%;
-            min-height: 700px;
+            height: 700px;
             border: none;
             background: #1e1e1e;
         }
-        
+
         /* HTML preview */
         .html-preview-frame {
             width: 100%;
-            min-height: 700px;
+            height: 700px;
             border: none;
             background: #fff;
+        }
+
+        /* Draggable resize handle for preview iframes */
+        .preview-resize-handle {
+            height: 6px;
+            cursor: ns-resize;
+            background: var(--border-color);
+            position: relative;
+            user-select: none;
+            -webkit-user-select: none;
+        }
+        .preview-resize-handle:hover,
+        .preview-resize-handle.dragging {
+            background: #007acc;
+        }
+        .preview-resize-handle::after {
+            content: '';
+            position: absolute;
+            left: 50%;
+            top: 50%;
+            transform: translate(-50%, -50%);
+            width: 30px;
+            height: 2px;
+            background: rgba(255, 255, 255, 0.3);
+            border-radius: 1px;
+        }
+        .preview-resize-handle:hover::after,
+        .preview-resize-handle.dragging::after {
+            background: rgba(255, 255, 255, 0.6);
         }
         
         .svelte-placeholder {
@@ -2301,6 +2330,35 @@ function getWebviewContent(renderedHtml: string, existingOutputs: { [blockId: nu
                            .replace(/>/g, '&gt;');
             }
 
+            function createResizeHandle(iframe) {
+                var handle = document.createElement('div');
+                handle.className = 'preview-resize-handle';
+                var startY, startHeight;
+                handle.addEventListener('mousedown', function(e) {
+                    e.preventDefault();
+                    startY = e.clientY;
+                    startHeight = iframe.offsetHeight;
+                    handle.classList.add('dragging');
+                    // Overlay to prevent iframe from stealing mouse events
+                    var overlay = document.createElement('div');
+                    overlay.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;z-index:9999;cursor:ns-resize;';
+                    document.body.appendChild(overlay);
+                    function onMouseMove(e) {
+                        var newHeight = Math.max(100, startHeight + (e.clientY - startY));
+                        iframe.style.height = newHeight + 'px';
+                    }
+                    function onMouseUp() {
+                        handle.classList.remove('dragging');
+                        document.removeEventListener('mousemove', onMouseMove);
+                        document.removeEventListener('mouseup', onMouseUp);
+                        document.body.removeChild(overlay);
+                    }
+                    document.addEventListener('mousemove', onMouseMove);
+                    document.addEventListener('mouseup', onMouseUp);
+                });
+                return handle;
+            }
+
             function highlightCode(code, lang) {
                 var lines = code.split('\\n');
                 var result = [];
@@ -2762,6 +2820,7 @@ function getWebviewContent(renderedHtml: string, existingOutputs: { [blockId: nu
                     htmlIframe.setAttribute('sandbox', 'allow-scripts');
                     htmlIframe.srcdoc = codeContent;
                     htmlRenderedContent.appendChild(htmlIframe);
+                    htmlRenderedContent.appendChild(createResizeHandle(htmlIframe));
                     
                     // Create "Code" content
                     var htmlCodeContent = document.createElement('div');
@@ -2883,6 +2942,7 @@ function getWebviewContent(renderedHtml: string, existingOutputs: { [blockId: nu
                         svelteIframe.setAttribute('data-block-id', currentBlockId);
                         svelteIframe.srcdoc = existingRenderedHtml[currentBlockId];
                         svelteRenderedContent.appendChild(svelteIframe);
+                        svelteRenderedContent.appendChild(createResizeHandle(svelteIframe));
                     } else {
                         // Show placeholder message
                         var placeholder = document.createElement('div');
@@ -3249,11 +3309,12 @@ function getWebviewContent(renderedHtml: string, existingOutputs: { [blockId: nu
                             iframe.setAttribute('data-block-id', blockId);
                             iframe.srcdoc = result.html;
                             renderedContent.appendChild(iframe);
+                            renderedContent.appendChild(createResizeHandle(iframe));
                         } else {
                             // Error: show error report directly (not in iframe) so it's copyable
                             var errorContainer = document.createElement('div');
                             errorContainer.className = 'svelte-error-report';
-                            errorContainer.style.cssText = 'padding: 16px; font-family: monospace; background: #1e1e1e; color: #e06c75; position: relative;';
+                            errorContainer.style.cssText = 'padding: 16px; font-family: monospace; font-size: 0.6rem; background: #1e1e1e; color: #e06c75; position: relative;';
 
                             // Copy button
                             var copyBtn = document.createElement('button');
