@@ -65,78 +65,26 @@ Use for: **Conceptual diagrams, informal illustrations, whiteboard-style explana
 
 ```excalidraw
 {
-  "type": "excalidraw",
-  "version": 2,
-  "uid": "mky35e4gzbotbsnz3",
   "elements": [
     {
-      "id": "lVI8YBUngp8-glBLe2Z5Z",
       "type": "rectangle",
-      "x": 301.1875,
-      "y": 571.84375,
-      "width": 375.44140625,
-      "height": 204.49609375,
-      "angle": 0,
+      "x": 301,
+      "y": 571,
+      "width": 375,
+      "height": 204,
       "strokeColor": "#343a40",
-      "backgroundColor": "transparent",
-      "fillStyle": "solid",
-      "strokeWidth": 2,
-      "strokeStyle": "solid",
-      "roughness": 1,
-      "opacity": 100,
-      "groupIds": [],
-      "frameId": null,
-      "index": "a0",
       "roundness": {
         "type": 3
-      },
-      "seed": 1473836624,
-      "version": 163,
-      "versionNonce": 360416432,
-      "isDeleted": false,
-      "boundElements": null,
-      "updated": 1769608421977,
-      "link": null,
-      "locked": false
+      }
     },
     {
-      "id": "DFuXPVYbs7N8UNthvkBv1",
       "type": "ellipse",
       "x": 361.96875,
       "y": 593.921875,
       "width": 80.7265625,
       "height": 78.91015625,
-      "angle": 0,
       "strokeColor": "#343a40",
-      "backgroundColor": "transparent",
-      "fillStyle": "solid",
-      "strokeWidth": 2,
-      "strokeStyle": "solid",
-      "roughness": 1,
-      "opacity": 100,
-      "groupIds": [],
-      "frameId": null,
-      "index": "a1",
-      "roundness": {
-        "type": 2
-      },
-      "seed": 301698128,
-      "version": 68,
-      "versionNonce": 1134913104,
-      "isDeleted": false,
-      "boundElements": [
-        {
-          "id": "alULUFjmS86139EARHoTy",
-          "type": "arrow"
-        },
-        {
-          "id": "4V9F6OQbNIz6ady_JDNEF",
-          "type": "arrow"
-        }
-      ],
-      "updated": 1769608443284,
-      "link": null,
-      "locked": false
+      "strokeWidth": 2
     },
     {
       "id": "dBrEQdPHKS5YDHcqPUYPG",
@@ -233,7 +181,7 @@ Use for: **Conceptual diagrams, informal illustrations, whiteboard-style explana
       "version": 37,
       "versionNonce": 236672592,
       "isDeleted": false,
-      "boundElements": null,
+      "boundElements": [],
       "updated": 1769608439232,
       "link": null,
       "locked": false,
@@ -287,7 +235,7 @@ Use for: **Conceptual diagrams, informal illustrations, whiteboard-style explana
       "version": 64,
       "versionNonce": 1538517680,
       "isDeleted": false,
-      "boundElements": null,
+      "boundElements": [],
       "updated": 1769608446600,
       "link": null,
       "locked": false,

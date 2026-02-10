@@ -623,10 +623,20 @@ export function sendCellResult(blockId: number, result: CellResult, documentUri?
     }
 }
 
+export interface SvelteErrorDetails {
+    line?: number;
+    column?: number;
+    endLine?: number;
+    endColumn?: number;
+    frame?: string;
+    code?: string;
+}
+
 export interface SvelteResult {
     success: boolean;
     html?: string;
     error?: string;
+    errorDetails?: SvelteErrorDetails;
     compileTime: string;
 }
 
@@ -3225,40 +3235,76 @@ function getWebviewContent(renderedHtml: string, existingOutputs: { [blockId: nu
                         }
                     }
                     
-                    // Update the rendered content - replace placeholder with iframe if needed
+                    // Update the rendered content
                     var renderedContent = document.querySelector('.svelte-container[data-block-id="' + blockId + '"] .svelte-rendered');
                     if (renderedContent) {
-                        // Check if there's a placeholder to replace
-                        var placeholder = renderedContent.querySelector('.svelte-placeholder');
-                        var iframe = renderedContent.querySelector('.svelte-preview-frame');
-                        
-                        if (placeholder && !iframe) {
-                            // Create iframe to replace placeholder
-                            iframe = document.createElement('iframe');
+                        // Clear existing content
+                        renderedContent.innerHTML = '';
+
+                        if (result.success && result.html) {
+                            // Success: show iframe with rendered component
+                            var iframe = document.createElement('iframe');
                             iframe.className = 'svelte-preview-frame';
                             iframe.setAttribute('sandbox', 'allow-scripts');
                             iframe.setAttribute('data-block-id', blockId);
-                            renderedContent.removeChild(placeholder);
+                            iframe.srcdoc = result.html;
                             renderedContent.appendChild(iframe);
-                        }
-                        
-                        if (iframe) {
-                            if (result.success && result.html) {
-                                iframe.srcdoc = result.html;
-                            } else {
-                                var errorHtml = '<!DOCTYPE html><html><head><style>body { margin: 0; padding: 16px; font-family: monospace; background: #1e1e1e; color: #e06c75; }</style></head><body><pre>' + escapeHtml(result.error || 'Unknown error') + '</pre></body></html>';
-                                iframe.srcdoc = errorHtml;
+                        } else {
+                            // Error: show error report directly (not in iframe) so it's copyable
+                            var errorContainer = document.createElement('div');
+                            errorContainer.className = 'svelte-error-report';
+                            errorContainer.style.cssText = 'padding: 16px; font-family: monospace; background: #1e1e1e; color: #e06c75; position: relative;';
+
+                            // Copy button
+                            var copyBtn = document.createElement('button');
+                            copyBtn.textContent = 'Copy';
+                            copyBtn.style.cssText = 'position: absolute; top: 8px; right: 8px; background: #333; color: #ccc; border: 1px solid #555; border-radius: 4px; padding: 4px 10px; cursor: pointer; font-size: 0.75rem;';
+                            copyBtn.onmouseenter = function() { copyBtn.style.background = '#444'; };
+                            copyBtn.onmouseleave = function() { copyBtn.style.background = '#333'; };
+
+                            // Build error text
+                            var errorText = result.error || 'Unknown error';
+                            var details = result.errorDetails;
+                            if (details) {
+                                if (details.code) {
+                                    errorText = '[' + details.code + '] ' + errorText;
+                                }
+                                if (details.line !== undefined) {
+                                    errorText += '\\n\\nLocation: line ' + details.line + (details.column !== undefined ? ', column ' + details.column : '');
+                                    if (details.endLine !== undefined) {
+                                        errorText += ' to line ' + details.endLine + (details.endColumn !== undefined ? ', column ' + details.endColumn : '');
+                                    }
+                                }
+                                if (details.frame) {
+                                    errorText += '\\n\\n' + details.frame;
+                                }
                             }
+
+                            copyBtn.onclick = function() {
+                                navigator.clipboard.writeText(errorText).then(function() {
+                                    copyBtn.textContent = 'Copied!';
+                                    setTimeout(function() { copyBtn.textContent = 'Copy'; }, 2000);
+                                });
+                            };
+
+                            var errorPre = document.createElement('pre');
+                            errorPre.style.cssText = 'margin: 0; white-space: pre-wrap; word-wrap: break-word; padding-right: 60px; user-select: text; -webkit-user-select: text;';
+                            errorPre.textContent = errorText;
+
+                            errorContainer.appendChild(copyBtn);
+                            errorContainer.appendChild(errorPre);
+                            renderedContent.appendChild(errorContainer);
                         }
                     }
-                    
-                    // Switch to rendered tab
+
+                    // Switch to rendered tab and rename it based on result
                     var container = document.querySelector('.svelte-container[data-block-id="' + blockId + '"]');
                     if (container) {
                         container.querySelectorAll('.code-block-tab').forEach(function(t) {
                             t.classList.remove('active');
                             if (t.getAttribute('data-tab') === 'rendered') {
                                 t.classList.add('active');
+                                t.textContent = result.success ? 'Rendered' : 'Error Report';
                             }
                         });
                         container.querySelectorAll('.code-block-content').forEach(function(c) {

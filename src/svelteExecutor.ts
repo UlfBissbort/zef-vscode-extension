@@ -6,10 +6,20 @@ import * as vscode from 'vscode';
 
 const execAsync = promisify(exec);
 
+export interface SvelteErrorDetails {
+    line?: number;
+    column?: number;
+    endLine?: number;
+    endColumn?: number;
+    frame?: string;
+    code?: string;
+}
+
 export interface SvelteCompileResult {
     success: boolean;
     html?: string;
     error?: string;
+    errorDetails?: SvelteErrorDetails;
     compileTime: string;
 }
 

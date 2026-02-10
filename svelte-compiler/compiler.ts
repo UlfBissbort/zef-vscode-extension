@@ -15,10 +15,20 @@ import { compile } from 'svelte/compiler';
 import * as fs from 'fs';
 import * as path from 'path';
 
+interface ErrorDetails {
+  line?: number;
+  column?: number;
+  endLine?: number;
+  endColumn?: number;
+  frame?: string;
+  code?: string;
+}
+
 interface CompileResult {
   success: boolean;
   html?: string;
   error?: string;
+  errorDetails?: ErrorDetails;
   compileTime: string;
 }
 
@@ -126,11 +136,32 @@ ${bundledCode}
     
   } catch (error: any) {
     const compileEnd = performance.now();
-    return {
+    const result: CompileResult = {
       success: false,
       error: error.message || String(error),
       compileTime: (compileEnd - compileStart).toFixed(2)
     };
+
+    // Extract detailed location info from Svelte compiler errors
+    if (error.start || error.position !== undefined || error.frame || error.code) {
+      result.errorDetails = {};
+      if (error.start) {
+        result.errorDetails.line = error.start.line;
+        result.errorDetails.column = error.start.column;
+      }
+      if (error.end) {
+        result.errorDetails.endLine = error.end.line;
+        result.errorDetails.endColumn = error.end.column;
+      }
+      if (error.frame) {
+        result.errorDetails.frame = error.frame;
+      }
+      if (error.code) {
+        result.errorDetails.code = error.code;
+      }
+    }
+
+    return result;
   } finally {
     // Cleanup temp files
     try {
