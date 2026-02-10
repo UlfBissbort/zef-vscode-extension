@@ -1702,6 +1702,42 @@ function getWebviewContent(renderedHtml: string, existingOutputs: { [blockId: nu
             fill: none;
         }
 
+        /* Compile All Svelte button */
+        .compile-all-trigger {
+            position: fixed;
+            top: 56px;
+            right: 16px;
+            display: none;
+            align-items: center;
+            justify-content: center;
+            width: 32px;
+            height: 32px;
+            background: rgba(255, 255, 255, 0.03);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            border-radius: 8px;
+            color: rgba(255, 255, 255, 0.3);
+            cursor: pointer;
+            transition: all 0.2s ease;
+            z-index: 100;
+            opacity: 0.7;
+        }
+
+        .compile-all-trigger.visible {
+            display: flex;
+        }
+
+        .compile-all-trigger:hover {
+            opacity: 1;
+            background: rgba(255, 255, 255, 0.06);
+            color: #98c379;
+            border-color: rgba(152, 195, 121, 0.3);
+        }
+
+        .compile-all-trigger svg {
+            width: 17px;
+            height: 17px;
+        }
+
         /* Settings Drawer Styles */
         .drawer-trigger {
             position: fixed;
@@ -1926,6 +1962,14 @@ function getWebviewContent(renderedHtml: string, existingOutputs: { [blockId: nu
         </div>
     </div>
     
+    <!-- Compile All Svelte Button -->
+    <button class="compile-all-trigger" onclick="window.compileAllSvelte()" title="Compile all Svelte components">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <polygon points="3 5 13 12 3 19 3 5" fill="currentColor" stroke="none" opacity="0.8"></polygon>
+            <polygon points="12 5 22 12 12 19 12 5" fill="currentColor" stroke="none" opacity="0.8"></polygon>
+        </svg>
+    </button>
+
     <!-- Settings Trigger Button -->
     <button class="drawer-trigger" onclick="openSettingsDrawer()" title="Document Settings">
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round">
@@ -2615,6 +2659,28 @@ function getWebviewContent(renderedHtml: string, existingOutputs: { [blockId: nu
             var excalidrawBlockId = 0; // Count excalidraw blocks for identification
             var codeBlocks = {}; // Store code content for each block
             var blockLanguages = {}; // Store language for each block
+
+            // Compile all Svelte blocks (called from the top-right button)
+            window.compileAllSvelte = function() {
+                var containers = document.querySelectorAll('.svelte-container');
+                containers.forEach(function(container) {
+                    var blockId = container.getAttribute('data-block-id');
+                    if (blockId && codeBlocks[blockId]) {
+                        var btn = document.getElementById('compile-btn-' + blockId);
+                        if (btn && !btn.classList.contains('running')) {
+                            btn.classList.add('running');
+                            btn.innerHTML = 'Compiling...';
+                        }
+                        vscode.postMessage({
+                            type: 'runCode',
+                            code: codeBlocks[blockId],
+                            blockId: parseInt(blockId),
+                            language: 'svelte'
+                        });
+                    }
+                });
+            };
+
             // Note: vscode is already acquired at the top of this script
 
             // Handle checkbox clicks to toggle task list items
@@ -3290,7 +3356,15 @@ function getWebviewContent(renderedHtml: string, existingOutputs: { [blockId: nu
                 container.appendChild(outputContent);
                 container.appendChild(sideEffectsContent);
             });
-            
+
+            // Show "Compile All Svelte" button if there are svelte blocks
+            if (document.querySelectorAll('.svelte-container').length > 0) {
+                var compileAllBtn = document.querySelector('.compile-all-trigger');
+                if (compileAllBtn) {
+                    compileAllBtn.classList.add('visible');
+                }
+            }
+
             // Handle messages from the extension
             window.addEventListener('message', function(event) {
                 var message = event.data;
