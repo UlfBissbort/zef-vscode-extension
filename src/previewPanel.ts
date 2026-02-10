@@ -405,6 +405,12 @@ export function createPreviewPanel(context: vscode.ExtensionContext): vscode.Web
                     vscode.window.showInformationMessage(`Saved diagram to ${path.basename(saveUri.fsPath)}`);
                 }
             }
+        } else if (message.type === 'openSveltePanel') {
+            // Cache HTML from the webview if provided (for persisted rendered output)
+            if (message.html) {
+                svelteHtmlCache.set(svelteBlockKey(docUri, message.blockId), message.html);
+            }
+            openSvelteFullPanel(docUri, message.blockId);
         } else if (message.type === 'openExcalidrawEditor') {
             // Open the Excalidraw editor panel
             if (extensionPath) {
@@ -640,7 +646,21 @@ export interface SvelteResult {
     compileTime: string;
 }
 
+// Cache last compiled HTML per document+block for opening in full panel
+const svelteHtmlCache: Map<string, string> = new Map();
+
+function svelteBlockKey(documentUri: vscode.Uri | undefined, blockId: number): string {
+    return `${documentUri?.toString() || 'default'}:${blockId}`;
+}
+
 export function sendSvelteResult(blockId: number, result: SvelteResult, documentUri?: vscode.Uri) {
+    // Cache successful HTML for full panel viewing
+    if (result.success && result.html) {
+        svelteHtmlCache.set(svelteBlockKey(documentUri, blockId), result.html);
+        // Also update any open full panel for this block
+        updateSvelteFullPanel(documentUri, blockId, result.html);
+    }
+
     // Send to specific panel if URI provided, otherwise send to active panel
     let panel: vscode.WebviewPanel | undefined;
     if (documentUri) {
@@ -648,13 +668,58 @@ export function sendSvelteResult(blockId: number, result: SvelteResult, document
     } else {
         panel = getPanel();
     }
-    
+
     if (panel) {
-        panel.webview.postMessage({ 
-            type: 'svelteResult', 
+        panel.webview.postMessage({
+            type: 'svelteResult',
             blockId: blockId,
             result: result
         });
+    }
+}
+
+// Svelte full panels
+const svelteFullPanels: Map<string, vscode.WebviewPanel> = new Map();
+
+function openSvelteFullPanel(documentUri: vscode.Uri | undefined, blockId: number) {
+    const key = svelteBlockKey(documentUri, blockId);
+
+    // If panel already open, reveal it
+    const existing = svelteFullPanels.get(key);
+    if (existing) {
+        existing.reveal(vscode.ViewColumn.Two);
+        return;
+    }
+
+    const cachedHtml = svelteHtmlCache.get(key);
+    if (!cachedHtml) {
+        vscode.window.showWarningMessage('Compile the Svelte component first before opening in a full panel.');
+        return;
+    }
+
+    const panel = vscode.window.createWebviewPanel(
+        'svelteFullPanel',
+        `Svelte Component #${blockId}`,
+        vscode.ViewColumn.Two,
+        {
+            enableScripts: true,
+            retainContextWhenHidden: true,
+        }
+    );
+
+    panel.webview.html = cachedHtml;
+    svelteFullPanels.set(key, panel);
+
+    panel.onDidDispose(() => {
+        svelteFullPanels.delete(key);
+    });
+}
+
+function updateSvelteFullPanel(documentUri: vscode.Uri | undefined, blockId: number, html: string) {
+    const key = svelteBlockKey(documentUri, blockId);
+    const panel = svelteFullPanels.get(key);
+    if (panel) {
+        panel.webview.html = html;
     }
 }
 
@@ -1608,6 +1673,35 @@ function getWebviewContent(renderedHtml: string, existingOutputs: { [blockId: nu
             fill: none;
         }
         
+        /* Svelte expand button in tabs bar */
+        .svelte-expand-btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            padding: 4px 8px;
+            font-size: 11px;
+            color: rgba(255, 255, 255, 0.5);
+            background: transparent;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 4px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .svelte-expand-btn:hover {
+            color: rgba(255, 255, 255, 0.9);
+            background: rgba(255, 255, 255, 0.05);
+            border-color: rgba(255, 255, 255, 0.2);
+        }
+
+        .svelte-expand-btn svg {
+            width: 12px;
+            height: 12px;
+            stroke: currentColor;
+            stroke-width: 2;
+            fill: none;
+        }
+
         /* Settings Drawer Styles */
         .drawer-trigger {
             position: fixed;
@@ -2912,7 +3006,27 @@ function getWebviewContent(renderedHtml: string, existingOutputs: { [blockId: nu
                         };
                     })(currentBlockId);
                     svelteTabsBar.appendChild(compileBtn);
-                    
+
+                    // Add expand button to open in full panel
+                    var svelteExpandBtn = document.createElement('button');
+                    svelteExpandBtn.className = 'svelte-expand-btn';
+                    svelteExpandBtn.id = 'svelte-expand-' + currentBlockId;
+                    svelteExpandBtn.title = 'Open in full panel';
+                    svelteExpandBtn.innerHTML = '<svg viewBox="0 0 24 24"><polyline points="15 3 21 3 21 9"></polyline><polyline points="9 21 3 21 3 15"></polyline><line x1="21" y1="3" x2="14" y2="10"></line><line x1="3" y1="21" x2="10" y2="14"></line></svg>Open';
+                    svelteExpandBtn.onclick = (function(blockId, container) {
+                        return function() {
+                            // Get the current iframe HTML to send along
+                            var iframe = container.querySelector('.svelte-preview-frame');
+                            var html = iframe ? iframe.srcdoc : null;
+                            vscode.postMessage({
+                                type: 'openSveltePanel',
+                                blockId: blockId,
+                                html: html
+                            });
+                        };
+                    })(currentBlockId, svelteContainer);
+                    svelteTabsBar.appendChild(svelteExpandBtn);
+
                     // Add language indicator with compile time placeholder
                     var svelteLangIndicator = document.createElement('div');
                     svelteLangIndicator.className = 'code-block-lang';
