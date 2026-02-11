@@ -2968,12 +2968,14 @@ function getWebviewContent(renderedHtml: string, existingOutputs: { [blockId: nu
                             var newWidth = Math.max(200, startWidth + delta * 2);
                             var maxW = window.innerWidth - 32;
                             if (newWidth > maxW) newWidth = maxW;
-                            container.style.width = newWidth + 'px';
-                            container.style.minWidth = newWidth + 'px';
-                            container.style.maxWidth = newWidth + 'px';
+                            var widthStr = newWidth + 'px';
+                            container.style.width = widthStr;
+                            container.style.minWidth = widthStr;
+                            container.style.maxWidth = widthStr;
                             container.style.position = 'relative';
                             container.style.left = '50%';
                             container.style.transform = 'translateX(-50%)';
+                            container.setAttribute('data-dragged-width', widthStr);
                         }
                         function onMouseUp() {
                             handle.classList.remove('dragging');
@@ -3692,6 +3694,24 @@ function getWebviewContent(renderedHtml: string, existingOutputs: { [blockId: nu
                                 });
                                 var tabId = thisTab.getAttribute('data-tab');
                                 thisContainer.querySelector('.svelte-' + tabId).classList.add('active');
+
+                                // Apply/remove dragged width depending on active tab
+                                var draggedWidth = thisContainer.getAttribute('data-dragged-width');
+                                if (tabId === 'rendered' && draggedWidth) {
+                                    thisContainer.style.width = draggedWidth;
+                                    thisContainer.style.minWidth = draggedWidth;
+                                    thisContainer.style.maxWidth = draggedWidth;
+                                    thisContainer.style.position = 'relative';
+                                    thisContainer.style.left = '50%';
+                                    thisContainer.style.transform = 'translateX(-50%)';
+                                } else if (tabId === 'source-code') {
+                                    thisContainer.style.width = '';
+                                    thisContainer.style.minWidth = '';
+                                    thisContainer.style.maxWidth = '';
+                                    thisContainer.style.position = '';
+                                    thisContainer.style.left = '';
+                                    thisContainer.style.transform = '';
+                                }
                             };
                         })(svelteContainer, tab);
                         svelteTabsBar.appendChild(tab);
