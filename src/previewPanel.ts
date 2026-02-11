@@ -1905,6 +1905,7 @@ function getWebviewContent(renderedHtml: string, existingOutputs: { [blockId: nu
             align-items: center;
             gap: 4px;
             padding: 4px 8px;
+            margin-right: 6px;
             font-size: 11px;
             color: rgba(255, 255, 255, 0.5);
             background: transparent;
@@ -3568,7 +3569,7 @@ function getWebviewContent(renderedHtml: string, existingOutputs: { [blockId: nu
                     svelteExpandBtn.className = 'svelte-expand-btn';
                     svelteExpandBtn.id = 'svelte-expand-' + currentBlockId;
                     svelteExpandBtn.title = 'Open in full panel';
-                    svelteExpandBtn.innerHTML = '<svg viewBox="0 0 24 24"><polyline points="15 3 21 3 21 9"></polyline><polyline points="9 21 3 21 3 15"></polyline><line x1="21" y1="3" x2="14" y2="10"></line><line x1="3" y1="21" x2="10" y2="14"></line></svg>Expand';
+                    svelteExpandBtn.innerHTML = '<svg viewBox="0 0 24 24"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path><polyline points="15 3 21 3 21 9"></polyline><line x1="10" y1="14" x2="21" y2="3"></line></svg>';
                     svelteExpandBtn.onclick = (function(blockId, container) {
                         return function() {
                             // Get the current iframe HTML to send along
