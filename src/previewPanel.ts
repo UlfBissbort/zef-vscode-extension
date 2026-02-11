@@ -1093,6 +1093,7 @@ function getWebviewContent(renderedHtml: string, existingOutputs: { [blockId: nu
             max-width: ${maxWidth}px;
             margin: 0 auto;
             letter-spacing: 0.02em;
+            overflow-x: hidden;
         }
 
         h1, h2, h3, h4, h5, h6 {
@@ -1425,7 +1426,41 @@ function getWebviewContent(renderedHtml: string, existingOutputs: { [blockId: nu
             fill: none;
             stroke-width: 2;
         }
-        
+
+        /* Code block expand toggle */
+        .code-block-expand {
+            display: inline-flex;
+            align-items: center;
+            padding: 4px 8px;
+            margin-right: 6px;
+            font-size: 11px;
+            color: rgba(255, 255, 255, 0.5);
+            background: transparent;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 4px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+        .code-block-expand:hover {
+            color: rgba(255, 255, 255, 0.9);
+            background: rgba(255, 255, 255, 0.05);
+            border-color: rgba(255, 255, 255, 0.2);
+        }
+        .code-block-expand.active {
+            color: #61afef;
+            border-color: rgba(97, 175, 239, 0.3);
+        }
+
+        .code-block-container.expanded {
+            width: fit-content;
+            max-width: calc(100vw - 4rem);
+            margin-left: auto;
+            margin-right: auto;
+            position: relative;
+            left: 50%;
+            transform: translateX(-50%);
+        }
+
         .json-container .code-block-lang {
             margin-left: auto;
         }
@@ -3727,6 +3762,37 @@ function getWebviewContent(renderedHtml: string, existingOutputs: { [blockId: nu
                 container.appendChild(codeContent);
                 container.appendChild(outputContent);
                 container.appendChild(sideEffectsContent);
+            });
+
+            // Add expand buttons to code blocks that overflow (defer to allow layout)
+            requestAnimationFrame(function() {
+                document.querySelectorAll('.code-block-container').forEach(function(container) {
+                    var codeContent = container.querySelector('.code-block-content');
+                    if (!codeContent) return;
+                    var pre = codeContent.querySelector('pre');
+                    if (!pre) return;
+
+                    // Compare scrollWidth of <pre> to its visible width
+                    if (pre.scrollWidth <= pre.clientWidth) return;
+
+                    var tabsBar = container.querySelector('.code-block-tabs');
+                    if (!tabsBar) return;
+                    var langIndicator = tabsBar.querySelector('.code-block-lang');
+
+                    var expandBtn = document.createElement('button');
+                    expandBtn.className = 'code-block-expand';
+                    expandBtn.textContent = '⇔';
+                    expandBtn.title = 'Expand code block';
+                    expandBtn.onclick = function() {
+                        container.classList.toggle('expanded');
+                        expandBtn.classList.toggle('active');
+                    };
+                    if (langIndicator) {
+                        tabsBar.insertBefore(expandBtn, langIndicator);
+                    } else {
+                        tabsBar.appendChild(expandBtn);
+                    }
+                });
             });
 
             // Show "Compile All Svelte" button if there are svelte blocks
