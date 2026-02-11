@@ -1448,6 +1448,7 @@ function getWebviewContent(renderedHtml: string, existingOutputs: { [blockId: nu
         }
         .code-block-expand.active {
             color: #61afef;
+            background: rgba(97, 175, 239, 0.1);
             border-color: rgba(97, 175, 239, 0.3);
         }
 
@@ -3877,7 +3878,7 @@ function getWebviewContent(renderedHtml: string, existingOutputs: { [blockId: nu
                         codeContent.classList.add('height-collapsed');
                         var heightBtn = document.createElement('button');
                         heightBtn.className = 'code-block-expand';
-                        heightBtn.textContent = '⇕';
+                        heightBtn.innerHTML = '<span style="font-size: 24px; line-height: 1;">⇕</span>';
                         heightBtn.title = 'Toggle full height';
                         heightBtn.onclick = function() {
                             codeContent.classList.toggle('height-collapsed');
@@ -3895,7 +3896,7 @@ function getWebviewContent(renderedHtml: string, existingOutputs: { [blockId: nu
 
                     var expandBtn = document.createElement('button');
                     expandBtn.className = 'code-block-expand';
-                    expandBtn.textContent = '⇔';
+                    expandBtn.innerHTML = '<span style="font-size: 18px; line-height: 1;">⇔</span>';
                     expandBtn.title = 'Expand code block';
                     expandBtn.onclick = function() {
                         container.classList.toggle('expanded');
