@@ -1118,8 +1118,8 @@ function getWebviewContent(renderedHtml: string, existingOutputs: { [blockId: nu
             height: auto;
         }
 
-        /* Full-width mermaid breakout */
-        .mermaid-container.full-width {
+        /* Full-width breakout for diagrams */
+        .code-block-container.full-width {
             width: 100vw;
             max-width: 100vw;
             margin-left: calc(-50vw + 50%);
@@ -1705,7 +1705,7 @@ function getWebviewContent(renderedHtml: string, existingOutputs: { [blockId: nu
             align-items: center;
             gap: 4px;
             padding: 4px 8px;
-            margin-left: auto;
+            margin-right: 6px;
             font-size: 11px;
             color: rgba(255, 255, 255, 0.5);
             background: transparent;
@@ -1719,6 +1719,11 @@ function getWebviewContent(renderedHtml: string, existingOutputs: { [blockId: nu
             color: rgba(255, 255, 255, 0.9);
             background: rgba(255, 255, 255, 0.05);
             border-color: rgba(255, 255, 255, 0.2);
+        }
+
+        .excalidraw-expand-btn.active {
+            color: #61afef;
+            border-color: rgba(97, 175, 239, 0.3);
         }
         
         .excalidraw-expand-btn svg {
@@ -2840,6 +2845,26 @@ function getWebviewContent(renderedHtml: string, existingOutputs: { [blockId: nu
                         })(excalidrawContainer, tab);
                         excalidrawTabsBar.appendChild(tab);
                     });
+
+                    // Add full-width toggle button
+                    var excalidrawFullWidthBtn = document.createElement('button');
+                    excalidrawFullWidthBtn.className = 'excalidraw-expand-btn';
+                    excalidrawFullWidthBtn.style.marginLeft = 'auto';
+                    excalidrawFullWidthBtn.title = 'Full Width';
+                    excalidrawFullWidthBtn.innerHTML = '<svg viewBox="0 0 24 24"><polyline points="9 6 3 12 9 18"></polyline><polyline points="15 6 21 12 15 18"></polyline><line x1="3" y1="12" x2="21" y2="12"></line></svg>';
+                    excalidrawFullWidthBtn.onclick = (function(container, btn) {
+                        return function() {
+                            container.classList.toggle('full-width');
+                            if (container.classList.contains('full-width')) {
+                                btn.title = 'Restore Width';
+                                btn.classList.add('active');
+                            } else {
+                                btn.title = 'Full Width';
+                                btn.classList.remove('active');
+                            }
+                        };
+                    })(excalidrawContainer, excalidrawFullWidthBtn);
+                    excalidrawTabsBar.appendChild(excalidrawFullWidthBtn);
 
                     // Add expand button to tabs bar
                     var excalidrawExpandBtn = document.createElement('button');
