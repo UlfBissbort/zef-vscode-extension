@@ -1451,6 +1451,12 @@ function getWebviewContent(renderedHtml: string, existingOutputs: { [blockId: nu
             border-color: rgba(97, 175, 239, 0.3);
         }
 
+        /* Code block height toggle */
+        .code-block-content.height-collapsed pre {
+            max-height: calc(25 * 1.5em + 16px);
+            overflow-y: auto;
+        }
+
         .code-block-container.expanded {
             width: fit-content;
             min-width: 100%;
@@ -3860,12 +3866,32 @@ function getWebviewContent(renderedHtml: string, existingOutputs: { [blockId: nu
                     var pre = codeContent.querySelector('pre');
                     if (!pre) return;
 
-                    // Compare scrollWidth of <pre> to its visible width
-                    if (pre.scrollWidth <= pre.clientWidth) return;
-
                     var tabsBar = container.querySelector('.code-block-tabs');
                     if (!tabsBar) return;
                     var langIndicator = tabsBar.querySelector('.code-block-lang');
+
+                    // Toggle full height button for long code blocks (>25 lines)
+                    var code = pre.querySelector('code');
+                    var lineCount = (code || pre).textContent.split('\\n').length;
+                    if (lineCount > 25) {
+                        codeContent.classList.add('height-collapsed');
+                        var heightBtn = document.createElement('button');
+                        heightBtn.className = 'code-block-expand';
+                        heightBtn.textContent = '⇕';
+                        heightBtn.title = 'Toggle full height';
+                        heightBtn.onclick = function() {
+                            codeContent.classList.toggle('height-collapsed');
+                            heightBtn.classList.toggle('active');
+                        };
+                        if (langIndicator) {
+                            tabsBar.insertBefore(heightBtn, langIndicator);
+                        } else {
+                            tabsBar.appendChild(heightBtn);
+                        }
+                    }
+
+                    // Toggle width button for wide code blocks
+                    if (pre.scrollWidth <= pre.clientWidth) return;
 
                     var expandBtn = document.createElement('button');
                     expandBtn.className = 'code-block-expand';
