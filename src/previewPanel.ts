@@ -405,6 +405,8 @@ export function createPreviewPanel(context: vscode.ExtensionContext): vscode.Web
                     vscode.window.showInformationMessage(`Saved diagram to ${path.basename(saveUri.fsPath)}`);
                 }
             }
+        } else if (message.type === 'openMermaidPanel') {
+            openMermaidFullPanel(message.svg);
         } else if (message.type === 'openSveltePanel') {
             // Cache HTML from the webview if provided (for persisted rendered output)
             if (message.html) {
@@ -721,6 +723,47 @@ function updateSvelteFullPanel(documentUri: vscode.Uri | undefined, blockId: num
     if (panel) {
         panel.webview.html = html;
     }
+}
+
+// Mermaid full panel
+let mermaidPanelCount = 0;
+
+function openMermaidFullPanel(svg: string) {
+    mermaidPanelCount++;
+    const panel = vscode.window.createWebviewPanel(
+        'mermaidFullPanel',
+        `Mermaid Diagram`,
+        vscode.ViewColumn.Two,
+        {
+            enableScripts: false,
+            retainContextWhenHidden: true,
+        }
+    );
+
+    panel.webview.html = `<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <style>
+        body {
+            margin: 0;
+            padding: 24px;
+            background: #1e1e1e;
+            display: flex;
+            justify-content: center;
+            align-items: flex-start;
+            min-height: 100vh;
+        }
+        svg {
+            max-width: 100%;
+            height: auto;
+        }
+    </style>
+</head>
+<body>
+    ${svg}
+</body>
+</html>`;
 }
 
 /**
@@ -1260,30 +1303,28 @@ function getWebviewContent(renderedHtml: string, existingOutputs: { [blockId: nu
             /* margin-left handled by spacer for mermaid */
         }
         
-        /* Mermaid export button - elegant minimal style */
+        /* Mermaid action buttons */
         .mermaid-export-btn {
-            padding: 4px 10px;
-            font-size: 0.7rem;
-            letter-spacing: 0.05em;
-            color: var(--text-dim);
-            background: transparent;
-            border: 1px solid var(--border-color);
-            border-radius: 4px;
-            cursor: pointer;
-            transition: all 0.2s;
-            margin-left: auto;
-            margin-right: 8px;
-            display: flex;
+            display: inline-flex;
             align-items: center;
             gap: 4px;
+            padding: 4px 8px;
+            margin-right: 6px;
+            font-size: 11px;
+            color: rgba(255, 255, 255, 0.5);
+            background: transparent;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 4px;
+            cursor: pointer;
+            transition: all 0.2s ease;
         }
-        
+
         .mermaid-export-btn:hover {
-            color: var(--text-muted);
+            color: rgba(255, 255, 255, 0.9);
             background: rgba(255, 255, 255, 0.05);
-            border-color: var(--text-dim);
+            border-color: rgba(255, 255, 255, 0.2);
         }
-        
+
         .mermaid-export-btn svg {
             width: 12px;
             height: 12px;
@@ -2877,6 +2918,7 @@ function getWebviewContent(renderedHtml: string, existingOutputs: { [blockId: nu
                     // Add SVG export button
                     var mermaidExportBtn = document.createElement('button');
                     mermaidExportBtn.className = 'mermaid-export-btn';
+                    mermaidExportBtn.style.marginLeft = 'auto';
                     mermaidExportBtn.title = 'Export as SVG';
                     mermaidExportBtn.innerHTML = '<svg viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>SVG';
                     mermaidExportBtn.onclick = (function(container) {
@@ -2885,7 +2927,27 @@ function getWebviewContent(renderedHtml: string, existingOutputs: { [blockId: nu
                         };
                     })(mermaidContainer);
                     mermaidTabsBar.appendChild(mermaidExportBtn);
-                    
+
+                    // Add expand button to open in full panel
+                    var mermaidExpandBtn = document.createElement('button');
+                    mermaidExpandBtn.className = 'mermaid-export-btn';
+                    mermaidExpandBtn.title = 'Open in full panel';
+                    mermaidExpandBtn.innerHTML = '<svg viewBox="0 0 24 24"><polyline points="15 3 21 3 21 9"></polyline><polyline points="9 21 3 21 3 15"></polyline><line x1="21" y1="3" x2="14" y2="10"></line><line x1="3" y1="21" x2="10" y2="14"></line></svg>Expand';
+                    mermaidExpandBtn.onclick = (function(container) {
+                        return function() {
+                            // Get the rendered SVG from the mermaid div
+                            var rendered = container.querySelector('.mermaid-rendered .mermaid');
+                            var svgEl = rendered ? rendered.querySelector('svg') : null;
+                            if (svgEl) {
+                                vscode.postMessage({
+                                    type: 'openMermaidPanel',
+                                    svg: svgEl.outerHTML
+                                });
+                            }
+                        };
+                    })(mermaidContainer);
+                    mermaidTabsBar.appendChild(mermaidExpandBtn);
+
                     // Add language indicator
                     var mermaidLangIndicator = document.createElement('div');
                     mermaidLangIndicator.className = 'code-block-lang';
@@ -3078,7 +3140,7 @@ function getWebviewContent(renderedHtml: string, existingOutputs: { [blockId: nu
                     svelteExpandBtn.className = 'svelte-expand-btn';
                     svelteExpandBtn.id = 'svelte-expand-' + currentBlockId;
                     svelteExpandBtn.title = 'Open in full panel';
-                    svelteExpandBtn.innerHTML = '<svg viewBox="0 0 24 24"><polyline points="15 3 21 3 21 9"></polyline><polyline points="9 21 3 21 3 15"></polyline><line x1="21" y1="3" x2="14" y2="10"></line><line x1="3" y1="21" x2="10" y2="14"></line></svg>Open';
+                    svelteExpandBtn.innerHTML = '<svg viewBox="0 0 24 24"><polyline points="15 3 21 3 21 9"></polyline><polyline points="9 21 3 21 3 15"></polyline><line x1="21" y1="3" x2="14" y2="10"></line><line x1="3" y1="21" x2="10" y2="14"></line></svg>Expand';
                     svelteExpandBtn.onclick = (function(blockId, container) {
                         return function() {
                             // Get the current iframe HTML to send along
