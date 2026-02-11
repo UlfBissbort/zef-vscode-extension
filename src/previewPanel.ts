@@ -1337,6 +1337,48 @@ function getWebviewContent(renderedHtml: string, existingOutputs: { [blockId: nu
         .preview-resize-handle.dragging::after {
             background: rgba(255, 255, 255, 0.6);
         }
+
+        /* Width-resizable container */
+        .width-resizable {
+            position: relative;
+        }
+        .preview-resize-handle-right,
+        .preview-resize-handle-left {
+            position: absolute;
+            top: 0;
+            width: 8px;
+            height: 100%;
+            cursor: ew-resize;
+            user-select: none;
+            -webkit-user-select: none;
+            z-index: 10;
+        }
+        .preview-resize-handle-right { right: -4px; }
+        .preview-resize-handle-left { left: -4px; }
+        .preview-resize-handle-right:hover,
+        .preview-resize-handle-right.dragging,
+        .preview-resize-handle-left:hover,
+        .preview-resize-handle-left.dragging {
+            background: #007acc;
+        }
+        .preview-resize-handle-right::after,
+        .preview-resize-handle-left::after {
+            content: '';
+            position: absolute;
+            left: 50%;
+            top: 50%;
+            transform: translate(-50%, -50%);
+            width: 2px;
+            height: 30px;
+            background: rgba(255, 255, 255, 0.3);
+            border-radius: 1px;
+        }
+        .preview-resize-handle-right:hover::after,
+        .preview-resize-handle-right.dragging::after,
+        .preview-resize-handle-left:hover::after,
+        .preview-resize-handle-left.dragging::after {
+            background: rgba(255, 255, 255, 0.6);
+        }
         
         .svelte-placeholder {
             display: flex;
@@ -2901,6 +2943,54 @@ function getWebviewContent(renderedHtml: string, existingOutputs: { [blockId: nu
                 return handle;
             }
 
+            // Attach left and right drag handles to resize the width of a container
+            // The container breaks out of the normal flow using centered positioning
+            function addWidthResizeHandle(container) {
+                container.classList.add('width-resizable');
+
+                function makeHandle(side) {
+                    var handle = document.createElement('div');
+                    handle.className = side === 'left' ? 'preview-resize-handle-left' : 'preview-resize-handle-right';
+                    // For a centered container, dragging right edge outward = positive delta,
+                    // dragging left edge outward = negative delta. Both widen by delta * 2.
+                    var sign = side === 'left' ? -1 : 1;
+                    var startX, startWidth;
+                    handle.addEventListener('mousedown', function(e) {
+                        e.preventDefault();
+                        startX = e.clientX;
+                        startWidth = container.getBoundingClientRect().width;
+                        handle.classList.add('dragging');
+                        var overlay = document.createElement('div');
+                        overlay.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;z-index:9999;cursor:ew-resize;';
+                        document.body.appendChild(overlay);
+                        function onMouseMove(e) {
+                            var delta = (e.clientX - startX) * sign;
+                            var newWidth = Math.max(200, startWidth + delta * 2);
+                            var maxW = window.innerWidth - 32;
+                            if (newWidth > maxW) newWidth = maxW;
+                            container.style.width = newWidth + 'px';
+                            container.style.minWidth = newWidth + 'px';
+                            container.style.maxWidth = newWidth + 'px';
+                            container.style.position = 'relative';
+                            container.style.left = '50%';
+                            container.style.transform = 'translateX(-50%)';
+                        }
+                        function onMouseUp() {
+                            handle.classList.remove('dragging');
+                            document.removeEventListener('mousemove', onMouseMove);
+                            document.removeEventListener('mouseup', onMouseUp);
+                            document.body.removeChild(overlay);
+                        }
+                        document.addEventListener('mousemove', onMouseMove);
+                        document.addEventListener('mouseup', onMouseUp);
+                    });
+                    container.appendChild(handle);
+                }
+
+                makeHandle('left');
+                makeHandle('right');
+            }
+
             function highlightCode(code, lang) {
                 var lines = code.split('\\n');
                 var result = [];
@@ -3698,7 +3788,10 @@ function getWebviewContent(renderedHtml: string, existingOutputs: { [blockId: nu
                     svelteContainer.appendChild(svelteTabsBar);
                     svelteContainer.appendChild(svelteSourceContent);
                     svelteContainer.appendChild(svelteRenderedContent);
-                    
+
+                    // Add width resize handle to the outer container
+                    addWidthResizeHandle(svelteContainer);
+
                     // Remove original pre
                     pre.parentNode.removeChild(pre);
                     return; // Skip the rest of the loop for svelte
