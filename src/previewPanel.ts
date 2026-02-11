@@ -356,14 +356,14 @@ export function createPreviewPanel(context: vscode.ExtensionContext): vscode.Web
             // Pass the document URI so the callback knows which document initiated the run
             onRunCodeCallback(message.code, message.blockId, message.language || 'python', docUri);
         } else if (message.type === 'scrollToSource') {
-            // Navigate editor to this line
-            const editor = vscode.window.activeTextEditor;
-            if (editor) {
-                const line = message.line;
-                const range = new vscode.Range(line, 0, line, 0);
-                editor.revealRange(range, vscode.TextEditorRevealType.InCenter);
-                editor.selection = new vscode.Selection(line, 0, line, 0);
-            }
+            // Navigate editor to the source line
+            const line = message.line;
+            const range = new vscode.Range(line, 0, line, 0);
+            // Open the source document (handles case where webview has focus and activeTextEditor is undefined)
+            const doc = await vscode.workspace.openTextDocument(docUri);
+            const editor = await vscode.window.showTextDocument(doc, vscode.ViewColumn.One, false);
+            editor.revealRange(range, vscode.TextEditorRevealType.InCenter);
+            editor.selection = new vscode.Selection(line, 0, line, 0);
         } else if (message.type === 'toggleCheckbox') {
             // Toggle a checkbox in the source document
             const docUri = docKey;
@@ -596,6 +596,23 @@ export function updatePreview(document: vscode.TextDocument) {
         }
     }
     
+    // Compute source line numbers for all fenced code blocks (for "Jump to Source" context menu)
+    const blockSourceLines: number[] = [];
+    const originalText = document.getText();
+    const srcLines = originalText.split('\n');
+    let inFencedBlock = false;
+    for (let i = 0; i < srcLines.length; i++) {
+        const trimmed = srcLines[i].trimStart();
+        if (trimmed.startsWith('```') && !trimmed.startsWith('````')) {
+            if (!inFencedBlock) {
+                blockSourceLines.push(i);
+                inFencedBlock = true;
+            } else {
+                inFencedBlock = false;
+            }
+        }
+    }
+
     // Remove Result, Side Effects, and rendered-html blocks for rendering
     // Also strip frontmatter block if present (not needed for Python/Rust files already converted)
     const cleanText = (isPythonFile || isRustFile) ? text : stripFrontmatter(text)
@@ -643,7 +660,7 @@ export function updatePreview(document: vscode.TextDocument) {
     // Get document settings from frontmatter
     const documentSettings = getDocumentSettings(text);
     
-    panel.webview.html = getWebviewContent(html, existingResults, existingSideEffects, mermaidUri, existingRenderedHtml, documentSettings, katexCssUri, katexJsUri, katexAutoRenderUri, katexFontsUri, excalidrawEditorJsUri, excalidrawEditorCssUri, excalidrawEditorBaseUri);
+    panel.webview.html = getWebviewContent(html, existingResults, existingSideEffects, mermaidUri, existingRenderedHtml, documentSettings, katexCssUri, katexJsUri, katexAutoRenderUri, katexFontsUri, excalidrawEditorJsUri, excalidrawEditorCssUri, excalidrawEditorBaseUri, blockSourceLines);
 }
 
 /**
@@ -1018,7 +1035,7 @@ function convertImagePaths(html: string, docDir: string, webview: vscode.Webview
     });
 }
 
-function getWebviewContent(renderedHtml: string, existingOutputs: { [blockId: number]: string } = {}, existingSideEffects: { [blockId: number]: string } = {}, mermaidUri: string = '', existingRenderedHtml: { [blockId: number]: string } = {}, documentSettings: ZefSettings = {}, katexCssUri: string = '', katexJsUri: string = '', katexAutoRenderUri: string = '', katexFontsUri: string = '', excalidrawEditorJsUri: string = '', excalidrawEditorCssUri: string = '', excalidrawEditorBaseUri: string = ''): string {
+function getWebviewContent(renderedHtml: string, existingOutputs: { [blockId: number]: string } = {}, existingSideEffects: { [blockId: number]: string } = {}, mermaidUri: string = '', existingRenderedHtml: { [blockId: number]: string } = {}, documentSettings: ZefSettings = {}, katexCssUri: string = '', katexJsUri: string = '', katexAutoRenderUri: string = '', katexFontsUri: string = '', excalidrawEditorJsUri: string = '', excalidrawEditorCssUri: string = '', excalidrawEditorBaseUri: string = '', blockSourceLines: number[] = []): string {
     // Get the view width setting
     const widthPercent = vscode.workspace.getConfiguration('zef').get('viewWidthPercent', 100) as number;
     const maxWidth = Math.round(680 * widthPercent / 100);
@@ -1030,7 +1047,8 @@ function getWebviewContent(renderedHtml: string, existingOutputs: { [blockId: nu
     const sideEffectsJson = escapeForScript(JSON.stringify(existingSideEffects));
     const renderedHtmlJson = escapeForScript(JSON.stringify(existingRenderedHtml));
     const documentSettingsJson = escapeForScript(JSON.stringify(documentSettings));
-    
+    const blockSourceLinesJson = escapeForScript(JSON.stringify(blockSourceLines));
+
     return `<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -1375,6 +1393,34 @@ function getWebviewContent(renderedHtml: string, existingOutputs: { [blockId: nu
         .code-block-tab.active {
             color: var(--text-color);
             background: var(--code-bg);
+        }
+
+        .zef-context-menu {
+            position: fixed;
+            z-index: 10000;
+            background: #1e1e1e;
+            border: 1px solid #444;
+            border-radius: 4px;
+            padding: 4px 0;
+            min-width: 140px;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4);
+        }
+
+        .zef-context-menu-item {
+            display: block;
+            width: 100%;
+            padding: 6px 16px;
+            font-size: 0.8rem;
+            color: #ccc;
+            background: none;
+            border: none;
+            cursor: pointer;
+            text-align: left;
+        }
+
+        .zef-context-menu-item:hover {
+            background: #094771;
+            color: #fff;
         }
 
         .code-block-lang {
@@ -2300,6 +2346,9 @@ function getWebviewContent(renderedHtml: string, existingOutputs: { [blockId: nu
         // Document settings from frontmatter
         const documentSettings = ${documentSettingsJson};
 
+        // Source line numbers for each code block (indexed by pre element order)
+        const blockSourceLines = ${blockSourceLinesJson};
+
         // Excalidraw inline editor URIs (loaded on demand)
         var excalidrawEditorJsUrl = '${excalidrawEditorJsUri}';
         var excalidrawEditorCssUrl = '${excalidrawEditorCssUri}';
@@ -3067,7 +3116,7 @@ function getWebviewContent(renderedHtml: string, existingOutputs: { [blockId: nu
                 }
             });
             
-            document.querySelectorAll('pre').forEach(function(pre) {
+            document.querySelectorAll('pre').forEach(function(pre, preIndex) {
                 var lang = pre.getAttribute('data-lang') || 'code';
                 var langLower = lang.toLowerCase();
                 var isPython = (langLower === 'python' || langLower === 'py');
@@ -3106,6 +3155,9 @@ function getWebviewContent(renderedHtml: string, existingOutputs: { [blockId: nu
                     // Assign a stable block ID for live updates
                     var currentExcalidrawBlockId = 'excalidraw-' + excalidrawBlockId;
                     excalidrawContainer.setAttribute('data-excalidraw-id', currentExcalidrawBlockId);
+                    if (blockSourceLines[preIndex] !== undefined) {
+                        excalidrawContainer.setAttribute('data-source-line', blockSourceLines[preIndex]);
+                    }
                     excalidrawBlockId++;
 
                     var widthMode = pre.getAttribute('data-zef-width') || '';
@@ -3308,7 +3360,10 @@ function getWebviewContent(renderedHtml: string, existingOutputs: { [blockId: nu
                     // Create container for mermaid with tabs
                     var mermaidContainer = document.createElement('div');
                     mermaidContainer.className = 'code-block-container mermaid-container';
-                    
+                    if (blockSourceLines[preIndex] !== undefined) {
+                        mermaidContainer.setAttribute('data-source-line', blockSourceLines[preIndex]);
+                    }
+
                     // Create tabs bar
                     var mermaidTabsBar = document.createElement('div');
                     mermaidTabsBar.className = 'code-block-tabs';
@@ -3426,7 +3481,10 @@ function getWebviewContent(renderedHtml: string, existingOutputs: { [blockId: nu
                     // Create container for HTML with tabs
                     var htmlContainer = document.createElement('div');
                     htmlContainer.className = 'code-block-container html-container';
-                    
+                    if (blockSourceLines[preIndex] !== undefined) {
+                        htmlContainer.setAttribute('data-source-line', blockSourceLines[preIndex]);
+                    }
+
                     // Create tabs bar
                     var htmlTabsBar = document.createElement('div');
                     htmlTabsBar.className = 'code-block-tabs';
@@ -3513,6 +3571,9 @@ function getWebviewContent(renderedHtml: string, existingOutputs: { [blockId: nu
                     var svelteContainer = document.createElement('div');
                     svelteContainer.className = 'code-block-container svelte-container';
                     svelteContainer.setAttribute('data-block-id', currentBlockId);
+                    if (blockSourceLines[preIndex] !== undefined) {
+                        svelteContainer.setAttribute('data-source-line', blockSourceLines[preIndex]);
+                    }
                     
                     // Create tabs bar
                     var svelteTabsBar = document.createElement('div');
@@ -3648,7 +3709,10 @@ function getWebviewContent(renderedHtml: string, existingOutputs: { [blockId: nu
                     // Create simple container with just language indicator and code
                     var jsonContainer = document.createElement('div');
                     jsonContainer.className = 'code-block-container json-container';
-                    
+                    if (blockSourceLines[preIndex] !== undefined) {
+                        jsonContainer.setAttribute('data-source-line', blockSourceLines[preIndex]);
+                    }
+
                     // Create header bar with just language indicator
                     var jsonHeaderBar = document.createElement('div');
                     jsonHeaderBar.className = 'code-block-tabs';
@@ -3679,7 +3743,10 @@ function getWebviewContent(renderedHtml: string, existingOutputs: { [blockId: nu
                     // Create simple container with just language indicator and code
                     var zenContainer = document.createElement('div');
                     zenContainer.className = 'code-block-container zen-container';
-                    
+                    if (blockSourceLines[preIndex] !== undefined) {
+                        zenContainer.setAttribute('data-source-line', blockSourceLines[preIndex]);
+                    }
+
                     // Create header bar with just language indicator
                     var zenHeaderBar = document.createElement('div');
                     zenHeaderBar.className = 'code-block-tabs';
@@ -3711,7 +3778,10 @@ function getWebviewContent(renderedHtml: string, existingOutputs: { [blockId: nu
                 if (currentBlockId !== null) {
                     container.setAttribute('data-block-id', currentBlockId);
                 }
-                
+                if (blockSourceLines[preIndex] !== undefined) {
+                    container.setAttribute('data-source-line', blockSourceLines[preIndex]);
+                }
+
                 // Create tabs bar
                 var tabsBar = document.createElement('div');
                 tabsBar.className = 'code-block-tabs';
@@ -3860,6 +3930,51 @@ function getWebviewContent(renderedHtml: string, existingOutputs: { [blockId: nu
                 container.appendChild(outputContent);
                 container.appendChild(sideEffectsContent);
             });
+
+            // Context menu on title bars for "Jump to Source"
+            (function() {
+                var contextMenu = null;
+                function removeContextMenu() {
+                    if (contextMenu) {
+                        contextMenu.remove();
+                        contextMenu = null;
+                    }
+                }
+                document.addEventListener('click', removeContextMenu);
+                document.addEventListener('contextmenu', function(e) {
+                    // Only intercept right-clicks on .code-block-tabs title bars
+                    var tabsBar = e.target.closest('.code-block-tabs');
+                    if (!tabsBar) return;
+                    var container = tabsBar.closest('.code-block-container');
+                    if (!container) return;
+                    var sourceLine = container.getAttribute('data-source-line');
+                    if (sourceLine === null) return;
+
+                    e.preventDefault();
+                    removeContextMenu();
+
+                    contextMenu = document.createElement('div');
+                    contextMenu.className = 'zef-context-menu';
+                    var item = document.createElement('button');
+                    item.className = 'zef-context-menu-item';
+                    item.textContent = 'Jump to Source';
+                    item.onclick = function() {
+                        vscode.postMessage({ type: 'scrollToSource', line: parseInt(sourceLine) });
+                        removeContextMenu();
+                    };
+                    contextMenu.appendChild(item);
+                    document.body.appendChild(contextMenu);
+
+                    // Position the menu, keeping it within viewport
+                    var x = e.clientX;
+                    var y = e.clientY;
+                    var menuRect = contextMenu.getBoundingClientRect();
+                    if (x + menuRect.width > window.innerWidth) x = window.innerWidth - menuRect.width;
+                    if (y + menuRect.height > window.innerHeight) y = window.innerHeight - menuRect.height;
+                    contextMenu.style.left = x + 'px';
+                    contextMenu.style.top = y + 'px';
+                });
+            })();
 
             // Add expand buttons to code blocks that overflow (defer to allow layout)
             requestAnimationFrame(function() {
