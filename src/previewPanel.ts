@@ -1453,6 +1453,7 @@ function getWebviewContent(renderedHtml: string, existingOutputs: { [blockId: nu
 
         .code-block-container.expanded {
             width: fit-content;
+            min-width: 100%;
             max-width: calc(100vw - 4rem);
             margin-left: auto;
             margin-right: auto;
