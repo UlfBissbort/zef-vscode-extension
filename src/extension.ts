@@ -128,9 +128,9 @@ const mermaidCodeBlockDecorationType = vscode.window.createTextEditorDecorationT
     borderRadius: '3px',
 });
 
-// Folding range provider for excalidraw blocks
-// Provides folding ranges so users can collapse excalidraw JSON blocks
-class ExcalidrawFoldingRangeProvider implements vscode.FoldingRangeProvider {
+// Folding range provider for all fenced code blocks
+// Enables folding of any ```lang ... ``` block in zef documents
+class CodeBlockFoldingRangeProvider implements vscode.FoldingRangeProvider {
     provideFoldingRanges(
         document: vscode.TextDocument,
         _context: vscode.FoldingContext,
@@ -138,17 +138,15 @@ class ExcalidrawFoldingRangeProvider implements vscode.FoldingRangeProvider {
     ): vscode.FoldingRange[] {
         const ranges: vscode.FoldingRange[] = [];
         const text = document.getText();
-        
-        // Find all excalidraw code blocks
-        const excalidrawBlockRegex = /```excalidraw[^\n]*\n[\s\S]*?```/gi;
+
+        // Find all fenced code blocks (``` with optional language)
+        const codeBlockRegex = /```\w[^\n]*\n[\s\S]*?```/g;
         let match;
-        
-        while ((match = excalidrawBlockRegex.exec(text)) !== null) {
+
+        while ((match = codeBlockRegex.exec(text)) !== null) {
             const startPos = document.positionAt(match.index);
             const endPos = document.positionAt(match.index + match[0].length);
-            
-            // Create folding range from the line after ``` to the line before closing ```
-            // This way the opening ```excalidraw stays visible when folded
+
             if (endPos.line > startPos.line) {
                 ranges.push(new vscode.FoldingRange(
                     startPos.line,
@@ -157,34 +155,39 @@ class ExcalidrawFoldingRangeProvider implements vscode.FoldingRangeProvider {
                 ));
             }
         }
-        
+
         return ranges;
     }
 }
 
-// Helper function to fold all excalidraw blocks in a document
-async function foldExcalidrawBlocks(editor: vscode.TextEditor): Promise<void> {
+// Auto-fold large code blocks (40+ lines) and all excalidraw blocks
+async function autoFoldCodeBlocks(editor: vscode.TextEditor): Promise<void> {
     const document = editor.document;
     const text = document.getText();
-    
-    // Find all excalidraw block start lines
-    const excalidrawBlockRegex = /```excalidraw[^\n]*/gi;
+
+    const codeBlockRegex = /```(\w+)[^\n]*\n[\s\S]*?```/g;
     const linesToFold: number[] = [];
     let match;
-    
-    while ((match = excalidrawBlockRegex.exec(text)) !== null) {
-        const pos = document.positionAt(match.index);
-        linesToFold.push(pos.line);
+
+    while ((match = codeBlockRegex.exec(text)) !== null) {
+        const lang = match[1].toLowerCase();
+        const startPos = document.positionAt(match.index);
+        const endPos = document.positionAt(match.index + match[0].length);
+        const lineCount = endPos.line - startPos.line;
+
+        // Always fold excalidraw; fold other blocks if 40+ lines
+        if (lang === 'excalidraw' || lang === 'exaclidraw' || lineCount >= 40) {
+            linesToFold.push(startPos.line);
+        }
     }
-    
+
     // Fold each line
     for (const line of linesToFold) {
-        // Move cursor to the line and fold
         const position = new vscode.Position(line, 0);
         editor.selection = new vscode.Selection(position, position);
-        await vscode.commands.executeCommand('editor.fold', { 
+        await vscode.commands.executeCommand('editor.fold', {
             selectionLines: [line],
-            levels: 1 
+            levels: 1
         });
     }
 }
@@ -285,23 +288,22 @@ export function activate(context: vscode.ExtensionContext) {
         )
     );
 
-    // Register folding range provider for excalidraw blocks
-    // This enables folding of excalidraw JSON blocks in the editor
-    const excalidrawFoldingProvider = new ExcalidrawFoldingRangeProvider();
+    // Register folding range provider for all fenced code blocks
+    const codeBlockFoldingProvider = new CodeBlockFoldingRangeProvider();
     context.subscriptions.push(
         vscode.languages.registerFoldingRangeProvider(
             { pattern: '**/*.zef.md' },
-            excalidrawFoldingProvider
+            codeBlockFoldingProvider
         )
     );
 
-    // Auto-fold excalidraw blocks when opening a zef document
+    // Auto-fold large code blocks (40+ lines) and excalidraw blocks when opening a zef document
     context.subscriptions.push(
         vscode.window.onDidChangeActiveTextEditor(async (editor) => {
             if (editor && isZefDocument(editor.document)) {
                 // Small delay to let the editor fully initialize
                 setTimeout(() => {
-                    foldExcalidrawBlocks(editor);
+                    autoFoldCodeBlocks(editor);
                 }, 100);
             }
         })
@@ -317,7 +319,7 @@ export function activate(context: vscode.ExtensionContext) {
                         e => e.document === document
                     );
                     if (editor) {
-                        await foldExcalidrawBlocks(editor);
+                        await autoFoldCodeBlocks(editor);
                     }
                 }, 200);
             }
