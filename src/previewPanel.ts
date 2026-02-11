@@ -2266,9 +2266,16 @@ function getWebviewContent(renderedHtml: string, existingOutputs: { [blockId: nu
                 window.unmountExcalidraw(editor.handle);
             }
 
-            // Remove editor div, show rendered area
+            // Remove editor div and resize handle, show rendered area
             var editorDiv = editor.container.querySelector('.excalidraw-inline-editor');
-            if (editorDiv) editorDiv.remove();
+            if (editorDiv) {
+                // Remove the resize handle that follows the editor div
+                var nextEl = editorDiv.nextElementSibling;
+                if (nextEl && nextEl.classList.contains('preview-resize-handle')) {
+                    nextEl.remove();
+                }
+                editorDiv.remove();
+            }
             var rendered = editor.container.querySelector('.excalidraw-rendered');
             if (rendered) rendered.style.display = '';
 
@@ -3080,9 +3087,10 @@ function getWebviewContent(renderedHtml: string, existingOutputs: { [blockId: nu
                                 var rendered = container.querySelector('.excalidraw-rendered');
                                 if (rendered) rendered.style.display = 'none';
 
-                                // Create editor container
+                                // Create editor container with resize handle
                                 var editorDiv = document.createElement('div');
                                 editorDiv.className = 'excalidraw-inline-editor';
+                                var resizeHandle = createResizeHandle(editorDiv);
                                 // Insert after tabs bar
                                 var tabsBar = container.querySelector('.code-block-tabs');
                                 if (tabsBar && tabsBar.nextSibling) {
@@ -3090,6 +3098,8 @@ function getWebviewContent(renderedHtml: string, existingOutputs: { [blockId: nu
                                 } else {
                                     container.appendChild(editorDiv);
                                 }
+                                // Place resize handle after editor div
+                                editorDiv.after(resizeHandle);
 
                                 // Mount Excalidraw
                                 var handle = window.mountExcalidraw(editorDiv, data);
