@@ -2276,7 +2276,7 @@ function getWebviewContent(renderedHtml: string, existingOutputs: { [blockId: nu
             var editBtn = editor.container.querySelector('.excalidraw-edit-btn');
             if (editBtn) {
                 editBtn.classList.remove('active');
-                editBtn.innerHTML = '<svg viewBox="0 0 24 24"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>Edit';
+                editBtn.innerHTML = '<svg viewBox="0 0 24 24"><path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"></path></svg>';
                 editBtn.title = 'Edit inline';
             }
 
@@ -3005,10 +3005,17 @@ function getWebviewContent(renderedHtml: string, existingOutputs: { [blockId: nu
                         excalidrawTabsBar.appendChild(tab);
                     });
 
+                    // Add inline edit toggle button (before full-width)
+                    var excalidrawEditBtn = document.createElement('button');
+                    excalidrawEditBtn.className = 'excalidraw-expand-btn excalidraw-edit-btn';
+                    excalidrawEditBtn.style.marginLeft = 'auto';
+                    excalidrawEditBtn.title = 'Edit';
+                    excalidrawEditBtn.innerHTML = '<svg viewBox="0 0 24 24"><path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"></path></svg>';
+                    excalidrawTabsBar.appendChild(excalidrawEditBtn);
+
                     // Add full-width toggle button
                     var excalidrawFullWidthBtn = document.createElement('button');
                     excalidrawFullWidthBtn.className = 'excalidraw-expand-btn';
-                    excalidrawFullWidthBtn.style.marginLeft = 'auto';
                     excalidrawFullWidthBtn.title = 'Full Width';
                     excalidrawFullWidthBtn.innerHTML = '<svg viewBox="0 0 24 24"><polyline points="9 6 3 12 9 18"></polyline><polyline points="15 6 21 12 15 18"></polyline><line x1="3" y1="12" x2="21" y2="12"></line></svg>';
                     excalidrawFullWidthBtn.onclick = (function(container, btn) {
@@ -3025,11 +3032,6 @@ function getWebviewContent(renderedHtml: string, existingOutputs: { [blockId: nu
                     })(excalidrawContainer, excalidrawFullWidthBtn);
                     excalidrawTabsBar.appendChild(excalidrawFullWidthBtn);
 
-                    // Add inline edit toggle button
-                    var excalidrawEditBtn = document.createElement('button');
-                    excalidrawEditBtn.className = 'excalidraw-expand-btn excalidraw-edit-btn';
-                    excalidrawEditBtn.title = 'Edit inline';
-                    excalidrawEditBtn.innerHTML = '<svg viewBox="0 0 24 24"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>Edit';
                     excalidrawEditBtn.onclick = (function(rawJson, container, fullWidthBtn) {
                         return function() {
                             // If already editing this block, close (Done)
@@ -3068,7 +3070,7 @@ function getWebviewContent(renderedHtml: string, existingOutputs: { [blockId: nu
                             var editBtn = container.querySelector('.excalidraw-edit-btn');
                             if (editBtn) {
                                 editBtn.classList.add('active');
-                                editBtn.innerHTML = '<svg viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"></polyline></svg>Done';
+                                editBtn.innerHTML = '<svg viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"></polyline></svg>';
                                 editBtn.title = 'Finish editing';
                             }
 
@@ -3102,14 +3104,13 @@ function getWebviewContent(renderedHtml: string, existingOutputs: { [blockId: nu
                                 var editBtn2 = container.querySelector('.excalidraw-edit-btn');
                                 if (editBtn2) {
                                     editBtn2.classList.remove('active');
-                                    editBtn2.innerHTML = '<svg viewBox="0 0 24 24"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>Edit';
+                                    editBtn2.innerHTML = '<svg viewBox="0 0 24 24"><path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"></path></svg>';
                                     editBtn2.title = 'Edit inline';
                                 }
                                 vscode.postMessage({ type: 'exitInlineEdit' });
                             });
                         };
                     })(codeContent, excalidrawContainer, excalidrawFullWidthBtn);
-                    excalidrawTabsBar.appendChild(excalidrawEditBtn);
 
                     // Add popout button (opens detached editor panel)
                     var excalidrawPopoutBtn = document.createElement('button');
