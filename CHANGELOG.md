@@ -5,6 +5,18 @@ All notable changes to the Zef extension will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.1.15] - 2026-02-11
+
+### Added
+
+- **Toggle Full Height for Code Blocks**: Code blocks longer than 25 lines are now collapsed by default with a scrollbar. A vertical arrow toggle button allows expanding to full height.
+
+### Improved
+
+- **Consistent Toggle Button Styling**: Toggle buttons across code blocks, Mermaid diagrams, and Excalidraw now use larger icons and a faint blue background when active for better visibility.
+
+- **Svelte Expand Button**: Replaced text "Expand" button with an icon-only pop-out button matching the Mermaid diagram style.
+
 ## [0.1.14] - 2026-02-11
 
 ### Added
