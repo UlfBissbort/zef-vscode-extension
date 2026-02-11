@@ -109,14 +109,21 @@ let zefFileDecorationProvider: ZefFileDecorationProvider;
 
 // Decoration type for highlighting executable code blocks with a gray background
 const codeBlockDecorationType = vscode.window.createTextEditorDecorationType({
-    backgroundColor: 'rgba(128, 128, 128, 0.15)',
+    backgroundColor: 'rgba(128, 128, 128, 0.1)',
     isWholeLine: true,
     borderRadius: '3px',
 });
 
 // Decoration type for highlighting display-only code blocks (zen, json) with a slightly lighter background
 const displayCodeBlockDecorationType = vscode.window.createTextEditorDecorationType({
-    backgroundColor: 'rgba(128, 128, 128, 0.10)',
+    backgroundColor: 'rgba(128, 128, 128, 0.07)',
+    isWholeLine: true,
+    borderRadius: '3px',
+});
+
+// Decoration type for mermaid blocks with a slight blue tint
+const mermaidCodeBlockDecorationType = vscode.window.createTextEditorDecorationType({
+    backgroundColor: 'rgba(70, 90, 160, 0.14)',
     isWholeLine: true,
     borderRadius: '3px',
 });
@@ -194,12 +201,16 @@ function updateDecorations(editor: vscode.TextEditor) {
     }));
     editor.setDecorations(codeBlockDecorationType, executableDecorations);
 
-    // Decorate display-only code blocks (zen, json)
+    // Decorate display-only code blocks (zen, json, html, excalidraw) and mermaid (separate color)
     const displayBlocks = findDisplayCodeBlocks(editor.document);
-    const displayDecorations: vscode.DecorationOptions[] = displayBlocks.map(block => ({
-        range: block.range,
-    }));
+    const displayDecorations: vscode.DecorationOptions[] = displayBlocks
+        .filter(block => block.language !== 'mermaid')
+        .map(block => ({ range: block.range }));
+    const mermaidDecorations: vscode.DecorationOptions[] = displayBlocks
+        .filter(block => block.language === 'mermaid')
+        .map(block => ({ range: block.range }));
     editor.setDecorations(displayCodeBlockDecorationType, displayDecorations);
+    editor.setDecorations(mermaidCodeBlockDecorationType, mermaidDecorations);
 }
 
 function updateStatusBar() {
