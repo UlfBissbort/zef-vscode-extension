@@ -1416,12 +1416,13 @@ function getWebviewContent(renderedHtml: string, existingOutputs: { [blockId: nu
 
         .mermaid-export-btn.active {
             color: #61afef;
+            background: rgba(97, 175, 239, 0.1);
             border-color: rgba(97, 175, 239, 0.3);
         }
 
         .mermaid-export-btn svg {
-            width: 12px;
-            height: 12px;
+            width: 16px;
+            height: 16px;
             stroke: currentColor;
             fill: none;
             stroke-width: 2;
@@ -1895,12 +1896,13 @@ function getWebviewContent(renderedHtml: string, existingOutputs: { [blockId: nu
 
         .excalidraw-expand-btn.active {
             color: #61afef;
+            background: rgba(97, 175, 239, 0.1);
             border-color: rgba(97, 175, 239, 0.3);
         }
-        
+
         .excalidraw-expand-btn svg {
-            width: 12px;
-            height: 12px;
+            width: 16px;
+            height: 16px;
             stroke: currentColor;
             stroke-width: 2;
             fill: none;
