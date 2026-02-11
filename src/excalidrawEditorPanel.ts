@@ -24,6 +24,7 @@ export class ExcalidrawEditorPanel {
     private _uid: string;
     private _documentUri: vscode.Uri;
     private _onSaveCallback: ((uid: string, data: object) => void) | undefined;
+    private _currentData: object | undefined;
 
     private constructor(
         panel: vscode.WebviewPanel,
@@ -47,7 +48,14 @@ export class ExcalidrawEditorPanel {
             message => {
                 switch (message.type) {
                     case 'ready':
-                        // Webview is ready
+                        // Webview is ready (or was re-created after window drag)
+                        // Re-send current data so the editor can initialize
+                        if (this._currentData) {
+                            this._panel.webview.postMessage({
+                                type: 'loadExcalidraw',
+                                data: this._currentData
+                            });
+                        }
                         break;
                     case 'saveExcalidraw':
                         if (this._onSaveCallback) {
@@ -56,6 +64,7 @@ export class ExcalidrawEditorPanel {
                         break;
                     case 'excalidrawChanged':
                         // Live update - update the document with new data
+                        this._currentData = message.data;
                         if (this._onSaveCallback) {
                             this._onSaveCallback(this._uid, message.data);
                         }
@@ -97,6 +106,7 @@ export class ExcalidrawEditorPanel {
             // Reveal existing panel and update callback
             existingPanel._panel.reveal();
             existingPanel._onSaveCallback = onSave;
+            existingPanel._currentData = data;
             // Send updated data in case it changed externally
             existingPanel._panel.webview.postMessage({
                 type: 'loadExcalidraw',
@@ -124,10 +134,11 @@ export class ExcalidrawEditorPanel {
 
         const editorPanel = new ExcalidrawEditorPanel(panel, extensionUri, uid, documentUri);
         editorPanel._onSaveCallback = onSave;
-        
+        editorPanel._currentData = data;
+
         // Register in the map
         ExcalidrawEditorPanel.panels.set(key, editorPanel);
-        
+
         // Send initial data
         panel.webview.postMessage({
             type: 'loadExcalidraw',
