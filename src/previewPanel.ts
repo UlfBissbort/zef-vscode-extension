@@ -1519,6 +1519,7 @@ function getWebviewContent(renderedHtml: string, existingOutputs: { [blockId: nu
 
         .code-block-content {
             display: none;
+            position: relative;
         }
 
         .code-block-content.active {
@@ -1529,6 +1530,56 @@ function getWebviewContent(renderedHtml: string, existingOutputs: { [blockId: nu
             margin: 0;
             border: none;
             border-radius: 0;
+        }
+
+        .code-copy-btn {
+            position: absolute;
+            top: 8px;
+            right: 8px;
+            width: 28px;
+            height: 28px;
+            background: transparent;
+            border: none;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            opacity: 0.4;
+            transition: opacity 0.2s;
+            padding: 4px;
+            z-index: 2;
+        }
+
+        .code-block-content:hover .code-copy-btn {
+            opacity: 0.75;
+        }
+
+        .code-copy-btn:hover {
+            opacity: 1 !important;
+        }
+
+        .code-copy-btn svg {
+            width: 18px;
+            height: 18px;
+            fill: none;
+            stroke: #888;
+            stroke-width: 2;
+            stroke-linecap: round;
+            stroke-linejoin: round;
+            filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.5));
+        }
+
+        .code-copy-btn:hover svg {
+            stroke: #ccc;
+        }
+
+        .code-copy-btn.copied {
+            background: rgba(60, 120, 80, 0.85);
+            border-radius: 6px;
+        }
+
+        .code-copy-btn.copied svg {
+            stroke: #fff;
         }
 
         .tab-content-output,
@@ -2468,6 +2519,37 @@ function getWebviewContent(renderedHtml: string, existingOutputs: { [blockId: nu
                 // Fallback: show error briefly
                 button.style.background = 'rgba(239, 68, 68, 0.8)';
                 setTimeout(() => {
+                    button.style.background = '';
+                }, 1000);
+            }
+        }
+
+        // Copy code block text to clipboard
+        async function copyCodeBlock(button) {
+            try {
+                var content = button.closest('.code-block-content');
+                var text = '';
+                var codeEl = content.querySelector('pre code');
+                var outputVal = content.querySelector('.output-value');
+                var sideEffectsVal = content.querySelector('[id^="side-effects-value-"]');
+                if (codeEl) {
+                    text = codeEl.textContent || '';
+                } else if (outputVal) {
+                    text = outputVal.textContent || '';
+                } else if (sideEffectsVal) {
+                    text = sideEffectsVal.textContent || '';
+                }
+                await navigator.clipboard.writeText(text);
+                button.classList.add('copied');
+                button.innerHTML = '<svg viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"></polyline></svg>';
+                setTimeout(function() {
+                    button.classList.remove('copied');
+                    button.innerHTML = '<svg viewBox="0 0 24 24"><rect x="8" y="6" width="12" height="15" rx="1.5" ry="1.5"></rect><path d="M4 18V5a1.5 1.5 0 0 1 1.5-1.5h9"></path></svg>';
+                }, 1500);
+            } catch (err) {
+                console.error('Failed to copy code:', err);
+                button.style.background = 'rgba(239, 68, 68, 0.8)';
+                setTimeout(function() {
                     button.style.background = '';
                 }, 1000);
             }
@@ -3702,6 +3784,9 @@ function getWebviewContent(renderedHtml: string, existingOutputs: { [blockId: nu
                 langIndicator.innerHTML = '<span>' + langName + '</span><span>' + emoji + '</span>';
                 tabsBar.appendChild(langIndicator);
                 
+                // Copy button HTML for code blocks
+                var codeCopyBtnHtml = '<button class="code-copy-btn" onclick="copyCodeBlock(this)" title="Copy to clipboard"><svg viewBox="0 0 24 24"><rect x="8" y="6" width="12" height="15" rx="1.5" ry="1.5"></rect><path d="M4 18V5a1.5 1.5 0 0 1 1.5-1.5h9"></path></svg></button>';
+
                 // Create content containers
                 var codeContent = document.createElement('div');
                 codeContent.className = 'code-block-content active';
@@ -3716,7 +3801,7 @@ function getWebviewContent(renderedHtml: string, existingOutputs: { [blockId: nu
                 outputContent.className = 'code-block-content';
                 outputContent.id = 'content-' + currentBlockId + '-result';
                 
-                var outputHtml = '<div class="tab-content-output">' +
+                var outputHtml = codeCopyBtnHtml + '<div class="tab-content-output">' +
                     '<div class="output-label">Result</div>' +
                     '<div class="output-value" id="result-value-' + currentBlockId + '">';
                     
@@ -3738,7 +3823,7 @@ function getWebviewContent(renderedHtml: string, existingOutputs: { [blockId: nu
                     ? existingSideEffects[currentBlockId] 
                     : null;
                 
-                var sideEffectsHtml = '<div class="tab-content-side-effects">' +
+                var sideEffectsHtml = codeCopyBtnHtml + '<div class="tab-content-side-effects">' +
                     '<div class="effects-label">Side Effects</div>' +
                     '<div id="side-effects-value-' + currentBlockId + '">';
                 
@@ -3757,7 +3842,8 @@ function getWebviewContent(renderedHtml: string, existingOutputs: { [blockId: nu
                 
                 // Move pre into code content
                 codeContent.appendChild(pre);
-                
+                codeContent.insertAdjacentHTML('beforeend', codeCopyBtnHtml);
+
                 // Assemble container
                 container.appendChild(tabsBar);
                 container.appendChild(codeContent);
