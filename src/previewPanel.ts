@@ -1118,6 +1118,16 @@ function getWebviewContent(renderedHtml: string, existingOutputs: { [blockId: nu
             height: auto;
         }
 
+        /* Full-width mermaid breakout */
+        .mermaid-container.full-width {
+            width: 100vw;
+            max-width: 100vw;
+            margin-left: calc(-50vw + 50%);
+            border-radius: 0;
+            border-left: none;
+            border-right: none;
+        }
+
         /* Excalidraw diagrams */
         .excalidraw-container {
             margin: 1.5rem 0;
@@ -1323,6 +1333,11 @@ function getWebviewContent(renderedHtml: string, existingOutputs: { [blockId: nu
             color: rgba(255, 255, 255, 0.9);
             background: rgba(255, 255, 255, 0.05);
             border-color: rgba(255, 255, 255, 0.2);
+        }
+
+        .mermaid-export-btn.active {
+            color: #61afef;
+            border-color: rgba(97, 175, 239, 0.3);
         }
 
         .mermaid-export-btn svg {
@@ -2915,12 +2930,12 @@ function getWebviewContent(renderedHtml: string, existingOutputs: { [blockId: nu
                         mermaidTabsBar.appendChild(tab);
                     });
                     
-                    // Add SVG export button
+                    // Add SVG export button (icon only)
                     var mermaidExportBtn = document.createElement('button');
                     mermaidExportBtn.className = 'mermaid-export-btn';
                     mermaidExportBtn.style.marginLeft = 'auto';
-                    mermaidExportBtn.title = 'Export as SVG';
-                    mermaidExportBtn.innerHTML = '<svg viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>SVG';
+                    mermaidExportBtn.title = 'Download as SVG';
+                    mermaidExportBtn.innerHTML = '<svg viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>';
                     mermaidExportBtn.onclick = (function(container) {
                         return function() {
                             exportMermaidAsSvg(container);
@@ -2928,14 +2943,32 @@ function getWebviewContent(renderedHtml: string, existingOutputs: { [blockId: nu
                     })(mermaidContainer);
                     mermaidTabsBar.appendChild(mermaidExportBtn);
 
-                    // Add expand button to open in full panel
+                    // Add full-width toggle button (icon only)
+                    var mermaidFullWidthBtn = document.createElement('button');
+                    mermaidFullWidthBtn.className = 'mermaid-export-btn';
+                    mermaidFullWidthBtn.title = 'Full Width';
+                    mermaidFullWidthBtn.innerHTML = '<svg viewBox="0 0 24 24"><polyline points="9 6 3 12 9 18"></polyline><polyline points="15 6 21 12 15 18"></polyline><line x1="3" y1="12" x2="21" y2="12"></line></svg>';
+                    mermaidFullWidthBtn.onclick = (function(container, btn) {
+                        return function() {
+                            container.classList.toggle('full-width');
+                            if (container.classList.contains('full-width')) {
+                                btn.title = 'Restore Width';
+                                btn.classList.add('active');
+                            } else {
+                                btn.title = 'Full Width';
+                                btn.classList.remove('active');
+                            }
+                        };
+                    })(mermaidContainer, mermaidFullWidthBtn);
+                    mermaidTabsBar.appendChild(mermaidFullWidthBtn);
+
+                    // Add pop-out button to open in full panel (icon only)
                     var mermaidExpandBtn = document.createElement('button');
                     mermaidExpandBtn.className = 'mermaid-export-btn';
-                    mermaidExpandBtn.title = 'Open in full panel';
-                    mermaidExpandBtn.innerHTML = '<svg viewBox="0 0 24 24"><polyline points="15 3 21 3 21 9"></polyline><polyline points="9 21 3 21 3 15"></polyline><line x1="21" y1="3" x2="14" y2="10"></line><line x1="3" y1="21" x2="10" y2="14"></line></svg>Expand';
+                    mermaidExpandBtn.title = 'Pop Out';
+                    mermaidExpandBtn.innerHTML = '<svg viewBox="0 0 24 24"><polyline points="15 3 21 3 21 9"></polyline><polyline points="9 21 3 21 3 15"></polyline><line x1="21" y1="3" x2="14" y2="10"></line><line x1="3" y1="21" x2="10" y2="14"></line></svg>';
                     mermaidExpandBtn.onclick = (function(container) {
                         return function() {
-                            // Get the rendered SVG from the mermaid div
                             var rendered = container.querySelector('.mermaid-rendered .mermaid');
                             var svgEl = rendered ? rendered.querySelector('svg') : null;
                             if (svgEl) {
