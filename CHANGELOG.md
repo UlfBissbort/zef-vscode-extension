@@ -5,6 +5,28 @@ All notable changes to the Zef extension will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.1.13] - 2026-02-11
+
+### Added
+
+- **Excalidraw Inline Editing**: Excalidraw diagrams can now be edited directly in the preview panel (embedded) or opened in a detached editor window. Includes adjustable editor height via drag handle.
+
+- **Compile All Svelte**: New "Compile All Svelte" button in the preview panel to compile all Svelte components in the document at once.
+
+- **Svelte Full Panel Support**: Svelte components can be expanded to a full panel view with HTML caching for faster re-renders.
+
+- **Draggable Resize Handles**: Preview iframes (Svelte, HTML) now have drag handles to resize their height.
+
+- **Expandable Mermaid Diagrams**: Mermaid diagrams can be expanded to full width for better readability. Diagrams now render at full container width by default.
+
+- **Wide Code Blocks**: Code blocks now render wider with a minimum width for better readability.
+
+### Improved
+
+- **Svelte Error Messages**: Error reports now show detailed location info (line, column, code frame) with a copy button, rendered directly in the panel instead of inside an iframe.
+
+- **Excalidraw Images**: Excalidraw images now render at full width in the preview.
+
 ## [0.1.12] - 2026-01-28
 
 ### Added
