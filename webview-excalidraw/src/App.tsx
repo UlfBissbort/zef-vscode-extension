@@ -57,6 +57,65 @@ const defaultAppState = {
   gridSize: 20,
 };
 
+// Extract appState fields we care about preserving
+function extractAppState(appState: AppState) {
+  return {
+    viewBackgroundColor: appState.viewBackgroundColor,
+    currentItemStrokeColor: appState.currentItemStrokeColor,
+    currentItemBackgroundColor: appState.currentItemBackgroundColor,
+    currentItemFillStyle: appState.currentItemFillStyle,
+    currentItemStrokeWidth: appState.currentItemStrokeWidth,
+    currentItemRoughness: appState.currentItemRoughness,
+    currentItemOpacity: appState.currentItemOpacity,
+    currentItemFontFamily: appState.currentItemFontFamily,
+    currentItemFontSize: appState.currentItemFontSize,
+    currentItemTextAlign: appState.currentItemTextAlign,
+    currentItemRoundness: appState.currentItemRoundness,
+    gridSize: appState.gridSize,
+  };
+}
+
+// Inline editor component - used when mounting directly in preview webview
+export function InlineExcalidraw({ data, onChange }: {
+  data: ExcalidrawData;
+  onChange: (data: ExcalidrawData) => void;
+}) {
+  const mergedData: ExcalidrawData = {
+    ...data,
+    appState: { ...defaultAppState, ...data.appState },
+  };
+  const uidRef = useRef(data.uid);
+
+  const handleChange = useCallback((
+    elements: readonly ExcalidrawElement[],
+    appState: AppState,
+    files: BinaryFiles
+  ) => {
+    const newData: ExcalidrawData = {
+      type: 'excalidraw',
+      version: 2,
+      uid: uidRef.current,
+      elements: elements as ExcalidrawElement[],
+      appState: extractAppState(appState),
+      files: files
+    };
+    onChange(newData);
+  }, [onChange]);
+
+  return (
+    <div style={{ width: '100%', height: '100%' }}>
+      <Excalidraw
+        initialData={{
+          elements: mergedData.elements || [],
+          appState: mergedData.appState || {},
+          files: mergedData.files || {}
+        }}
+        onChange={handleChange}
+      />
+    </div>
+  );
+}
+
 function App() {
   const [initialData, setInitialData] = useState<ExcalidrawData | null>(null);
   const [isReady, setIsReady] = useState(false);
@@ -137,22 +196,9 @@ function App() {
     const newData: ExcalidrawData = {
       type: 'excalidraw',
       version: 2,
-      uid: currentDataRef.current?.uid,  // Preserve the UID
+      uid: currentDataRef.current?.uid,
       elements: elements as ExcalidrawElement[],
-      appState: {
-        viewBackgroundColor: appState.viewBackgroundColor,
-        currentItemStrokeColor: appState.currentItemStrokeColor,
-        currentItemBackgroundColor: appState.currentItemBackgroundColor,
-        currentItemFillStyle: appState.currentItemFillStyle,
-        currentItemStrokeWidth: appState.currentItemStrokeWidth,
-        currentItemRoughness: appState.currentItemRoughness,
-        currentItemOpacity: appState.currentItemOpacity,
-        currentItemFontFamily: appState.currentItemFontFamily,
-        currentItemFontSize: appState.currentItemFontSize,
-        currentItemTextAlign: appState.currentItemTextAlign,
-        currentItemRoundness: appState.currentItemRoundness,
-        gridSize: appState.gridSize,
-      },
+      appState: extractAppState(appState),
       files: files
     };
     currentDataRef.current = newData;

@@ -8,6 +8,8 @@ import { ExcalidrawEditorPanel, generateExcalidrawUid } from './excalidrawEditor
 
 // Map of document URI string to its panel
 const panels: Map<string, vscode.WebviewPanel> = new Map();
+// Track which documents have an inline Excalidraw editor active (skip updatePreview while editing)
+const inlineEditingDocs: Set<string> = new Set();
 let onRunCodeCallback: ((code: string, blockId: number, language: string, documentUri: vscode.Uri) => void) | undefined;
 let extensionPath: string | undefined;
 
@@ -483,6 +485,61 @@ export function createPreviewPanel(context: vscode.ExtensionContext): vscode.Web
                     }
                 );
             }
+        } else if (message.type === 'enterInlineEdit') {
+            inlineEditingDocs.add(docKey);
+        } else if (message.type === 'exitInlineEdit') {
+            inlineEditingDocs.delete(docKey);
+        } else if (message.type === 'saveInlineExcalidraw') {
+            // Clear inline editing flag BEFORE saving so the updatePreview triggered
+            // by the document change is not skipped
+            inlineEditingDocs.delete(docKey);
+            // Save inline editor changes to the document
+            const excalidrawData = message.data as { uid?: string; [key: string]: unknown };
+            const blockId = message.blockId as string;
+            const document = vscode.workspace.textDocuments.find(d => d.uri.toString() === docKey);
+            if (document && blockId) {
+                let uid = excalidrawData.uid;
+
+                // If no UID, generate one and include it
+                if (!uid) {
+                    uid = generateExcalidrawUid();
+                    excalidrawData.uid = uid;
+                }
+
+                const idMatch = blockId.match(/^excalidraw-(\d+)$/);
+                if (idMatch) {
+                    const targetIndex = parseInt(idMatch[1], 10);
+                    const text = document.getText();
+                    const excalidrawBlockRegex = /```excalidraw[^\n]*\n([\s\S]*?)```/gi;
+                    let match;
+                    let blockIndex = 0;
+
+                    while ((match = excalidrawBlockRegex.exec(text)) !== null) {
+                        if (blockIndex === targetIndex) {
+                            const blockStart = match.index;
+                            const blockEnd = match.index + match[0].length;
+                            const firstLine = match[0].split('\n')[0];
+                            const attributes = firstLine.substring(3);
+                            const newJson = JSON.stringify(excalidrawData, null, 2);
+                            const newBlock = `\`\`\`${attributes}\n${newJson}\n\`\`\``;
+
+                            const edit = new vscode.WorkspaceEdit();
+                            const startPos = document.positionAt(blockStart);
+                            const endPos = document.positionAt(blockEnd);
+                            edit.replace(document.uri, new vscode.Range(startPos, endPos), newBlock);
+                            await vscode.workspace.applyEdit(edit);
+
+                            // Refresh preview with new content
+                            const updatedDoc = vscode.workspace.textDocuments.find(d => d.uri.toString() === docKey);
+                            if (updatedDoc) {
+                                updatePreview(updatedDoc);
+                            }
+                            break;
+                        }
+                        blockIndex++;
+                    }
+                }
+            }
         }
     });
 
@@ -494,8 +551,13 @@ export function createPreviewPanel(context: vscode.ExtensionContext): vscode.Web
 export function updatePreview(document: vscode.TextDocument) {
     const docKey = document.uri.toString();
     const panel = panels.get(docKey);
-    
+
     if (!panel) {
+        return;
+    }
+
+    // Skip re-render while an inline Excalidraw editor is active
+    if (inlineEditingDocs.has(docKey)) {
         return;
     }
 
@@ -553,10 +615,13 @@ export function updatePreview(document: vscode.TextDocument) {
     let katexJsUri = '';
     let katexAutoRenderUri = '';
     let katexFontsUri = '';
+    let excalidrawEditorJsUri = '';
+    let excalidrawEditorCssUri = '';
+    let excalidrawEditorBaseUri = '';
     if (extensionPath) {
         const mermaidPath = vscode.Uri.file(path.join(extensionPath, 'assets', 'mermaid.min.js'));
         mermaidUri = panel.webview.asWebviewUri(mermaidPath).toString();
-        
+
         // KaTeX assets for LaTeX math rendering
         const katexCssPath = vscode.Uri.file(path.join(extensionPath, 'assets', 'katex.min.css'));
         katexCssUri = panel.webview.asWebviewUri(katexCssPath).toString();
@@ -567,12 +632,18 @@ export function updatePreview(document: vscode.TextDocument) {
         // Fonts directory URI for CSS font-face resolution
         const katexFontsPath = vscode.Uri.file(path.join(extensionPath, 'assets', 'fonts'));
         katexFontsUri = panel.webview.asWebviewUri(katexFontsPath).toString();
+
+        // Excalidraw inline editor assets
+        const editorDir = vscode.Uri.file(path.join(extensionPath, 'assets', 'excalidraw-editor'));
+        excalidrawEditorJsUri = panel.webview.asWebviewUri(vscode.Uri.joinPath(editorDir, 'excalidraw-editor.js')).toString();
+        excalidrawEditorCssUri = panel.webview.asWebviewUri(vscode.Uri.joinPath(editorDir, 'index.css')).toString();
+        excalidrawEditorBaseUri = panel.webview.asWebviewUri(editorDir).toString();
     }
     
     // Get document settings from frontmatter
     const documentSettings = getDocumentSettings(text);
     
-    panel.webview.html = getWebviewContent(html, existingResults, existingSideEffects, mermaidUri, existingRenderedHtml, documentSettings, katexCssUri, katexJsUri, katexAutoRenderUri, katexFontsUri);
+    panel.webview.html = getWebviewContent(html, existingResults, existingSideEffects, mermaidUri, existingRenderedHtml, documentSettings, katexCssUri, katexJsUri, katexAutoRenderUri, katexFontsUri, excalidrawEditorJsUri, excalidrawEditorCssUri, excalidrawEditorBaseUri);
 }
 
 /**
@@ -947,7 +1018,7 @@ function convertImagePaths(html: string, docDir: string, webview: vscode.Webview
     });
 }
 
-function getWebviewContent(renderedHtml: string, existingOutputs: { [blockId: number]: string } = {}, existingSideEffects: { [blockId: number]: string } = {}, mermaidUri: string = '', existingRenderedHtml: { [blockId: number]: string } = {}, documentSettings: ZefSettings = {}, katexCssUri: string = '', katexJsUri: string = '', katexAutoRenderUri: string = '', katexFontsUri: string = ''): string {
+function getWebviewContent(renderedHtml: string, existingOutputs: { [blockId: number]: string } = {}, existingSideEffects: { [blockId: number]: string } = {}, mermaidUri: string = '', existingRenderedHtml: { [blockId: number]: string } = {}, documentSettings: ZefSettings = {}, katexCssUri: string = '', katexJsUri: string = '', katexAutoRenderUri: string = '', katexFontsUri: string = '', excalidrawEditorJsUri: string = '', excalidrawEditorCssUri: string = '', excalidrawEditorBaseUri: string = ''): string {
     // Get the view width setting
     const widthPercent = vscode.workspace.getConfiguration('zef').get('viewWidthPercent', 100) as number;
     const maxWidth = Math.round(680 * widthPercent / 100);
@@ -1157,6 +1228,13 @@ function getWebviewContent(renderedHtml: string, existingOutputs: { [blockId: nu
         .excalidraw-full {
             width: calc(100vw - 4rem);
             margin-left: calc(50% - 50vw);
+        }
+
+        .excalidraw-inline-editor {
+            width: 100%;
+            height: 600px;
+            position: relative;
+            background: #121212;
         }
 
         /* KaTeX math equations */
@@ -2121,9 +2199,90 @@ function getWebviewContent(renderedHtml: string, existingOutputs: { [blockId: nu
     <script>
         // Acquire VS Code API for messaging
         const vscode = acquireVsCodeApi();
-        
+
         // Document settings from frontmatter
         const documentSettings = ${documentSettingsJson};
+
+        // Excalidraw inline editor URIs (loaded on demand)
+        var excalidrawEditorJsUrl = '${excalidrawEditorJsUri}';
+        var excalidrawEditorCssUrl = '${excalidrawEditorCssUri}';
+        var excalidrawEditorBaseUrl = '${excalidrawEditorBaseUri}';
+        var excalidrawEditorLoaded = false;
+        var excalidrawEditorLoading = null;
+        var activeInlineEditor = null; // { blockId, handle, container }
+
+        function loadExcalidrawEditor() {
+            if (excalidrawEditorLoaded) return Promise.resolve();
+            if (excalidrawEditorLoading) return excalidrawEditorLoading;
+            excalidrawEditorLoading = new Promise(function(resolve, reject) {
+                // Load CSS
+                var link = document.createElement('link');
+                link.rel = 'stylesheet';
+                link.href = excalidrawEditorCssUrl;
+                document.head.appendChild(link);
+                // Set asset path for dynamic imports
+                window.EXCALIDRAW_ASSET_PATH = excalidrawEditorBaseUrl + '/';
+                // Load JS module
+                var script = document.createElement('script');
+                script.type = 'module';
+                script.src = excalidrawEditorJsUrl;
+                script.onload = function() {
+                    // The module needs a moment to execute and set window.mountExcalidraw
+                    var attempts = 0;
+                    var check = function() {
+                        if (window.mountExcalidraw) {
+                            excalidrawEditorLoaded = true;
+                            resolve();
+                        } else if (attempts < 50) {
+                            attempts++;
+                            setTimeout(check, 100);
+                        } else {
+                            reject(new Error('mountExcalidraw not available after loading'));
+                        }
+                    };
+                    check();
+                };
+                script.onerror = function() { reject(new Error('Failed to load excalidraw editor')); };
+                document.head.appendChild(script);
+            });
+            return excalidrawEditorLoading;
+        }
+
+        function closeActiveInlineEditor(save) {
+            if (!activeInlineEditor) return;
+            var editor = activeInlineEditor;
+            activeInlineEditor = null;
+
+            if (save && editor.handle && editor.handle.latestData) {
+                vscode.postMessage({
+                    type: 'saveInlineExcalidraw',
+                    data: editor.handle.latestData,
+                    blockId: editor.blockId
+                });
+            }
+
+            // Unmount React
+            if (window.unmountExcalidraw && editor.handle) {
+                window.unmountExcalidraw(editor.handle);
+            }
+
+            // Remove editor div, show rendered area
+            var editorDiv = editor.container.querySelector('.excalidraw-inline-editor');
+            if (editorDiv) editorDiv.remove();
+            var rendered = editor.container.querySelector('.excalidraw-rendered');
+            if (rendered) rendered.style.display = '';
+
+            // Reset edit button
+            var editBtn = editor.container.querySelector('.excalidraw-edit-btn');
+            if (editBtn) {
+                editBtn.classList.remove('active');
+                editBtn.innerHTML = '<svg viewBox="0 0 24 24"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>Edit';
+                editBtn.title = 'Edit inline';
+            }
+
+            // Tell extension we're done editing
+            vscode.postMessage({ type: 'exitInlineEdit' });
+        }
         
         // Modal functions for HTML preview
         function openHtmlModal(htmlContent) {
@@ -2866,23 +3025,105 @@ function getWebviewContent(renderedHtml: string, existingOutputs: { [blockId: nu
                     })(excalidrawContainer, excalidrawFullWidthBtn);
                     excalidrawTabsBar.appendChild(excalidrawFullWidthBtn);
 
-                    // Add expand button to tabs bar
-                    var excalidrawExpandBtn = document.createElement('button');
-                    excalidrawExpandBtn.className = 'excalidraw-expand-btn';
-                    excalidrawExpandBtn.title = 'Open editor';
-                    excalidrawExpandBtn.innerHTML = '<svg viewBox="0 0 24 24"><polyline points="15 3 21 3 21 9"></polyline><polyline points="9 21 3 21 3 15"></polyline><line x1="21" y1="3" x2="14" y2="10"></line><line x1="3" y1="21" x2="10" y2="14"></line></svg>Edit';
-                    excalidrawExpandBtn.onclick = (function(rawJson, container) {
+                    // Add inline edit toggle button
+                    var excalidrawEditBtn = document.createElement('button');
+                    excalidrawEditBtn.className = 'excalidraw-expand-btn excalidraw-edit-btn';
+                    excalidrawEditBtn.title = 'Edit inline';
+                    excalidrawEditBtn.innerHTML = '<svg viewBox="0 0 24 24"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>Edit';
+                    excalidrawEditBtn.onclick = (function(rawJson, container, fullWidthBtn) {
                         return function() {
-                            // Parse the JSON and send to extension to open editor panel
+                            // If already editing this block, close (Done)
+                            if (activeInlineEditor && activeInlineEditor.blockId === container.getAttribute('data-excalidraw-id')) {
+                                closeActiveInlineEditor(true);
+                                return;
+                            }
+
+                            // Close any other active inline editor first
+                            closeActiveInlineEditor(true);
+
+                            // Auto-expand to full width if not already
+                            if (!container.classList.contains('full-width')) {
+                                container.classList.add('full-width');
+                                fullWidthBtn.title = 'Restore Width';
+                                fullWidthBtn.classList.add('active');
+                            }
+
+                            var blockId = container.getAttribute('data-excalidraw-id');
+
+                            // Tell extension we're entering inline edit mode
+                            vscode.postMessage({ type: 'enterInlineEdit', blockId: blockId });
+
+                            // Parse the data
+                            var data;
                             try {
-                                var data = JSON.parse(rawJson || '{}');
-                                // Ensure it has the right structure
+                                data = JSON.parse(rawJson || '{}');
                                 if (!data.elements) {
                                     data = { type: 'excalidraw', version: 2, elements: [], appState: { viewBackgroundColor: '#121212' }, files: {} };
                                 }
-                                // Use the stable block ID assigned during rendering
+                            } catch (e) {
+                                data = { type: 'excalidraw', version: 2, elements: [], appState: { viewBackgroundColor: '#121212' }, files: {} };
+                            }
+
+                            // Update button to "Done" state
+                            var editBtn = container.querySelector('.excalidraw-edit-btn');
+                            if (editBtn) {
+                                editBtn.classList.add('active');
+                                editBtn.innerHTML = '<svg viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"></polyline></svg>Done';
+                                editBtn.title = 'Finish editing';
+                            }
+
+                            // Load editor (on demand) then mount
+                            loadExcalidrawEditor().then(function() {
+                                // Hide rendered SVG
+                                var rendered = container.querySelector('.excalidraw-rendered');
+                                if (rendered) rendered.style.display = 'none';
+
+                                // Create editor container
+                                var editorDiv = document.createElement('div');
+                                editorDiv.className = 'excalidraw-inline-editor';
+                                // Insert after tabs bar
+                                var tabsBar = container.querySelector('.code-block-tabs');
+                                if (tabsBar && tabsBar.nextSibling) {
+                                    container.insertBefore(editorDiv, tabsBar.nextSibling);
+                                } else {
+                                    container.appendChild(editorDiv);
+                                }
+
+                                // Mount Excalidraw
+                                var handle = window.mountExcalidraw(editorDiv, data);
+                                activeInlineEditor = {
+                                    blockId: blockId,
+                                    handle: handle,
+                                    container: container
+                                };
+                            }).catch(function(err) {
+                                console.error('Failed to load Excalidraw editor:', err);
+                                // Reset state on failure
+                                var editBtn2 = container.querySelector('.excalidraw-edit-btn');
+                                if (editBtn2) {
+                                    editBtn2.classList.remove('active');
+                                    editBtn2.innerHTML = '<svg viewBox="0 0 24 24"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>Edit';
+                                    editBtn2.title = 'Edit inline';
+                                }
+                                vscode.postMessage({ type: 'exitInlineEdit' });
+                            });
+                        };
+                    })(codeContent, excalidrawContainer, excalidrawFullWidthBtn);
+                    excalidrawTabsBar.appendChild(excalidrawEditBtn);
+
+                    // Add popout button (opens detached editor panel)
+                    var excalidrawPopoutBtn = document.createElement('button');
+                    excalidrawPopoutBtn.className = 'excalidraw-expand-btn';
+                    excalidrawPopoutBtn.title = 'Open in separate panel';
+                    excalidrawPopoutBtn.innerHTML = '<svg viewBox="0 0 24 24"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path><polyline points="15 3 21 3 21 9"></polyline><line x1="10" y1="14" x2="21" y2="3"></line></svg>';
+                    excalidrawPopoutBtn.onclick = (function(rawJson, container) {
+                        return function() {
+                            try {
+                                var data = JSON.parse(rawJson || '{}');
+                                if (!data.elements) {
+                                    data = { type: 'excalidraw', version: 2, elements: [], appState: { viewBackgroundColor: '#121212' }, files: {} };
+                                }
                                 var blockId = container.getAttribute('data-excalidraw-id');
-                                // Send message to extension to open Excalidraw editor panel
                                 vscode.postMessage({
                                     type: 'openExcalidrawEditor',
                                     data: data,
@@ -2898,7 +3139,7 @@ function getWebviewContent(renderedHtml: string, existingOutputs: { [blockId: nu
                             }
                         };
                     })(codeContent, excalidrawContainer);
-                    excalidrawTabsBar.appendChild(excalidrawExpandBtn);
+                    excalidrawTabsBar.appendChild(excalidrawPopoutBtn);
 
                     var excalidrawLangIndicator = document.createElement('div');
                     excalidrawLangIndicator.className = 'code-block-lang';
