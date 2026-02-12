@@ -996,7 +996,50 @@ function renderMarkdown(markdown: string): string {
     // and: <input checked="" disabled="" type="checkbox"> for checked
     html = html.replace(/<input disabled="" type="checkbox">/g, '<input type="checkbox">');
     html = html.replace(/<input checked="" disabled="" type="checkbox">/g, '<input type="checkbox" checked>');
-    
+
+    // Transform Obsidian-style callouts: > [!type] Title
+    // marked with breaks:true converts newlines to <br>, so we match <br> or <br/> as separator
+    // The blockquote may contain multiple <p> tags for multi-paragraph callouts
+    html = html.replace(/<blockquote>\s*<p>\[!([\w-]+)\]([\s\S]*?)<\/blockquote>/g,
+        (match, type, rest) => {
+            // Split title from body at first <br>
+            const brMatch = rest.match(/^(.*?)(?:<br\s*\/?>)([\s\S]*)$/);
+            let title: string, body: string;
+            if (brMatch) {
+                title = brMatch[1];
+                // Remove trailing </p> and any extra <p> wrappers from body
+                body = brMatch[2].replace(/<\/?p>/g, '').trim();
+            } else {
+                // No body, just title (remove closing </p>)
+                title = rest.replace(/<\/p>/, '').trim();
+                body = '';
+            }
+            const calloutType = type.toLowerCase();
+            const calloutConfig: Record<string, { icon: string; colorClass: string }> = {
+                tip:      { icon: '💡', colorClass: 'callout-tip' },
+                info:     { icon: 'ℹ️', colorClass: 'callout-info' },
+                note:     { icon: 'ℹ️', colorClass: 'callout-info' },
+                warning:  { icon: '⚠️', colorClass: 'callout-warning' },
+                caution:  { icon: '⚠️', colorClass: 'callout-warning' },
+                danger:   { icon: '🔴', colorClass: 'callout-danger' },
+                error:    { icon: '🔴', colorClass: 'callout-danger' },
+                success:  { icon: '✅', colorClass: 'callout-success' },
+                check:    { icon: '✅', colorClass: 'callout-success' },
+                example:  { icon: '📋', colorClass: 'callout-info' },
+                quote:    { icon: '💬', colorClass: 'callout-info' },
+                abstract: { icon: '📝', colorClass: 'callout-info' },
+            };
+            const config = calloutConfig[calloutType] || { icon: 'ℹ️', colorClass: 'callout-info' };
+            const titleText = title.trim() || calloutType.charAt(0).toUpperCase() + calloutType.slice(1);
+            // Body may contain <br> from marked's breaks:true — convert to proper paragraphs
+            const bodyHtml = body.trim() ? `<div class="callout-body">${body.trim()}</div>` : '';
+            return `<div class="callout ${config.colorClass}">` +
+                `<div class="callout-header"><span class="callout-icon">${config.icon}</span><span class="callout-title">${titleText}</span></div>` +
+                bodyHtml +
+                `</div>`;
+        }
+    );
+
     return html;
 }
 
@@ -1716,6 +1759,75 @@ function getWebviewContent(renderedHtml: string, existingOutputs: { [blockId: nu
         blockquote p {
             margin: 0;
         }
+
+        /* Obsidian-style callout boxes */
+        .callout {
+            border-radius: 8px;
+            border-left: 3px solid;
+            margin: 1.5em 0;
+            padding: 1em 1.2em;
+            background: transparent;
+        }
+        .callout-header {
+            display: flex;
+            align-items: center;
+            gap: 0.5em;
+            margin-bottom: 0.6em;
+        }
+        .callout-icon {
+            font-size: 1em;
+            flex-shrink: 0;
+        }
+        .callout-title {
+            font-weight: 600;
+            font-size: 0.95em;
+        }
+        .callout-body {
+            color: var(--text-dim);
+            font-size: 0.92em;
+            line-height: 1.6;
+        }
+        .callout-body code {
+            background: rgba(255,255,255,0.06);
+            padding: 0.15em 0.4em;
+            border-radius: 3px;
+            font-size: 0.9em;
+        }
+
+        /* Tip - blue */
+        .callout-tip {
+            border-color: #4a9eff;
+            background: rgba(74, 158, 255, 0.06);
+        }
+        .callout-tip .callout-title { color: #4a9eff; }
+
+        /* Info/Note - blue */
+        .callout-info {
+            border-color: #4a9eff;
+            background: rgba(74, 158, 255, 0.06);
+        }
+        .callout-info .callout-title { color: #4a9eff; }
+
+        /* Warning/Caution - orange */
+        .callout-warning {
+            border-color: #e8a838;
+            background: rgba(232, 168, 56, 0.06);
+        }
+        .callout-warning .callout-title { color: #e8a838; }
+
+        /* Danger/Error - red */
+        .callout-danger {
+            border-color: #e85454;
+            background: rgba(232, 84, 84, 0.06);
+        }
+        .callout-danger .callout-title { color: #e85454; }
+
+        /* Success/Check - green */
+        .callout-success {
+            border-color: #4eca8b;
+            background: rgba(78, 202, 139, 0.06);
+        }
+        .callout-success .callout-title { color: #4eca8b; }
 
         ul, ol {
             padding-left: 1.5em;
