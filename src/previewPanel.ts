@@ -1015,19 +1015,29 @@ function renderMarkdown(markdown: string): string {
                 body = '';
             }
             const calloutType = type.toLowerCase();
+            // Inline SVG icons (stroke-based, 24x24, use currentColor)
+            const svgInfo = '<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>';
+            const svgWarn = '<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>';
+            const svgCheck = '<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 11-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>';
+            const svgDanger = '<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>';
+            const svgTip = '<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18h6"/><path d="M10 22h4"/><path d="M12 2a7 7 0 00-4 12.7V17h8v-2.3A7 7 0 0012 2z"/></svg>';
+            const svgQuote = '<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 21c3 0 7-1 7-8V5c0-1.25-.756-2.017-2-2H4c-1.25 0-2 .75-2 1.972V11c0 1.25.75 2 2 2 1 0 1 0 1 1v1c0 1-1 2-2 2s-1 .008-1 1.031V21z"/><path d="M15 21c3 0 7-1 7-8V5c0-1.25-.757-2.017-2-2h-4c-1.25 0-2 .75-2 1.972V11c0 1.25.75 2 2 2h.75c0 2.25.25 4-2.75 4v3z"/></svg>';
+            const svgList = '<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>';
+            const svgPen = '<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 013 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>';
+
             const calloutConfig: Record<string, { icon: string; colorClass: string }> = {
-                tip:      { icon: '💡', colorClass: 'callout-tip' },
-                info:     { icon: 'ℹ️', colorClass: 'callout-info' },
-                note:     { icon: 'ℹ️', colorClass: 'callout-info' },
-                warning:  { icon: '⚠️', colorClass: 'callout-warning' },
-                caution:  { icon: '⚠️', colorClass: 'callout-warning' },
-                danger:   { icon: '🔴', colorClass: 'callout-danger' },
-                error:    { icon: '🔴', colorClass: 'callout-danger' },
-                success:  { icon: '✅', colorClass: 'callout-success' },
-                check:    { icon: '✅', colorClass: 'callout-success' },
-                example:  { icon: '📋', colorClass: 'callout-info' },
-                quote:    { icon: '💬', colorClass: 'callout-info' },
-                abstract: { icon: '📝', colorClass: 'callout-info' },
+                tip:      { icon: svgTip, colorClass: 'callout-tip' },
+                info:     { icon: svgInfo, colorClass: 'callout-info' },
+                note:     { icon: svgInfo, colorClass: 'callout-info' },
+                warning:  { icon: svgWarn, colorClass: 'callout-warning' },
+                caution:  { icon: svgWarn, colorClass: 'callout-warning' },
+                danger:   { icon: svgDanger, colorClass: 'callout-danger' },
+                error:    { icon: svgDanger, colorClass: 'callout-danger' },
+                success:  { icon: svgCheck, colorClass: 'callout-success' },
+                check:    { icon: svgCheck, colorClass: 'callout-success' },
+                example:  { icon: svgList, colorClass: 'callout-info' },
+                quote:    { icon: svgQuote, colorClass: 'callout-info' },
+                abstract: { icon: svgPen, colorClass: 'callout-info' },
             };
             const config = calloutConfig[calloutType] || { icon: 'ℹ️', colorClass: 'callout-info' };
             const titleText = title.trim() || calloutType.charAt(0).toUpperCase() + calloutType.slice(1);
@@ -1775,8 +1785,13 @@ function getWebviewContent(renderedHtml: string, existingOutputs: { [blockId: nu
             margin-bottom: 0.6em;
         }
         .callout-icon {
-            font-size: 1em;
             flex-shrink: 0;
+            opacity: 0.7;
+            display: flex;
+            align-items: center;
+        }
+        .callout-icon svg {
+            display: block;
         }
         .callout-title {
             font-weight: 600;
@@ -1799,35 +1814,35 @@ function getWebviewContent(renderedHtml: string, existingOutputs: { [blockId: nu
             border-color: #4a9eff;
             background: rgba(74, 158, 255, 0.06);
         }
-        .callout-tip .callout-title { color: #4a9eff; }
+        .callout-tip .callout-header { color: #4a9eff; }
 
         /* Info/Note - blue */
         .callout-info {
             border-color: #4a9eff;
             background: rgba(74, 158, 255, 0.06);
         }
-        .callout-info .callout-title { color: #4a9eff; }
+        .callout-info .callout-header { color: #4a9eff; }
 
         /* Warning/Caution - orange */
         .callout-warning {
             border-color: #e8a838;
             background: rgba(232, 168, 56, 0.06);
         }
-        .callout-warning .callout-title { color: #e8a838; }
+        .callout-warning .callout-header { color: #e8a838; }
 
         /* Danger/Error - red */
         .callout-danger {
             border-color: #e85454;
             background: rgba(232, 84, 84, 0.06);
         }
-        .callout-danger .callout-title { color: #e85454; }
+        .callout-danger .callout-header { color: #e85454; }
 
         /* Success/Check - green */
         .callout-success {
             border-color: #4eca8b;
             background: rgba(78, 202, 139, 0.06);
         }
-        .callout-success .callout-title { color: #4eca8b; }
+        .callout-success .callout-header { color: #4eca8b; }
 
         ul, ol {
             padding-left: 1.5em;
