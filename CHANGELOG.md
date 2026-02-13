@@ -9,7 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
-- **Tokolosh Auto-Setup**: The extension now bundles the `zef-install` binary for macOS, Linux, and Windows. On first activation, it detects whether the Tokolosh daemon is installed and offers a one-click setup. The full 7-step installation (UV, Python venv, wheel download, daemon, system service) runs in the background with a progress notification. A dedicated "Zef Installer" output channel provides detailed step-by-step logs.
+- **Tokolosh Auto-Setup**: The extension now bundles the `zef-install` binary for macOS, Linux, and Windows. On first activation, it detects whether the Tokolosh daemon environment exists and installs it automatically — no user interaction required. The full 7-step installation (UV, Python venv, Zef wheel download, daemon script, system service) runs in the background with a progress notification. A dedicated "Zef Installer" output channel provides timestamped step-by-step logs for observability.
 
 - **Obsidian-Style Callouts**: Blockquote callouts using `> [!type]` syntax now render with styled containers and SVG icons. Supports `tip`, `info`, `note`, `warning`, `caution`, `danger`, `error`, `success`, `check`, `example`, and `quote` types.
 

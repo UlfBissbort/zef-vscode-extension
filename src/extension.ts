@@ -524,21 +524,16 @@ export function activate(context: vscode.ExtensionContext) {
 
     console.log('Zef extension: All commands registered successfully');
 
-    // ── Tokolosh daemon check (async, non-blocking) ──────────────
+    // ── Tokolosh daemon setup (async, non-blocking) ──────────────
     // Runs after activation completes so it doesn't slow down startup.
+    // Installs automatically if no venv is detected — no confirmation needed.
     checkInstallation(context).then(async (status) => {
         if (status && status.venv_exists) {
             console.log('Zef extension: Tokolosh environment detected');
             return;
         }
-        const choice = await vscode.window.showInformationMessage(
-            'Zef needs to set up a local environment (one-time setup).',
-            'Set Up Now',
-            'Later'
-        );
-        if (choice === 'Set Up Now') {
-            await runInstallation(context);
-        }
+        console.log('Zef extension: Tokolosh not installed, starting auto-setup');
+        await runInstallation(context);
     });
 
     } catch (error) {
