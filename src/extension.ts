@@ -9,7 +9,7 @@ import { executeRust, RustCellResult, isRustAvailable } from './rustExecutor';
 import { executeJs, JsCellResult, isBunAvailable } from './jsExecutor';
 import { executeTs, TsCellResult, isBunAvailable as isTsBunAvailable } from './tsExecutor';
 import { compileSvelteComponent, SvelteCompileResult } from './svelteExecutor';
-import { checkInstallation, runInstallation } from './installer';
+import { checkInstallation, runInstallation, installCli } from './installer';
 import { isZefDocument, isZefUri } from './zefUtils';
 import { ZefSettingsViewProvider } from './settingsViewProvider';
 import { initJsonValidator, disposeJsonValidator } from './jsonValidator';
@@ -530,10 +530,14 @@ export function activate(context: vscode.ExtensionContext) {
     checkInstallation(context).then(async (status) => {
         if (status && status.venv_exists) {
             console.log('Zef extension: Tokolosh environment detected');
+            installCli(context); // ensure CLI is up to date
             return;
         }
         console.log('Zef extension: Tokolosh not installed, starting auto-setup');
-        await runInstallation(context);
+        const installed = await runInstallation(context);
+        if (installed) {
+            installCli(context);
+        }
     });
 
     } catch (error) {

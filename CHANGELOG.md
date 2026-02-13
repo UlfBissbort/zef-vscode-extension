@@ -5,6 +5,16 @@ All notable changes to the Zef extension will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.1.17] - 2026-02-13
+
+### Added
+
+- **Zef CLI Auto-Install**: The extension now bundles the `zef` CLI binary for macOS and Linux. On activation, it automatically copies the CLI to `~/.local/bin/zef` (or into WSL on Windows), making the `zef` command available in any terminal. Skips copy if the binary is already up to date.
+
+### Changed
+
+- **Windows: WSL-only CLI**: On Windows, only the Linux CLI binary is installed into WSL — no native Windows `.exe` is deployed. This avoids the well-known `setx` PATH truncation bug and WSL2 port-forwarding fragility.
+
 ## [0.1.16] - 2026-02-13
 
 ### Added

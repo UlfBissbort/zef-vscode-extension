@@ -1,20 +1,26 @@
 /**
- * Zef Installer — delegates to the bundled `zef-install` Rust binary.
+ * Zef Installer & CLI — delegates to bundled Rust binaries.
  *
- * The binary outputs NDJSON (one JSON object per line) during installation,
- * which we parse to drive a VSCode progress notification.
+ * The zef-install binary outputs NDJSON (one JSON object per line) during
+ * installation, which we parse to drive a VSCode progress notification.
  *
- * Binary variants are bundled in resources/bin/:
- *   - zef-install-macos-arm64
- *   - zef-install-linux-x86_64
- *   - zef-install-windows-x86_64.exe
+ * Bundled binaries in resources/bin/:
+ *   Installer:
+ *     - zef-install-macos-arm64
+ *     - zef-install-linux-x86_64
+ *     - zef-install-windows-x86_64.exe
+ *   CLI:
+ *     - zef-macos-arm64
+ *     - zef-linux-x86_64
+ *     - zef-windows-x86_64.exe
  */
 
-import { spawn } from 'child_process';
+import { spawn, execSync } from 'child_process';
 import * as readline from 'readline';
 import * as vscode from 'vscode';
 import * as path from 'path';
 import * as fs from 'fs';
+import * as os from 'os';
 
 // ── Types matching the Rust StepResult / InstallStatus ────────────────────
 
@@ -256,4 +262,109 @@ export async function runInstallation(
             });
         }
     );
+}
+
+// ── CLI Installation ──────────────────────────────────────────────────────
+
+/**
+ * Returns the name of the bundled CLI binary for the current platform.
+ * On Windows, returns the Linux binary (for WSL installation).
+ */
+function getCliBinaryName(): string | null {
+    const platform = process.platform;
+    const arch = process.arch;
+
+    if (platform === 'darwin' && arch === 'arm64') { return 'zef-macos-arm64'; }
+    if (platform === 'linux' && arch === 'x64') { return 'zef-linux-x86_64'; }
+    if (platform === 'win32' && arch === 'x64') { return 'zef-linux-x86_64'; } // Linux binary for WSL
+    return null;
+}
+
+/**
+ * Install the zef CLI binary to a user-accessible location.
+ *
+ * - macOS / Linux: copies to ~/.local/bin/zef
+ * - Windows: copies Linux binary into WSL ~/.local/bin/zef
+ *
+ * Skips if the same version is already installed at the target path.
+ */
+export async function installCli(
+    context: vscode.ExtensionContext
+): Promise<boolean> {
+    const binaryName = getCliBinaryName();
+    if (!binaryName) {
+        log(`No CLI binary for ${process.platform}-${process.arch}`);
+        return false;
+    }
+
+    const src = path.join(context.extensionPath, 'resources', 'bin', binaryName);
+    if (!fs.existsSync(src)) {
+        log(`CLI binary not found: ${src}`);
+        return false;
+    }
+
+    try {
+        if (process.platform === 'win32') {
+            return installCliWsl(src);
+        } else {
+            return installCliUnix(src);
+        }
+    } catch (err: any) {
+        log(`CLI installation failed: ${err.message}`);
+        return false;
+    }
+}
+
+/**
+ * Install CLI on macOS / Linux: copy to ~/.local/bin/zef
+ */
+function installCliUnix(src: string): boolean {
+    const dest = path.join(os.homedir(), '.local', 'bin', 'zef');
+    const destDir = path.dirname(dest);
+
+    // Skip if already identical (same size = same build)
+    if (fs.existsSync(dest)) {
+        const srcStat = fs.statSync(src);
+        const dstStat = fs.statSync(dest);
+        if (srcStat.size === dstStat.size) {
+            log(`CLI already up to date at ${dest}`);
+            return true;
+        }
+    }
+
+    fs.mkdirSync(destDir, { recursive: true });
+    fs.copyFileSync(src, dest);
+    fs.chmodSync(dest, 0o755);
+
+    log(`Installed zef CLI to ${dest}`);
+    return true;
+}
+
+/**
+ * Install Linux CLI binary into WSL at ~/.local/bin/zef
+ */
+function installCliWsl(src: string): boolean {
+    try {
+        // Copy binary to a Windows temp location
+        const tmpPath = path.join(os.tmpdir(), 'zef');
+        fs.copyFileSync(src, tmpPath);
+
+        // Convert Windows path to WSL /mnt/c/... path
+        const wslPath = tmpPath
+            .replace(/^([A-Za-z]):/, (_m, drive: string) => `/mnt/${drive.toLowerCase()}`)
+            .replace(/\\/g, '/');
+
+        execSync('wsl mkdir -p ~/.local/bin');
+        execSync(`wsl cp "${wslPath}" ~/.local/bin/zef`);
+        execSync('wsl chmod 755 ~/.local/bin/zef');
+
+        // Clean up temp file
+        fs.unlinkSync(tmpPath);
+
+        log('Installed zef CLI into WSL at ~/.local/bin/zef');
+        return true;
+    } catch (err: any) {
+        log(`WSL CLI install failed: ${err.message}`);
+        return false;
+    }
 }

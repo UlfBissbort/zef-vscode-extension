@@ -230,41 +230,50 @@ def compile_typescript():
         return False
 
 def copy_installer_binaries():
-    """Copy zef-install binaries from ../zef-installer/dist/ into resources/bin/."""
-    installer_dist = ROOT.parent / "zef-installer" / "dist"
+    """Copy zef-install and zef CLI binaries into resources/bin/."""
     bin_dir = ROOT / "resources" / "bin"
-    
-    binaries = {
-        "zef-install-macos-arm64":          "zef-install-macos-arm64",
-        "zef-install-linux-x86_64":         "zef-install-linux-x86_64",
-        "zef-install-windows-x86_64.exe":   "zef-install-windows-x86_64.exe",
-    }
-    
-    if not installer_dist.exists():
-        warn(f"Installer dist not found at {installer_dist}")
-        warn("Run 'make all' in ../zef-installer/ first")
-        return
-    
     bin_dir.mkdir(parents=True, exist_ok=True)
     
-    copied = 0
-    for src_name, dst_name in binaries.items():
-        src = installer_dist / src_name
-        dst = bin_dir / dst_name
-        if src.exists():
-            shutil.copy2(src, dst)
-            if not dst_name.endswith('.exe'):
-                dst.chmod(0o755)
-            size_kb = dst.stat().st_size / 1024
-            success(f"  {dst_name} ({size_kb:.0f} KB)")
-            copied += 1
-        else:
-            warn(f"  Missing: {src_name}")
+    sources = [
+        # (dist_dir, binaries_dict, label)
+        (ROOT.parent / "zef-installer" / "dist", {
+            "zef-install-macos-arm64":          "zef-install-macos-arm64",
+            "zef-install-linux-x86_64":         "zef-install-linux-x86_64",
+            "zef-install-windows-x86_64.exe":   "zef-install-windows-x86_64.exe",
+        }, "installer"),
+        (ROOT.parent / "zef-cli" / "dist", {
+            "zef-macos-arm64":          "zef-macos-arm64",
+            "zef-linux-x86_64":         "zef-linux-x86_64",
+        }, "CLI"),
+    ]
     
-    if copied > 0:
-        success(f"Copied {copied} installer binary(ies) to resources/bin/")
-    else:
-        warn("No installer binaries found — VSIX will have no installer")
+    total_copied = 0
+    for dist_dir, binaries, label in sources:
+        if not dist_dir.exists():
+            warn(f"{label} dist not found at {dist_dir}")
+            warn(f"Run 'make all' in {dist_dir.parent.name}/ first")
+            continue
+        
+        copied = 0
+        for src_name, dst_name in binaries.items():
+            src = dist_dir / src_name
+            dst = bin_dir / dst_name
+            if src.exists():
+                shutil.copy2(src, dst)
+                if not dst_name.endswith('.exe'):
+                    dst.chmod(0o755)
+                size_kb = dst.stat().st_size / 1024
+                success(f"  {dst_name} ({size_kb:.0f} KB)")
+                copied += 1
+            else:
+                warn(f"  Missing: {src_name}")
+        
+        if copied > 0:
+            success(f"Copied {copied} {label} binary(ies) to resources/bin/")
+            total_copied += copied
+    
+    if total_copied == 0:
+        warn("No binaries found — VSIX will have no bundled tools")
 
 def package_extension() -> Optional[Path]:
     """Create .vsix package file."""
