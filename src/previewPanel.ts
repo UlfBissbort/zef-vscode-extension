@@ -1519,6 +1519,7 @@ function getWebviewContent(renderedHtml: string, existingOutputs: { [blockId: nu
         }
 
         .code-block-lang {
+            margin-left: auto;
             padding: 8px 16px;
             font-size: 0.75rem;
             letter-spacing: 0.05em;
@@ -1624,6 +1625,7 @@ function getWebviewContent(renderedHtml: string, existingOutputs: { [blockId: nu
         }
         
         .code-block-run {
+            margin-left: auto;
             padding: 4px 12px;
             font-size: 0.7rem;
             letter-spacing: 0.05em;
@@ -4102,6 +4104,9 @@ function getWebviewContent(renderedHtml: string, existingOutputs: { [blockId: nu
                     langName = 'TypeScript';
                 }
                 langIndicator.innerHTML = '<span>' + langName + '</span><span>' + emoji + '</span>';
+                if (isPython || isRust || isJs || isTs) {
+                    langIndicator.style.marginLeft = '0';
+                }
                 tabsBar.appendChild(langIndicator);
                 
                 // Copy button HTML for code blocks
@@ -4231,6 +4236,8 @@ function getWebviewContent(renderedHtml: string, existingOutputs: { [blockId: nu
                     // Toggle full height button for long code blocks (>25 lines)
                     var code = pre.querySelector('code');
                     var lineCount = (code || pre).textContent.split('\\n').length;
+                    var hasRunBtn = !!tabsBar.querySelector('.code-block-run');
+
                     if (lineCount > 25) {
                         codeContent.classList.add('height-collapsed');
                         var heightBtn = document.createElement('button');
@@ -4242,8 +4249,15 @@ function getWebviewContent(renderedHtml: string, existingOutputs: { [blockId: nu
                             heightBtn.classList.toggle('active');
                         };
                         if (langIndicator) {
+                            if (!hasRunBtn) {
+                                langIndicator.style.marginLeft = '0';
+                                heightBtn.style.marginLeft = 'auto';
+                            }
                             tabsBar.insertBefore(heightBtn, langIndicator);
                         } else {
+                            if (!hasRunBtn) {
+                                heightBtn.style.marginLeft = 'auto';
+                            }
                             tabsBar.appendChild(heightBtn);
                         }
                     }
@@ -4260,8 +4274,15 @@ function getWebviewContent(renderedHtml: string, existingOutputs: { [blockId: nu
                         expandBtn.classList.toggle('active');
                     };
                     if (langIndicator) {
+                        if (!hasRunBtn && !tabsBar.querySelector('.code-block-expand')) {
+                            expandBtn.style.marginLeft = 'auto';
+                            langIndicator.style.marginLeft = '0';
+                        }
                         tabsBar.insertBefore(expandBtn, langIndicator);
                     } else {
+                        if (!hasRunBtn && !tabsBar.querySelector('.code-block-expand')) {
+                            expandBtn.style.marginLeft = 'auto';
+                        }
                         tabsBar.appendChild(expandBtn);
                     }
                 });
