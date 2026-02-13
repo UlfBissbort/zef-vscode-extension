@@ -9,6 +9,7 @@ import { executeRust, RustCellResult, isRustAvailable } from './rustExecutor';
 import { executeJs, JsCellResult, isBunAvailable } from './jsExecutor';
 import { executeTs, TsCellResult, isBunAvailable as isTsBunAvailable } from './tsExecutor';
 import { compileSvelteComponent, SvelteCompileResult } from './svelteExecutor';
+import { checkInstallation, runInstallation } from './installer';
 import { isZefDocument, isZefUri } from './zefUtils';
 import { ZefSettingsViewProvider } from './settingsViewProvider';
 import { initJsonValidator, disposeJsonValidator } from './jsonValidator';
@@ -522,6 +523,24 @@ export function activate(context: vscode.ExtensionContext) {
     );
 
     console.log('Zef extension: All commands registered successfully');
+
+    // ── Tokolosh daemon check (async, non-blocking) ──────────────
+    // Runs after activation completes so it doesn't slow down startup.
+    checkInstallation(context).then(async (status) => {
+        if (status && status.venv_exists) {
+            console.log('Zef extension: Tokolosh environment detected');
+            return;
+        }
+        const choice = await vscode.window.showInformationMessage(
+            'Zef needs to set up a local environment (one-time setup).',
+            'Set Up Now',
+            'Later'
+        );
+        if (choice === 'Set Up Now') {
+            await runInstallation(context);
+        }
+    });
+
     } catch (error) {
         console.error('Zef extension: ACTIVATION FAILED:', error);
         vscode.window.showErrorMessage(`Zef extension failed to activate: ${error}`);

@@ -7,6 +7,9 @@ out/
 # Packaged extension
 *.vsix
 
+# Installer binaries (built from zef-installer, not checked in)
+resources/bin/
+
 # macOS
 .DS_Store
 
