@@ -5,6 +5,26 @@ All notable changes to the Zef extension will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.1.16] - 2026-02-13
+
+### Added
+
+- **Tokolosh Auto-Setup**: The extension now bundles the `zef-install` binary for macOS, Linux, and Windows. On first activation, it detects whether the Tokolosh daemon is installed and offers a one-click setup. The full 7-step installation (UV, Python venv, wheel download, daemon, system service) runs in the background with a progress notification. A dedicated "Zef Installer" output channel provides detailed step-by-step logs.
+
+- **Obsidian-Style Callouts**: Blockquote callouts using `> [!type]` syntax now render with styled containers and SVG icons. Supports `tip`, `info`, `note`, `warning`, `caution`, `danger`, `error`, `success`, `check`, `example`, and `quote` types.
+
+- **Jump to Source**: Clicking a code block header in the preview navigates the editor to the corresponding source line. Works correctly when the preview panel has focus.
+
+- **Draggable Preview Width**: The rendered preview tab now has a draggable edge to resize width interactively. Width adjustment applies only to the rendered view, not code tabs.
+
+### Improved
+
+- **Code Block Highlighting**: Active code block detection now uses precise block ID matching for more reliable highlighting when executing code.
+
+- **Foldable Code Blocks**: Code block folding logic has been rewritten for consistency across different block types.
+
+- **Button Alignment**: Toolbar button alignment corrected across code block, Mermaid, and Svelte panels.
+
 ## [0.1.15] - 2026-02-11
 
 ### Added
