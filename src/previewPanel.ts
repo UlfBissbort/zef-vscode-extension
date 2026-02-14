@@ -1619,9 +1619,9 @@ function getWebviewContent(renderedHtml: string, existingOutputs: { [blockId: nu
             gap: 6px;
         }
         
-        /* For blocks without a Run button (like mermaid, json, zen, html), push lang indicator to right */
+        /* For mermaid blocks, the first action button has margin-left:auto to push right */
         .mermaid-container .code-block-lang {
-            /* margin-left handled by spacer for mermaid */
+            margin-left: 0;
         }
         
         /* Mermaid action buttons */
