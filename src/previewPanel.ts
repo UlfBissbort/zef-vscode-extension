@@ -1298,10 +1298,18 @@ function getWebviewContent(renderedHtml: string, existingOutputs: { [blockId: nu
         code {
             font-family: 'SF Mono', 'Fira Code', Consolas, 'Courier New', monospace;
             background-color: var(--code-bg);
-            padding: 0.15em 0.4em;
-            border-radius: 3px;
-            font-size: 0.85em;
-            color: var(--text-muted);
+            padding: 0.2em 0.5em;
+            border-radius: 6px;
+            font-size: 0.84em;
+            color: #e0e0e0;
+            border: 1px solid #2a2a2a;
+        }
+
+        pre code {
+            border: none;
+            padding: 0;
+            border-radius: 0;
+            background: none;
         }
 
         pre {
