@@ -540,12 +540,69 @@ export function createPreviewPanel(context: vscode.ExtensionContext): vscode.Web
                     }
                 }
             }
+        } else if (message.type === 'openWikiLink') {
+            // Resolve and open an Obsidian-style [[wiki link]]
+            const target = message.target as string;
+            if (target) {
+                resolveAndOpenWikiLink(target, context, docUri);
+            }
         }
     });
 
     updatePreview(editor.document);
 
     return panel;
+}
+
+/**
+ * Resolve an Obsidian-style wiki link target to a file and open it with preview.
+ * First checks sibling files in the same directory as the source document,
+ * then falls back to workspace-wide search.
+ */
+async function resolveAndOpenWikiLink(pageName: string, context: vscode.ExtensionContext, sourceDocUri?: vscode.Uri) {
+    const fs = vscode.workspace.fs;
+    const candidates: string[] = [`${pageName}.zef.md`, `${pageName}.md`];
+    let targetUri: vscode.Uri | undefined;
+
+    // First: check sibling files in the same directory as the source document
+    if (sourceDocUri) {
+        const docDir = vscode.Uri.joinPath(sourceDocUri, '..');
+        for (const candidate of candidates) {
+            const candidateUri = vscode.Uri.joinPath(docDir, candidate);
+            try {
+                await fs.stat(candidateUri);
+                targetUri = candidateUri;
+                break;
+            } catch {
+                // File doesn't exist, try next
+            }
+        }
+    }
+
+    // Fallback: search workspace
+    if (!targetUri) {
+        // Use findFiles with a glob that escapes special characters
+        for (const ext of ['.zef.md', '.md']) {
+            const pattern = `**/${pageName}${ext}`;
+            const found = await vscode.workspace.findFiles(pattern, '**/node_modules/**', 1);
+            if (found.length > 0) {
+                targetUri = found[0];
+                break;
+            }
+        }
+    }
+
+    if (!targetUri) {
+        vscode.window.showWarningMessage(`Wiki link target not found: "${pageName}"`);
+        return;
+    }
+
+    // Open the source document in column 1
+    const doc = await vscode.workspace.openTextDocument(targetUri);
+    await vscode.window.showTextDocument(doc, vscode.ViewColumn.One);
+
+    // Open preview panel (createPreviewPanel reads activeTextEditor)
+    createPreviewPanel(context);
 }
 
 export function updatePreview(document: vscode.TextDocument) {
@@ -1050,6 +1107,20 @@ function renderMarkdown(markdown: string): string {
         }
     );
 
+    // Transform Obsidian-style wiki links: [[Page Name]] or [[Page Name|Display Text]]
+    // Split by <pre> blocks to avoid transforming links inside code blocks
+    const preParts = html.split(/(<pre[\s\S]*?<\/pre>)/gi);
+    html = preParts.map((part, i) => {
+        // Odd indices are <pre> blocks — leave them alone
+        if (i % 2 === 1) { return part; }
+        return part.replace(/\[\[([^\]]+)\]\]/g, (_match, target: string) => {
+            const pipeIndex = target.indexOf('|');
+            const pageName = (pipeIndex >= 0 ? target.substring(0, pipeIndex) : target).trim();
+            const displayName = (pipeIndex >= 0 ? target.substring(pipeIndex + 1) : target).trim();
+            return `<a class="wiki-link" data-target="${escapeHtml(pageName)}">${escapeHtml(displayName)}</a>`;
+        });
+    }).join('');
+
     return html;
 }
 
@@ -1211,6 +1282,17 @@ function getWebviewContent(renderedHtml: string, existingOutputs: { [blockId: nu
         a:hover {
             color: var(--text-color);
             border-color: var(--text-muted);
+        }
+
+        a.wiki-link {
+            color: #7ec8e3;
+            border-bottom: 0.5px solid #7ec8e366;
+            cursor: pointer;
+        }
+
+        a.wiki-link:hover {
+            color: #a8ddf0;
+            border-bottom-color: #a8ddf0;
         }
 
         code {
@@ -3336,7 +3418,19 @@ function getWebviewContent(renderedHtml: string, existingOutputs: { [blockId: nu
                     }
                 }
             });
-            
+
+            // Handle wiki link clicks: [[Page Name]]
+            document.addEventListener('click', function(event) {
+                var link = event.target.closest('a.wiki-link');
+                if (link) {
+                    event.preventDefault();
+                    var target = link.getAttribute('data-target');
+                    if (target) {
+                        vscode.postMessage({ type: 'openWikiLink', target: target });
+                    }
+                }
+            });
+
             document.querySelectorAll('pre').forEach(function(pre, preIndex) {
                 var lang = pre.getAttribute('data-lang') || 'code';
                 var langLower = lang.toLowerCase();
