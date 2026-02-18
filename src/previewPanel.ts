@@ -1852,14 +1852,22 @@ function getWebviewContent(renderedHtml: string, existingOutputs: { [blockId: nu
         }
 
         blockquote {
-            border-left: 2px solid var(--border-color);
+            border-left: 3px solid #3a404f;
+            border-radius: 0 8px 8px 0;
             margin: 1.5em 0;
-            padding: 0.5em 1.5em;
-            color: var(--text-dim);
+            padding: 1em 1.2em;
+            background: rgba(255, 255, 255, 0.045);
+            color: var(--text-muted);
+            font-size: 0.94em;
+            line-height: 1.65;
         }
 
         blockquote p {
             margin: 0;
+        }
+
+        blockquote p + p {
+            margin-top: 0.6em;
         }
 
         /* Obsidian-style callout boxes */
