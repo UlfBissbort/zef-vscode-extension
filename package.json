@@ -115,6 +115,10 @@
       {
         "command": "zef.showKernelOutput",
         "title": "Zef: Show Kernel Output"
+      },
+      {
+        "command": "zef.toggleLineComment",
+        "title": "Zef: Toggle Line Comment"
       }
     ],
     "keybindings": [
@@ -134,6 +138,12 @@
         "key": "ctrl+shift+v",
         "mac": "cmd+shift+v",
         "when": "editorLangId == zef-markdown || editorLangId == python || editorLangId == rust || (editorLangId == markdown && config.zef.treatAllMarkdownAsZef)"
+      },
+      {
+        "command": "zef.toggleLineComment",
+        "key": "ctrl+/",
+        "mac": "cmd+/",
+        "when": "editorTextFocus && !editorReadonly && (editorLangId == 'zef-markdown' || editorLangId == 'markdown')"
       }
     ],
     "configuration": {

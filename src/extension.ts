@@ -522,6 +522,101 @@ export function activate(context: vscode.ExtensionContext) {
         })
     );
 
+    // ── Toggle line comment: language-aware for fenced code blocks ──
+    context.subscriptions.push(
+        vscode.commands.registerCommand('zef.toggleLineComment', () => {
+            const editor = vscode.window.activeTextEditor;
+            if (!editor) { return; }
+
+            const document = editor.document;
+            const commentChars: Record<string, string> = {
+                python: '#', py: '#', zen: '#',
+                rust: '//', rs: '//',
+                javascript: '//', js: '//',
+                typescript: '//', ts: '//',
+                svelte: '//', css: '//',
+                c: '//', cpp: '//', go: '//', java: '//',
+            };
+
+            // Determine fence language at a given line by scanning from the top
+            function getFenceLanguageAt(line: number): string | null {
+                let inFence = false;
+                let fenceLang = '';
+                let fenceTickCount = 0;
+
+                for (let i = 0; i <= line; i++) {
+                    const text = document.lineAt(i).text;
+                    const openMatch = text.match(/^\s*(`{3,})\s*(\w+)/);
+                    const closeMatch = text.match(/^\s*(`{3,})\s*$/);
+
+                    if (inFence) {
+                        if (closeMatch && closeMatch[1].length === fenceTickCount) {
+                            inFence = false;
+                        }
+                    } else {
+                        if (openMatch) {
+                            inFence = true;
+                            fenceTickCount = openMatch[1].length;
+                            fenceLang = openMatch[2].toLowerCase();
+                        }
+                    }
+                }
+                return inFence ? fenceLang : null;
+            }
+
+            // Check if the primary cursor is inside a code block
+            const primaryLine = editor.selection.start.line;
+            const lang = getFenceLanguageAt(primaryLine);
+            const commentPrefix = lang ? commentChars[lang] : null;
+
+            if (!commentPrefix) {
+                // Not in a code block — delegate to VSCode's default HTML comment toggle
+                return vscode.commands.executeCommand('editor.action.commentLine');
+            }
+
+            // We're in a code block — handle commenting ourselves
+            editor.edit(editBuilder => {
+                for (const selection of editor.selections) {
+                    const startLine = selection.start.line;
+                    const endLine = selection.end.line;
+
+                    // Collect the lines
+                    const lines: number[] = [];
+                    for (let i = startLine; i <= endLine; i++) {
+                        lines.push(i);
+                    }
+
+                    // Check if all non-empty lines are already commented
+                    const allCommented = lines.every(i => {
+                        const trimmed = document.lineAt(i).text.trimStart();
+                        return trimmed === '' || trimmed.startsWith(commentPrefix + ' ') || (trimmed.startsWith(commentPrefix) && trimmed.length === commentPrefix.length);
+                    });
+
+                    for (const lineNum of lines) {
+                        const line = document.lineAt(lineNum);
+                        const text = line.text;
+
+                        if (allCommented) {
+                            // Uncomment: remove first occurrence of "# " or "#"
+                            const idx = text.indexOf(commentPrefix);
+                            if (idx >= 0) {
+                                const afterPrefix = idx + commentPrefix.length;
+                                const removeEnd = (afterPrefix < text.length && text[afterPrefix] === ' ')
+                                    ? afterPrefix + 1
+                                    : afterPrefix;
+                                editBuilder.delete(new vscode.Range(lineNum, idx, lineNum, removeEnd));
+                            }
+                        } else {
+                            // Comment: find indentation, insert after it
+                            const indent = text.match(/^\s*/)?.[0] ?? '';
+                            editBuilder.insert(new vscode.Position(lineNum, indent.length), commentPrefix + ' ');
+                        }
+                    }
+                }
+            });
+        })
+    );
+
     console.log('Zef extension: All commands registered successfully');
 
     // ── Tokolosh daemon setup (async, non-blocking) ──────────────
