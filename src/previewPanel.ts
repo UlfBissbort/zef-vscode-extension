@@ -1121,6 +1121,10 @@ function renderMarkdown(markdown: string): string {
         });
     }).join('');
 
+    // Wrap tables in a scrollable, centering container
+    html = html.replace(/<table>/g, '<div class="table-wrapper"><table>');
+    html = html.replace(/<\/table>/g, '</table></div>');
+
     return html;
 }
 
@@ -1225,6 +1229,10 @@ function getWebviewContent(renderedHtml: string, existingOutputs: { [blockId: nu
             box-sizing: border-box;
         }
 
+        html {
+            overflow-x: hidden;
+        }
+
         body {
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
             line-height: 1.8;
@@ -1235,7 +1243,6 @@ function getWebviewContent(renderedHtml: string, existingOutputs: { [blockId: nu
             max-width: ${maxWidth}px;
             margin: 0 auto;
             letter-spacing: 0.02em;
-            overflow-x: hidden;
         }
 
         h1, h2, h3, h4, h5, h6 {
@@ -1989,6 +1996,24 @@ function getWebviewContent(renderedHtml: string, existingOutputs: { [blockId: nu
 
         li:has(input[type="checkbox"]:checked) {
             color: var(--text-muted);
+        }
+
+        .table-wrapper {
+            margin: 1.5em 0;
+            width: fit-content;
+            min-width: 100%;
+            max-width: 100vw;
+            margin-left: auto;
+            margin-right: auto;
+            position: relative;
+            left: 50%;
+            transform: translateX(-50%);
+        }
+
+        .table-wrapper table {
+            margin: 0 auto;
+            width: auto;
+            min-width: 50%;
         }
 
         table {
