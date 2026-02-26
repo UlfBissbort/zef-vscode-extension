@@ -5,6 +5,7 @@ import { CellResult } from './kernelManager';
 import { isZefDocument, isZefPythonFile, isZefRustFile } from './zefUtils';
 import { stripFrontmatter, getDocumentSettings, updateDocumentSetting, ZefSettings } from './frontmatterParser';
 import { ExcalidrawEditorPanel, generateExcalidrawUid } from './excalidrawEditorPanel';
+import { generateNotebook, parseMarkdownCells, parsePythonCells, parsePythonLegacyCells } from './notebookExport';
 
 // Map of document URI string to its panel
 const panels: Map<string, vscode.WebviewPanel> = new Map();
@@ -500,6 +501,43 @@ export function createPreviewPanel(context: vscode.ExtensionContext): vscode.Web
                 if (saveUri) {
                     await vscode.workspace.fs.writeFile(saveUri, Buffer.from(svgContent, 'utf8'));
                     vscode.window.showInformationMessage(`Saved diagram to ${path.basename(saveUri.fsPath)}`);
+                }
+            }
+        } else if (message.type === 'exportToJupyter') {
+            // Export current document as Jupyter Notebook
+            const document = vscode.workspace.textDocuments.find(d => d.uri.toString() === docKey);
+            if (document) {
+                const text = document.getText();
+                const isPy = isZefPythonFile(document);
+                
+                let cells;
+                if (isPy) {
+                    // Python file: check for #%% cells vs """md blocks
+                    if (/^#\s*%%/m.test(text)) {
+                        cells = parsePythonCells(text);
+                    } else {
+                        cells = parsePythonLegacyCells(text);
+                    }
+                } else {
+                    // Markdown file: strip frontmatter, parse into cells
+                    const stripped = stripFrontmatter(text);
+                    cells = parseMarkdownCells(stripped);
+                }
+                
+                const notebookJson = generateNotebook(cells);
+                const docFolder = path.dirname(docUri.fsPath);
+                const baseName = path.basename(docUri.fsPath).replace(/\.(py|zef\.md|md)$/, '');
+                const defaultUri = vscode.Uri.file(path.join(docFolder, baseName + '.ipynb'));
+                
+                const saveUri = await vscode.window.showSaveDialog({
+                    defaultUri: defaultUri,
+                    filters: { 'Jupyter Notebook': ['ipynb'] },
+                    title: 'Export as Jupyter Notebook'
+                });
+                
+                if (saveUri) {
+                    await vscode.workspace.fs.writeFile(saveUri, Buffer.from(notebookJson, 'utf8'));
+                    vscode.window.showInformationMessage(`Exported notebook to ${path.basename(saveUri.fsPath)}`);
                 }
             }
         } else if (message.type === 'openMermaidPanel') {
@@ -2376,7 +2414,7 @@ function getWebviewContent(renderedHtml: string, existingOutputs: { [blockId: nu
         /* Compile All Svelte button */
         .compile-all-trigger {
             position: fixed;
-            top: 56px;
+            top: 96px;
             right: 16px;
             display: none;
             align-items: center;
@@ -2407,6 +2445,36 @@ function getWebviewContent(renderedHtml: string, existingOutputs: { [blockId: nu
         .compile-all-trigger svg {
             width: 17px;
             height: 17px;
+        }
+
+        /* Export to Jupyter button */
+        .export-jupyter-trigger {
+            position: fixed;
+            top: 56px;
+            right: 16px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            width: 32px;
+            height: 32px;
+            background: rgba(255, 255, 255, 0.03);
+            border: 1px solid rgba(255, 255, 255, 0.06);
+            border-radius: 8px;
+            color: rgba(255, 255, 255, 0.35);
+            cursor: pointer;
+            transition: all 0.2s ease;
+            z-index: 100;
+        }
+
+        .export-jupyter-trigger:hover {
+            background: rgba(255, 255, 255, 0.06);
+            color: rgba(255, 255, 255, 0.7);
+            border-color: rgba(255, 255, 255, 0.12);
+        }
+
+        .export-jupyter-trigger svg {
+            width: 16px;
+            height: 16px;
         }
 
         /* Settings Drawer Styles */
@@ -2641,6 +2709,16 @@ function getWebviewContent(renderedHtml: string, existingOutputs: { [blockId: nu
         </svg>
     </button>
 
+    <!-- Export to Jupyter Button -->
+    <button class="export-jupyter-trigger" onclick="exportToJupyter()" title="Export as Jupyter Notebook">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+            <polyline points="14 2 14 8 20 8"></polyline>
+            <line x1="12" y1="18" x2="12" y2="12"></line>
+            <polyline points="9 15 12 18 15 15"></polyline>
+        </svg>
+    </button>
+
     <!-- Settings Trigger Button -->
     <button class="drawer-trigger" onclick="openSettingsDrawer()" title="Document Settings">
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round">
@@ -2850,6 +2928,10 @@ function getWebviewContent(renderedHtml: string, existingOutputs: { [blockId: nu
         });
         
         // Settings drawer functions
+        function exportToJupyter() {
+            vscode.postMessage({ type: 'exportToJupyter' });
+        }
+
         function openSettingsDrawer() {
             document.getElementById('drawer-overlay').classList.add('active');
             document.getElementById('drawer-panel').classList.add('active');
