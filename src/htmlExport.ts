@@ -145,12 +145,20 @@ export function embedRenderedBlocks(
                 const srcdoc = (sel.renderedHtml || '')
                     .replace(/&/g, '&amp;')
                     .replace(/"/g, '&quot;');
-                const iframe = `<div class="rendered-component"><iframe class="rendered-frame" sandbox="allow-scripts" srcdoc="${srcdoc}"></iframe></div>`;
+                const iframeHtml = `<iframe class="rendered-frame" sandbox="allow-scripts" srcdoc="${srcdoc}"></iframe><div class="preview-resize-handle"></div>`;
                 if (sel.mode === 'rendered') {
-                    return iframe;
+                    return `<div class="rendered-component width-resizable"><div class="preview-resize-handle-left"></div>${iframeHtml}<div class="preview-resize-handle-right"></div></div>`;
                 }
                 if (sel.mode === 'both') {
-                    return match + '\n' + iframe;
+                    const tabId = 'svelte-export-' + blockId;
+                    return `<div class="rendered-component width-resizable"><div class="preview-resize-handle-left"></div>`
+                        + `<div class="export-tabs">`
+                        + `<button class="export-tab active" data-tab-target="${tabId}-rendered">Rendered</button>`
+                        + `<button class="export-tab" data-tab-target="${tabId}-source">Source Code</button>`
+                        + `</div>`
+                        + `<div id="${tabId}-rendered" class="export-tab-content active">${iframeHtml}</div>`
+                        + `<div id="${tabId}-source" class="export-tab-content">${match}</div>`
+                        + `<div class="preview-resize-handle-right"></div></div>`;
                 }
             }
 
@@ -167,7 +175,7 @@ export function embedRenderedBlocks(
                 const srcdoc = decoded
                     .replace(/&/g, '&amp;')
                     .replace(/"/g, '&quot;');
-                return `<div class="rendered-component"><iframe class="rendered-frame" sandbox="allow-scripts" srcdoc="${srcdoc}"></iframe></div>`;
+                return `<div class="rendered-component width-resizable"><div class="preview-resize-handle-left"></div><iframe class="rendered-frame" sandbox="allow-scripts" srcdoc="${srcdoc}"></iframe><div class="preview-resize-handle"></div><div class="preview-resize-handle-right"></div></div>`;
             }
 
             return match;
@@ -322,6 +330,7 @@ export function getExportCss(maxWidth: number): string {
         /* Rendered components (Svelte / HTML iframes) */
         .rendered-component {
             margin: 1.2em 0;
+            position: relative;
         }
         .rendered-frame {
             width: 100%;
@@ -329,6 +338,106 @@ export function getExportCss(maxWidth: number): string {
             border: none;
             background: #1e1e1e;
             border-radius: 6px;
+        }
+        /* Draggable resize handle (bottom) */
+        .preview-resize-handle {
+            height: 6px;
+            cursor: ns-resize;
+            background: var(--border-color);
+            position: relative;
+            user-select: none;
+            -webkit-user-select: none;
+        }
+        .preview-resize-handle:hover,
+        .preview-resize-handle.dragging {
+            background: #007acc;
+        }
+        .preview-resize-handle::after {
+            content: '';
+            position: absolute;
+            left: 50%;
+            top: 50%;
+            transform: translate(-50%, -50%);
+            width: 30px;
+            height: 2px;
+            background: rgba(255, 255, 255, 0.3);
+            border-radius: 1px;
+        }
+        .preview-resize-handle:hover::after,
+        .preview-resize-handle.dragging::after {
+            background: rgba(255, 255, 255, 0.6);
+        }
+        /* Width resize handles (left/right) */
+        .width-resizable {
+            position: relative;
+        }
+        .preview-resize-handle-right,
+        .preview-resize-handle-left {
+            position: absolute;
+            top: 0;
+            width: 8px;
+            height: 100%;
+            cursor: ew-resize;
+            user-select: none;
+            -webkit-user-select: none;
+            z-index: 10;
+        }
+        .preview-resize-handle-right { right: -4px; }
+        .preview-resize-handle-left { left: -4px; }
+        .preview-resize-handle-right:hover,
+        .preview-resize-handle-right.dragging,
+        .preview-resize-handle-left:hover,
+        .preview-resize-handle-left.dragging {
+            background: #007acc;
+        }
+        .preview-resize-handle-right::after,
+        .preview-resize-handle-left::after {
+            content: '';
+            position: absolute;
+            left: 50%;
+            top: 50%;
+            transform: translate(-50%, -50%);
+            width: 2px;
+            height: 30px;
+            background: rgba(255, 255, 255, 0.3);
+            border-radius: 1px;
+        }
+        .preview-resize-handle-right:hover::after,
+        .preview-resize-handle-right.dragging::after,
+        .preview-resize-handle-left:hover::after,
+        .preview-resize-handle-left.dragging::after {
+            background: rgba(255, 255, 255, 0.6);
+        }
+        /* Tabs for source/rendered toggle */
+        .export-tabs {
+            display: flex;
+            background: var(--border-color);
+            border-bottom: 1px solid var(--border-color);
+        }
+        .export-tab {
+            padding: 8px 16px;
+            font-size: 0.75rem;
+            letter-spacing: 0.05em;
+            color: var(--text-dim);
+            background: transparent;
+            border: none;
+            cursor: pointer;
+            transition: color 0.2s, background 0.2s;
+            text-transform: uppercase;
+        }
+        .export-tab:hover {
+            color: var(--text-muted);
+            background: rgba(255, 255, 255, 0.05);
+        }
+        .export-tab.active {
+            color: var(--text-color);
+            background: var(--code-bg);
+        }
+        .export-tab-content {
+            display: none;
+        }
+        .export-tab-content.active {
+            display: block;
         }
 
         /* Tables */
@@ -474,6 +583,97 @@ document.addEventListener("DOMContentLoaded", function() {
 </script>`
         : '';
 
+    // Resize handle JS (only if rendered components exist)
+    const hasRenderedComponents = renderedHtml.includes('preview-resize-handle');
+    const resizeScript = hasRenderedComponents
+        ? `<script>
+// Height resize handles
+document.querySelectorAll('.preview-resize-handle').forEach(function(handle) {
+    var iframe = handle.previousElementSibling;
+    if (!iframe || iframe.tagName !== 'IFRAME') return;
+    var startY, startHeight;
+    handle.addEventListener('mousedown', function(e) {
+        e.preventDefault();
+        startY = e.clientY;
+        startHeight = iframe.offsetHeight;
+        handle.classList.add('dragging');
+        var overlay = document.createElement('div');
+        overlay.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;z-index:9999;cursor:ns-resize;';
+        document.body.appendChild(overlay);
+        function onMouseMove(e) {
+            iframe.style.height = Math.max(100, startHeight + (e.clientY - startY)) + 'px';
+        }
+        function onMouseUp() {
+            handle.classList.remove('dragging');
+            document.removeEventListener('mousemove', onMouseMove);
+            document.removeEventListener('mouseup', onMouseUp);
+            document.body.removeChild(overlay);
+        }
+        document.addEventListener('mousemove', onMouseMove);
+        document.addEventListener('mouseup', onMouseUp);
+    });
+});
+
+// Width resize handles (left/right)
+document.querySelectorAll('.width-resizable').forEach(function(container) {
+    ['left', 'right'].forEach(function(side) {
+        var handle = container.querySelector('.preview-resize-handle-' + side);
+        if (!handle) return;
+        var sign = side === 'left' ? -1 : 1;
+        var startX, startWidth;
+        handle.addEventListener('mousedown', function(e) {
+            e.preventDefault();
+            startX = e.clientX;
+            startWidth = container.getBoundingClientRect().width;
+            handle.classList.add('dragging');
+            var overlay = document.createElement('div');
+            overlay.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;z-index:9999;cursor:ew-resize;';
+            document.body.appendChild(overlay);
+            function onMouseMove(e) {
+                var delta = (e.clientX - startX) * sign;
+                var newWidth = Math.max(200, startWidth + delta * 2);
+                var maxW = window.innerWidth - 32;
+                if (newWidth > maxW) newWidth = maxW;
+                var widthStr = newWidth + 'px';
+                container.style.width = widthStr;
+                container.style.minWidth = widthStr;
+                container.style.maxWidth = widthStr;
+                container.style.position = 'relative';
+                container.style.left = '50%';
+                container.style.transform = 'translateX(-50%)';
+            }
+            function onMouseUp() {
+                handle.classList.remove('dragging');
+                document.removeEventListener('mousemove', onMouseMove);
+                document.removeEventListener('mouseup', onMouseUp);
+                document.body.removeChild(overlay);
+            }
+            document.addEventListener('mousemove', onMouseMove);
+            document.addEventListener('mouseup', onMouseUp);
+        });
+    });
+});
+
+// Tab switching for "both" mode exports
+document.querySelectorAll('.export-tabs').forEach(function(tabBar) {
+    var container = tabBar.parentElement;
+    var tabs = tabBar.querySelectorAll('.export-tab');
+    tabs.forEach(function(tab) {
+        tab.addEventListener('click', function() {
+            tabs.forEach(function(t) { t.classList.remove('active'); });
+            tab.classList.add('active');
+            var targetId = tab.getAttribute('data-tab-target');
+            container.querySelectorAll('.export-tab-content').forEach(function(c) {
+                c.classList.remove('active');
+            });
+            var target = document.getElementById(targetId);
+            if (target) target.classList.add('active');
+        });
+    });
+});
+</script>`
+        : '';
+
     return `<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -487,6 +687,7 @@ document.addEventListener("DOMContentLoaded", function() {
     ${renderedHtml}
     ${mermaidBlock}
     ${katexBlock}
+    ${resizeScript}
 </body>
 </html>`;
 }
