@@ -25,6 +25,8 @@ zef-vscode-extension/
 │   ├── kernelManager.ts      # Manages Python kernel subprocess
 │   ├── configManager.ts      # Settings & Python interpreter selection
 │   ├── pythonDetector.ts     # Discovers available Python interpreters
+│   ├── notebookExport.ts     # Pure functions: .py/.zef.md → Jupyter .ipynb
+│   ├── htmlExport.ts         # Pure functions: rendered preview → self-contained HTML
 │   ├── rustExecutor.ts       # Rust code execution via Bun
 │   ├── jsExecutor.ts         # JavaScript execution via Bun
 │   └── tsExecutor.ts         # TypeScript execution via Bun
@@ -195,3 +197,24 @@ Settings in VS Code:
 4. **Custom syntax highlighter** - Inline in webview, avoids external library loading complexity
 5. **Tab-based output** - Code | Result | Side Effects tabs for clean organization
 6. **Zef expressions for results** - Output displayed as Python-like zef expressions
+
+### Export Modules (Functional Core / Imperative Shell)
+
+Both `notebookExport.ts` and `htmlExport.ts` follow the same architecture:
+- **Pure functions only** in the module — no `fs`, no `vscode`, no side effects
+- **Side effects at the boundary** — file I/O, save dialogs, asset loading all happen in the message handler in `previewPanel.ts`
+- Functions receive data, return data. The caller decides what to do with it.
+
+**`htmlExport.ts`** exports the rendered preview as a single self-contained HTML file:
+- `detectFeatures(markdown)` — scans for `$$`/`$` math and ` ```mermaid ` fences
+- `inlineKatexFonts(css, fonts)` — replaces font `url()` references with base64 data URIs
+- `getExportCss(maxWidth)` — returns a clean CSS subset of the preview theme (deliberate duplication from `getWebviewContent` CSS — the export CSS is a standalone subset, not a shared abstraction)
+- `generateStandaloneHtml(input)` — assembles the complete HTML with conditionally embedded mermaid/KaTeX
+
+KaTeX fonts (19 woff2 files, ~276KB total) are base64-inlined into the CSS so the HTML is fully self-contained with no external dependencies. Mermaid.js (~3.2MB) is embedded inline when mermaid diagrams are detected. Total file size: ~3.5MB with mermaid+math, ~300KB with math only, ~50KB for plain markdown.
+
+**Svelte/HTML rendered block embedding:**
+- `parseRenderedBlocks(sourceText)` — extracts ````rendered-html` blocks from the source, assigns sequential block IDs matching the webview's executable-block counter
+- `embedRenderedBlocks(html, renderedBlocks)` — post-processes rendered HTML to replace svelte code blocks with iframes containing compiled output, and HTML code blocks with iframes containing their source directly
+- Block ID counting must match the webview: one ID per executable block (python, py, rust, rs, javascript, js, typescript, ts, svelte). HTML blocks are NOT executable and don't affect the counter.
+- If a svelte block hasn't been compiled yet (no `rendered-html` block in source), it falls through as raw source code.

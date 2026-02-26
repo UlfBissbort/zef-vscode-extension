@@ -6,6 +6,7 @@ import { isZefDocument, isZefPythonFile, isZefRustFile } from './zefUtils';
 import { stripFrontmatter, getDocumentSettings, updateDocumentSetting, ZefSettings } from './frontmatterParser';
 import { ExcalidrawEditorPanel, generateExcalidrawUid } from './excalidrawEditorPanel';
 import { generateNotebook, parseMarkdownCells, parsePythonCells, parsePythonLegacyCells } from './notebookExport';
+import { detectFeatures, inlineKatexFonts, generateStandaloneHtml, parseRenderedBlocks, embedRenderedBlocks, HtmlExportInput } from './htmlExport';
 
 // Map of document URI string to its panel
 const panels: Map<string, vscode.WebviewPanel> = new Map();
@@ -538,6 +539,87 @@ export function createPreviewPanel(context: vscode.ExtensionContext): vscode.Web
                 if (saveUri) {
                     await vscode.workspace.fs.writeFile(saveUri, Buffer.from(notebookJson, 'utf8'));
                     vscode.window.showInformationMessage(`Exported notebook to ${path.basename(saveUri.fsPath)}`);
+                }
+            }
+        } else if (message.type === 'exportToHtml') {
+            // Export current document preview as a self-contained HTML file
+            const document = vscode.workspace.textDocuments.find(d => d.uri.toString() === docKey);
+            if (document) {
+                const text = document.getText();
+                const isPy = isZefPythonFile(document);
+                
+                // Parse rendered-html blocks from source (compiled Svelte output)
+                const renderedBlocks = parseRenderedBlocks(text);
+                
+                // Convert to markdown and strip output blocks (same as preview pipeline)
+                const markdown = isPy
+                    ? convertPythonToMarkdown(text)
+                    : stripFrontmatter(text);
+                const cleanMarkdown = isPy ? markdown : markdown
+                    .replace(/\n````(?:Result|Output)\s*\n[\s\S]*?````/g, '')
+                    .replace(/\n````Side Effects\s*\n[\s\S]*?````/g, '')
+                    .replace(/\n````rendered-html\s*\n[\s\S]*?````/g, '');
+                
+                // Render to HTML (reuse the same function the preview uses)
+                let renderedHtml = renderMarkdown(cleanMarkdown);
+                
+                // Post-process: embed Svelte compiled output and HTML blocks as iframes
+                renderedHtml = embedRenderedBlocks(renderedHtml, renderedBlocks);
+                
+                // Detect which libraries are needed
+                const features = detectFeatures(cleanMarkdown);
+                
+                // Read asset files only if needed (side effects at the edge)
+                const widthPercent = vscode.workspace.getConfiguration('zef').get('viewWidthPercent', 100) as number;
+                const maxWidth = Math.round(680 * widthPercent / 100);
+                
+                const input: HtmlExportInput = {
+                    renderedHtml,
+                    title: path.basename(document.uri.fsPath),
+                    maxWidth,
+                    usesLatex: features.usesLatex,
+                    usesMermaid: features.usesMermaid,
+                };
+                
+                if (extensionPath) {
+                    const assetsDir = path.join(extensionPath, 'assets');
+                    const fs = require('fs') as typeof import('fs');
+                    
+                    if (features.usesMermaid) {
+                        input.mermaidJs = fs.readFileSync(path.join(assetsDir, 'mermaid.min.js'), 'utf8');
+                    }
+                    
+                    if (features.usesLatex) {
+                        let katexCss = fs.readFileSync(path.join(assetsDir, 'katex.min.css'), 'utf8');
+                        input.katexJs = fs.readFileSync(path.join(assetsDir, 'katex.min.js'), 'utf8');
+                        input.katexAutoRenderJs = fs.readFileSync(path.join(assetsDir, 'katex-auto-render.min.js'), 'utf8');
+                        
+                        // Inline font files as base64 data URIs
+                        const fontsDir = path.join(assetsDir, 'fonts');
+                        const fontFiles = new Map<string, Buffer>();
+                        for (const f of fs.readdirSync(fontsDir)) {
+                            if (f.endsWith('.woff2')) {
+                                fontFiles.set(f, fs.readFileSync(path.join(fontsDir, f)));
+                            }
+                        }
+                        input.katexCss = inlineKatexFonts(katexCss, fontFiles);
+                    }
+                }
+                
+                const htmlContent = generateStandaloneHtml(input);
+                const docFolder = path.dirname(docUri.fsPath);
+                const baseName = path.basename(docUri.fsPath).replace(/\.(py|zef\.md|md)$/, '');
+                const defaultUri = vscode.Uri.file(path.join(docFolder, baseName + '.html'));
+                
+                const saveUri = await vscode.window.showSaveDialog({
+                    defaultUri: defaultUri,
+                    filters: { 'HTML': ['html'] },
+                    title: 'Export as HTML'
+                });
+                
+                if (saveUri) {
+                    await vscode.workspace.fs.writeFile(saveUri, Buffer.from(htmlContent, 'utf8'));
+                    vscode.window.showInformationMessage(`Exported HTML to ${path.basename(saveUri.fsPath)}`);
                 }
             }
         } else if (message.type === 'openMermaidPanel') {
@@ -2477,6 +2559,36 @@ function getWebviewContent(renderedHtml: string, existingOutputs: { [blockId: nu
             height: 16px;
         }
 
+        /* Export to HTML button */
+        .export-html-trigger {
+            position: fixed;
+            top: 136px;
+            right: 16px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            width: 32px;
+            height: 32px;
+            background: rgba(255, 255, 255, 0.03);
+            border: 1px solid rgba(255, 255, 255, 0.06);
+            border-radius: 8px;
+            color: rgba(255, 255, 255, 0.35);
+            cursor: pointer;
+            transition: all 0.2s ease;
+            z-index: 100;
+        }
+
+        .export-html-trigger:hover {
+            background: rgba(255, 255, 255, 0.06);
+            color: rgba(255, 255, 255, 0.7);
+            border-color: rgba(255, 255, 255, 0.12);
+        }
+
+        .export-html-trigger svg {
+            width: 16px;
+            height: 16px;
+        }
+
         /* Settings Drawer Styles */
         .drawer-trigger {
             position: fixed;
@@ -2719,6 +2831,16 @@ function getWebviewContent(renderedHtml: string, existingOutputs: { [blockId: nu
         </svg>
     </button>
 
+    <!-- Export to HTML Button -->
+    <button class="export-html-trigger" onclick="exportToHtml()" title="Export as self-contained HTML">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M4 4l4 16"></path>
+            <path d="M20 4l-4 16"></path>
+            <path d="M7 9h10"></path>
+            <path d="M7 15h10"></path>
+        </svg>
+    </button>
+
     <!-- Settings Trigger Button -->
     <button class="drawer-trigger" onclick="openSettingsDrawer()" title="Document Settings">
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round">
@@ -2930,6 +3052,10 @@ function getWebviewContent(renderedHtml: string, existingOutputs: { [blockId: nu
         // Settings drawer functions
         function exportToJupyter() {
             vscode.postMessage({ type: 'exportToJupyter' });
+        }
+
+        function exportToHtml() {
+            vscode.postMessage({ type: 'exportToHtml' });
         }
 
         function openSettingsDrawer() {
