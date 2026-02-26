@@ -6,7 +6,7 @@ import { isZefDocument, isZefPythonFile, isZefRustFile } from './zefUtils';
 import { stripFrontmatter, getDocumentSettings, updateDocumentSetting, ZefSettings } from './frontmatterParser';
 import { ExcalidrawEditorPanel, generateExcalidrawUid } from './excalidrawEditorPanel';
 import { generateNotebook, parseMarkdownCells, parsePythonCells, parsePythonLegacyCells } from './notebookExport';
-import { detectFeatures, inlineKatexFonts, generateStandaloneHtml, parseRenderedBlocks, embedRenderedBlocks, HtmlExportInput } from './htmlExport';
+import { detectFeatures, inlineKatexFonts, generateStandaloneHtml, embedRenderedBlocks, SvelteBlockExport, HtmlExportInput } from './htmlExport';
 
 // Map of document URI string to its panel
 const panels: Map<string, vscode.WebviewPanel> = new Map();
@@ -548,8 +548,16 @@ export function createPreviewPanel(context: vscode.ExtensionContext): vscode.Web
                 const text = document.getText();
                 const isPy = isZefPythonFile(document);
                 
-                // Parse rendered-html blocks from source (compiled Svelte output)
-                const renderedBlocks = parseRenderedBlocks(text);
+                // Build svelte export selections from webview data
+                const svelteExports: Record<number, SvelteBlockExport> = {};
+                if (message.svelteSelections) {
+                    for (const [id, sel] of Object.entries(message.svelteSelections as Record<string, any>)) {
+                        svelteExports[Number(id)] = {
+                            mode: sel.mode as 'source' | 'rendered' | 'both',
+                            renderedHtml: sel.renderedHtml,
+                        };
+                    }
+                }
                 
                 // Convert to markdown and strip output blocks (same as preview pipeline)
                 const markdown = isPy
@@ -563,8 +571,8 @@ export function createPreviewPanel(context: vscode.ExtensionContext): vscode.Web
                 // Render to HTML (reuse the same function the preview uses)
                 let renderedHtml = renderMarkdown(cleanMarkdown);
                 
-                // Post-process: embed Svelte compiled output and HTML blocks as iframes
-                renderedHtml = embedRenderedBlocks(renderedHtml, renderedBlocks);
+                // Post-process: embed Svelte outputs and HTML blocks as iframes
+                renderedHtml = embedRenderedBlocks(renderedHtml, svelteExports);
                 
                 // Detect which libraries are needed
                 const features = detectFeatures(cleanMarkdown);
@@ -1015,12 +1023,33 @@ function svelteBlockKey(documentUri: vscode.Uri | undefined, blockId: number): s
     return `${documentUri?.toString() || 'default'}:${blockId}`;
 }
 
-export function sendSvelteResult(blockId: number, result: SvelteResult, documentUri?: vscode.Uri) {
+// Content-hash-based compilation store (session-local, position-independent)
+// Maps sourceHash → { sourceHash, renderedHtml, renderedHtmlHash }
+interface SvelteCompilationEntry {
+    sourceHash: string;
+    renderedHtml: string;
+    renderedHtmlHash: string;
+}
+
+const svelteCompilationStore = new Map<string, SvelteCompilationEntry>();
+
+function contentHash(text: string): string {
+    return require('crypto').createHash('sha256').update(text.trim()).digest('hex');
+}
+
+export function sendSvelteResult(blockId: number, result: SvelteResult, documentUri?: vscode.Uri, sourceCode?: string) {
     // Cache successful HTML for full panel viewing
     if (result.success && result.html) {
         svelteHtmlCache.set(svelteBlockKey(documentUri, blockId), result.html);
         // Also update any open full panel for this block
         updateSvelteFullPanel(documentUri, blockId, result.html);
+
+        // Store in content-hash-based compilation store (position-independent)
+        if (sourceCode) {
+            const sourceHash = contentHash(sourceCode);
+            const renderedHtmlHash = contentHash(result.html);
+            svelteCompilationStore.set(sourceHash, { sourceHash, renderedHtml: result.html, renderedHtmlHash });
+        }
     }
 
     // Send to specific panel if URI provided, otherwise send to active panel
@@ -2589,6 +2618,121 @@ function getWebviewContent(renderedHtml: string, existingOutputs: { [blockId: nu
             height: 16px;
         }
 
+        /* Export HTML Modal */
+        .export-html-overlay {
+            display: none;
+            position: fixed;
+            top: 0; left: 0;
+            width: 100%; height: 100%;
+            background: rgba(0, 0, 0, 0.6);
+            z-index: 2000;
+            align-items: center;
+            justify-content: center;
+        }
+        .export-html-overlay.active {
+            display: flex;
+        }
+        .export-html-modal {
+            background: #1a1a1a;
+            border: 1px solid #333;
+            border-radius: 12px;
+            padding: 24px;
+            max-width: 600px;
+            width: 90%;
+            max-height: 80vh;
+            overflow-y: auto;
+        }
+        .export-html-modal h3 {
+            margin: 0 0 16px 0;
+            color: #fafafa;
+            font-size: 0.95rem;
+            font-weight: 500;
+        }
+        .export-component-row {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 10px 12px;
+            margin: 6px 0;
+            background: #111;
+            border-radius: 8px;
+            border: 1px solid #222;
+        }
+        .export-component-label {
+            flex: 1;
+            font-family: 'SF Mono', SFMono-Regular, Consolas, monospace;
+            font-size: 0.7rem;
+            color: #888;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+        .export-component-status {
+            font-size: 0.65rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            white-space: nowrap;
+        }
+        .export-component-status.rendered {
+            background: rgba(76, 175, 80, 0.15);
+            color: #4caf50;
+        }
+        .export-component-status.not-rendered {
+            background: rgba(255, 255, 255, 0.05);
+            color: #666;
+        }
+        .export-mode-toggle {
+            display: flex;
+            gap: 2px;
+        }
+        .export-mode-btn {
+            padding: 3px 8px;
+            font-size: 0.65rem;
+            border: 1px solid #333;
+            border-radius: 4px;
+            background: transparent;
+            color: #888;
+            cursor: pointer;
+            transition: all 0.15s ease;
+        }
+        .export-mode-btn:hover:not(.disabled) {
+            background: rgba(255, 255, 255, 0.05);
+        }
+        .export-mode-btn.active {
+            background: rgba(255, 255, 255, 0.1);
+            border-color: #555;
+            color: #fafafa;
+        }
+        .export-mode-btn.disabled {
+            opacity: 0.3;
+            cursor: not-allowed;
+            pointer-events: none;
+        }
+        .export-modal-actions {
+            display: flex;
+            gap: 10px;
+            justify-content: flex-end;
+            margin-top: 18px;
+        }
+        .export-modal-btn {
+            padding: 7px 16px;
+            border-radius: 6px;
+            border: 1px solid #333;
+            background: transparent;
+            color: #ccc;
+            cursor: pointer;
+            font-size: 0.75rem;
+            transition: all 0.15s ease;
+        }
+        .export-modal-btn.primary {
+            background: rgba(255, 255, 255, 0.1);
+            border-color: #555;
+            color: #fafafa;
+        }
+        .export-modal-btn:hover {
+            background: rgba(255, 255, 255, 0.08);
+        }
+
         /* Settings Drawer Styles */
         .drawer-trigger {
             position: fixed;
@@ -2810,6 +2954,19 @@ function getWebviewContent(renderedHtml: string, existingOutputs: { [blockId: nu
                 <svg viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
             </button>
             <iframe id="html-modal-frame" class="html-modal-iframe" sandbox="allow-scripts"></iframe>
+        </div>
+    </div>
+
+    <!-- Export HTML Modal (per-component Svelte selection) -->
+    <div id="export-html-overlay" class="export-html-overlay">
+        <div class="export-html-modal">
+            <h3>Export HTML — Svelte Components</h3>
+            <div id="export-component-list"></div>
+            <div class="export-modal-actions">
+                <button class="export-modal-btn" onclick="compileUnrenderedForExport()">Compile Unrendered</button>
+                <button class="export-modal-btn" onclick="closeExportHtmlModal()">Cancel</button>
+                <button class="export-modal-btn primary" onclick="confirmExportHtml()">Export</button>
+            </div>
         </div>
     </div>
     
@@ -3046,6 +3203,7 @@ function getWebviewContent(renderedHtml: string, existingOutputs: { [blockId: nu
             if (e.key === 'Escape') {
                 closeHtmlModal();
                 closeSettingsDrawer();
+                closeExportHtmlModal();
             }
         });
         
@@ -3055,7 +3213,110 @@ function getWebviewContent(renderedHtml: string, existingOutputs: { [blockId: nu
         }
 
         function exportToHtml() {
-            vscode.postMessage({ type: 'exportToHtml' });
+            // Check for svelte components in the preview
+            var svelteContainers = document.querySelectorAll('.svelte-container');
+            if (svelteContainers.length === 0) {
+                // No svelte components → export directly
+                vscode.postMessage({ type: 'exportToHtml', svelteSelections: {} });
+                return;
+            }
+            // Show modal for per-component selection
+            showExportHtmlModal(svelteContainers);
+        }
+
+        function showExportHtmlModal(containers) {
+            var list = document.getElementById('export-component-list');
+            var blocks = window._zefCodeBlocks || {};
+            list.innerHTML = '';
+            containers.forEach(function(container) {
+                var blockId = container.getAttribute('data-block-id');
+                var sourceCode = blocks[blockId] || '';
+                var iframe = container.querySelector('iframe.svelte-preview-frame');
+                var isRendered = !!(iframe && iframe.srcdoc);
+
+                var row = document.createElement('div');
+                row.className = 'export-component-row';
+                row.setAttribute('data-export-block-id', blockId);
+
+                var label = document.createElement('span');
+                label.className = 'export-component-label';
+                label.textContent = '#' + blockId + '  ' + sourceCode.substring(0, 50) + (sourceCode.length > 50 ? '...' : '');
+
+                var status = document.createElement('span');
+                status.className = 'export-component-status ' + (isRendered ? 'rendered' : 'not-rendered');
+                status.textContent = isRendered ? 'Rendered' : 'Not rendered';
+
+                var toggle = document.createElement('div');
+                toggle.className = 'export-mode-toggle';
+                ['Source', 'Rendered', 'Both'].forEach(function(mode) {
+                    var btn = document.createElement('button');
+                    btn.className = 'export-mode-btn';
+                    btn.textContent = mode;
+                    btn.setAttribute('data-mode', mode.toLowerCase());
+                    if ((mode === 'Rendered' || mode === 'Both') && !isRendered) {
+                        btn.classList.add('disabled');
+                    }
+                    // Default: 'both' if rendered, 'source' if not
+                    if (isRendered && mode === 'Both') btn.classList.add('active');
+                    if (!isRendered && mode === 'Source') btn.classList.add('active');
+                    btn.onclick = function() {
+                        if (btn.classList.contains('disabled')) return;
+                        toggle.querySelectorAll('.export-mode-btn').forEach(function(b) { b.classList.remove('active'); });
+                        btn.classList.add('active');
+                    };
+                    toggle.appendChild(btn);
+                });
+
+                row.appendChild(label);
+                row.appendChild(status);
+                row.appendChild(toggle);
+                list.appendChild(row);
+            });
+            document.getElementById('export-html-overlay').classList.add('active');
+        }
+
+        function closeExportHtmlModal() {
+            document.getElementById('export-html-overlay').classList.remove('active');
+        }
+
+        function confirmExportHtml() {
+            var selections = {};
+            var rows = document.querySelectorAll('.export-component-row');
+            rows.forEach(function(row) {
+                var blockId = row.getAttribute('data-export-block-id');
+                var activeBtn = row.querySelector('.export-mode-btn.active');
+                var mode = activeBtn ? activeBtn.getAttribute('data-mode') : 'source';
+                var entry = { mode: mode };
+                if (mode === 'rendered' || mode === 'both') {
+                    var container = document.querySelector('.svelte-container[data-block-id="' + blockId + '"]');
+                    if (container) {
+                        var iframe = container.querySelector('iframe.svelte-preview-frame');
+                        if (iframe && iframe.srcdoc) {
+                            entry.renderedHtml = iframe.srcdoc;
+                        }
+                    }
+                }
+                selections[blockId] = entry;
+            });
+            closeExportHtmlModal();
+            vscode.postMessage({ type: 'exportToHtml', svelteSelections: selections });
+        }
+
+        function compileUnrenderedForExport() {
+            var blocks = window._zefCodeBlocks || {};
+            var rows = document.querySelectorAll('.export-component-row');
+            rows.forEach(function(row) {
+                var blockId = row.getAttribute('data-export-block-id');
+                var status = row.querySelector('.export-component-status');
+                if (status && status.classList.contains('not-rendered') && blocks[blockId]) {
+                    vscode.postMessage({
+                        type: 'runCode',
+                        code: blocks[blockId],
+                        blockId: parseInt(blockId),
+                        language: 'svelte'
+                    });
+                }
+            });
         }
 
         function openSettingsDrawer() {
@@ -3710,6 +3971,7 @@ function getWebviewContent(renderedHtml: string, existingOutputs: { [blockId: nu
             var excalidrawBlockId = 0; // Count excalidraw blocks for identification
             var codeBlocks = {}; // Store code content for each block
             var blockLanguages = {}; // Store language for each block
+            window._zefCodeBlocks = codeBlocks; // Expose for export modal
 
             // Compile all Svelte blocks (called from the top-right button)
             window.compileAllSvelte = function() {
@@ -4932,6 +5194,22 @@ function getWebviewContent(renderedHtml: string, existingOutputs: { [blockId: nu
                         if (renderedTab) {
                             renderedTab.classList.add('active');
                         }
+                    }
+
+                    // Update export modal if it's open
+                    var modalRow = document.querySelector('.export-component-row[data-export-block-id="' + blockId + '"]');
+                    if (modalRow && result.success && result.html) {
+                        var statusEl = modalRow.querySelector('.export-component-status');
+                        if (statusEl) {
+                            statusEl.className = 'export-component-status rendered';
+                            statusEl.textContent = 'Rendered';
+                        }
+                        // Enable Rendered and Both buttons, auto-select Both
+                        modalRow.querySelectorAll('.export-mode-btn').forEach(function(btn) {
+                            btn.classList.remove('disabled');
+                            btn.classList.remove('active');
+                            if (btn.getAttribute('data-mode') === 'both') btn.classList.add('active');
+                        });
                     }
                 }
                 

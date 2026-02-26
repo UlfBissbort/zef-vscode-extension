@@ -214,7 +214,13 @@ Both `notebookExport.ts` and `htmlExport.ts` follow the same architecture:
 KaTeX fonts (19 woff2 files, ~276KB total) are base64-inlined into the CSS so the HTML is fully self-contained with no external dependencies. Mermaid.js (~3.2MB) is embedded inline when mermaid diagrams are detected. Total file size: ~3.5MB with mermaid+math, ~300KB with math only, ~50KB for plain markdown.
 
 **Svelte/HTML rendered block embedding:**
-- `parseRenderedBlocks(sourceText)` — extracts ````rendered-html` blocks from the source, assigns sequential block IDs matching the webview's executable-block counter
-- `embedRenderedBlocks(html, renderedBlocks)` — post-processes rendered HTML to replace svelte code blocks with iframes containing compiled output, and HTML code blocks with iframes containing their source directly
-- Block ID counting must match the webview: one ID per executable block (python, py, rust, rs, javascript, js, typescript, ts, svelte). HTML blocks are NOT executable and don't affect the counter.
-- If a svelte block hasn't been compiled yet (no `rendered-html` block in source), it falls through as raw source code.
+- `embedRenderedBlocks(html, svelteExports)` — post-processes rendered HTML. For svelte blocks: per-component mode selection (source/rendered/both). For HTML blocks: always renders as iframe.
+- `SvelteBlockExport` interface: `{ mode: 'source' | 'rendered' | 'both', renderedHtml?: string }`
+- Data flows from the webview: the modal collects iframe.srcdoc for each compiled component and sends it with the export message.
+
+**Export modal (per-component Svelte selection):**
+When the document contains Svelte components, clicking "Export HTML" opens a modal in the webview:
+- Lists each Svelte component with source preview and rendered status
+- Per-component toggle: Source | Rendered | Both (Rendered/Both disabled if not compiled)
+- "Compile Unrendered" button: triggers compilation, modal updates live when results arrive (via svelteResult message handler)
+- The webview is the single source of truth: compiled HTML comes from iframe.srcdoc, selections come from the modal.

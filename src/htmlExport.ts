@@ -104,18 +104,23 @@ export function parseRenderedBlocks(sourceText: string): Record<number, string> 
 // Rendered block embedding (pure)
 // ---------------------------------------------------------------------------
 
+export interface SvelteBlockExport {
+    mode: 'source' | 'rendered' | 'both';
+    renderedHtml?: string;
+}
+
 /**
- * Post-process rendered HTML: replace svelte and html code blocks with iframes.
+ * Post-process rendered HTML: embed svelte rendered output and html inline iframes.
  *
- * - Svelte blocks: replaced with iframe containing compiled output (from renderedBlocks map).
- * - HTML blocks: replaced with iframe containing their source code directly.
+ * - Svelte blocks: controlled by svelteExports map (source/rendered/both per block).
+ * - HTML blocks: always replaced with iframe containing their source code directly.
  *
  * Block ID counting matches the webview's sequential numbering of executable blocks.
  * HTML blocks are NOT executable and don't affect the block ID counter.
  */
 export function embedRenderedBlocks(
     html: string,
-    renderedBlocks: Record<number, string>
+    svelteExports: Record<number, SvelteBlockExport>
 ): string {
     const executableLangs = new Set([
         'python', 'py', 'rust', 'rs', 'javascript', 'js', 'typescript', 'ts', 'svelte'
@@ -131,12 +136,22 @@ export function embedRenderedBlocks(
                 blockId++;
             }
 
-            // Svelte: embed compiled output as iframe
-            if (langLower === 'svelte' && renderedBlocks[blockId]) {
-                const srcdoc = renderedBlocks[blockId]
+            // Svelte: use per-component selection
+            if (langLower === 'svelte') {
+                const sel = svelteExports[blockId];
+                if (!sel || sel.mode === 'source') {
+                    return match; // keep source code block
+                }
+                const srcdoc = (sel.renderedHtml || '')
                     .replace(/&/g, '&amp;')
                     .replace(/"/g, '&quot;');
-                return `<div class="rendered-component"><iframe class="rendered-frame" sandbox="allow-scripts" srcdoc="${srcdoc}"></iframe></div>`;
+                const iframe = `<div class="rendered-component"><iframe class="rendered-frame" sandbox="allow-scripts" srcdoc="${srcdoc}"></iframe></div>`;
+                if (sel.mode === 'rendered') {
+                    return iframe;
+                }
+                if (sel.mode === 'both') {
+                    return match + '\n' + iframe;
+                }
             }
 
             // HTML: embed source directly as iframe

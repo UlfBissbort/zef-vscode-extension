@@ -996,7 +996,7 @@ async function compileSvelteBlock(context: vscode.ExtensionContext, code: string
         
         // Send result to preview panel for the specific document
         if (blockId !== undefined) {
-            sendSvelteResult(blockId, result, documentUri);
+            sendSvelteResult(blockId, result, documentUri, code);
         }
         
         // Write result to the file as a rendered-html block
