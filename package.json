@@ -2,7 +2,7 @@
   "name": "zef",
   "displayName": "Zef",
   "description": "Executable Markdown \u2014 run Python, Rust, TypeScript with live preview, mermaid diagrams, Svelte components, and LaTeX math",
-  "version": "0.1.19",
+  "version": "0.1.20",
   "publisher": "UlfBissbort",
   "icon": "icon.png",
   "repository": {
