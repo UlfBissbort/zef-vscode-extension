@@ -18,15 +18,110 @@ export function setOnRunCode(callback: (code: string, blockId: number, language:
 }
 
 /**
+ * Represents a parsed cell from a #%% delimited Python file.
+ */
+interface PyCell {
+    type: 'code' | 'markdown';
+    content: string;
+}
+
+/**
+ * Determines if a cell contains only a triple-quoted string (markdown)
+ * or actual code.
+ * 
+ * A markdown cell is one where the trimmed content starts and ends with
+ * """ (or ''') with nothing else outside the quotes.
+ * 
+ * Pure function: string in, PyCell out.
+ */
+function classifyPyCell(content: string): PyCell {
+    const trimmed = content.trim();
+    
+    for (const quote of ['"""', "'''"]) {
+        if (trimmed.startsWith(quote) && trimmed.endsWith(quote) && trimmed.length > 6) {
+            return {
+                type: 'markdown',
+                content: trimmed.slice(3, -3)
+            };
+        }
+    }
+    
+    return { type: 'code', content };
+}
+
+/**
+ * Splits a Python file into cells delimited by #%% markers.
+ * Content before the first #%% is included as a code cell.
+ * 
+ * Pure function: string in, PyCell[] out.
+ */
+function parsePyCells(source: string): PyCell[] {
+    const lines = source.split('\n');
+    const cells: PyCell[] = [];
+    let currentLines: string[] = [];
+    
+    for (const line of lines) {
+        // Match #%% or # %% (with optional whitespace between # and %%)
+        if (/^#\s*%%/.test(line.trimStart())) {
+            // Flush current cell
+            if (currentLines.length > 0) {
+                cells.push(classifyPyCell(currentLines.join('\n')));
+            }
+            currentLines = [];
+        } else {
+            currentLines.push(line);
+        }
+    }
+    
+    // Flush last cell
+    if (currentLines.length > 0) {
+        cells.push(classifyPyCell(currentLines.join('\n')));
+    }
+    
+    return cells;
+}
+
+/**
+ * Converts parsed Python cells to a markdown string.
+ * Markdown cells are output as raw markdown.
+ * Code cells are wrapped in ```python fenced blocks.
+ * 
+ * Pure function: PyCell[] in, string out.
+ */
+function pyCellsToMarkdown(cells: PyCell[]): string {
+    return cells
+        .filter(cell => cell.content.trim().length > 0)
+        .map(cell => {
+            if (cell.type === 'markdown') {
+                return dedentText(cell.content) + '\n\n';
+            } else {
+                return '```python\n' + cell.content.trim() + '\n```\n\n';
+            }
+        })
+        .join('');
+}
+
+/**
  * Converts Python source code to markdown for preview rendering.
  * 
- * Segments marked with """md ... """ are extracted as markdown.
- * All other code is wrapped in ```python fenced blocks.
+ * Two modes:
+ * 1. Cell mode (#%% delimiters): Cells containing only a triple-quoted string
+ *    are rendered as markdown. All other cells as Python code blocks.
+ * 2. Legacy mode ("""md markers): Segments between """md...""" are markdown.
+ * 
+ * Detects mode automatically: if any #%% line exists, uses cell mode.
  * 
  * @param pythonSource The Python file content
  * @returns Markdown string suitable for renderMarkdown()
  */
 function convertPythonToMarkdown(pythonSource: string): string {
+    // Cell mode: #%% delimited files
+    if (/^#\s*%%/m.test(pythonSource)) {
+        const cells = parsePyCells(pythonSource);
+        return pyCellsToMarkdown(cells);
+    }
+    
+    // Legacy mode: """md block parsing
     const lines = pythonSource.split('\n');
     const segments: Array<{type: 'code' | 'markdown', content: string[]}> = [];
     
