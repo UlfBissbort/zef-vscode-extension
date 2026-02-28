@@ -1269,28 +1269,25 @@ function renderMarkdown(markdown: string): string {
         renderer
     });
 
-    // Protect math blocks from marked's transformations:
-    // 1. `breaks: true` converts newlines to <br>
-    // 2. Marked converts \\ to \ (escaping backslashes)
-    // Both break LaTeX rendering, especially for aligned environments
-    const mathNewlinePlaceholder = '\u0000MATH_NEWLINE\u0000';
-    const mathDoubleBackslashPlaceholder = '\u0000MATH_DBLBACKSLASH\u0000';
-    let protectedMarkdown = markdown.replace(/\$\$([\s\S]*?)\$\$/g, (match, content) => {
-        // Replace \\ with placeholder first (before it gets converted to \)
-        let protected_ = content.replace(/\\\\/g, mathDoubleBackslashPlaceholder);
-        // Replace newlines with placeholder
-        protected_ = protected_.replace(/\n/g, mathNewlinePlaceholder);
-        return '$$' + protected_ + '$$';
+    // Protect math blocks from marked's transformations.
+    // marked mangles LaTeX: converts \\ to \, newlines to <br>, interprets _ as
+    // emphasis, * as bold, | as table delimiters, etc. Instead of trying to escape
+    // individual characters, we extract entire math blocks before marked runs and
+    // reinsert them verbatim after.
+    const mathStore: string[] = [];
+    let protectedMarkdown = markdown.replace(/\$\$([\s\S]*?)\$\$/g, (match) => {
+        const id = mathStore.length;
+        mathStore.push(match);
+        return `MATHBLOCK${id}ENDMATH`;
     });
 
     // Preserve extra blank lines before parsing
     const processedMarkdown = preserveBlankLines(protectedMarkdown);
-    
+
     let html = marked.parse(processedMarkdown) as string;
-    
-    // Restore double backslashes and newlines in math blocks
-    html = html.replace(new RegExp(mathDoubleBackslashPlaceholder, 'g'), '\\\\');
-    html = html.replace(new RegExp(mathNewlinePlaceholder, 'g'), '\n');
+
+    // Reinsert original math blocks verbatim
+    html = html.replace(/MATHBLOCK(\d+)ENDMATH/g, (_, id) => mathStore[parseInt(id)]);
     
     // Remove disabled attribute from checkboxes to make them interactive
     // Marked generates: <input disabled="" type="checkbox"> for unchecked
