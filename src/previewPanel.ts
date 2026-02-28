@@ -2944,9 +2944,115 @@ function getWebviewContent(renderedHtml: string, existingOutputs: { [blockId: nu
             accent-color: #8ab4f8;
             cursor: pointer;
         }
+
+        /* Find bar */
+        .find-bar {
+            position: fixed;
+            top: -50px;
+            left: 50%;
+            transform: translateX(-50%);
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            padding: 6px 10px;
+            background: #1a1a22;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-top: none;
+            border-radius: 0 0 10px 10px;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
+            z-index: 2000;
+            transition: top 0.2s ease;
+            font-family: -apple-system, BlinkMacSystemFont, sans-serif;
+        }
+
+        .find-bar.active {
+            top: 0;
+        }
+
+        .find-bar input {
+            width: 240px;
+            padding: 5px 8px;
+            background: rgba(255, 255, 255, 0.06);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 5px;
+            color: #fafafa;
+            font-size: 13px;
+            font-family: -apple-system, BlinkMacSystemFont, sans-serif;
+            outline: none;
+        }
+
+        .find-bar input:focus {
+            border-color: rgba(138, 180, 248, 0.4);
+        }
+
+        .find-bar input::placeholder {
+            color: rgba(255, 255, 255, 0.25);
+        }
+
+        .find-bar-count {
+            font-size: 12px;
+            color: rgba(255, 255, 255, 0.4);
+            min-width: 55px;
+            text-align: center;
+            white-space: nowrap;
+            user-select: none;
+        }
+
+        .find-bar-btn {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            width: 26px;
+            height: 26px;
+            background: none;
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            border-radius: 5px;
+            color: rgba(255, 255, 255, 0.5);
+            cursor: pointer;
+            transition: all 0.15s ease;
+            padding: 0;
+        }
+
+        .find-bar-btn:hover {
+            background: rgba(255, 255, 255, 0.08);
+            color: rgba(255, 255, 255, 0.8);
+            border-color: rgba(255, 255, 255, 0.15);
+        }
+
+        .find-bar-btn svg {
+            width: 14px;
+            height: 14px;
+        }
+
+        .find-highlight {
+            background: rgba(255, 215, 0, 0.35);
+            border-radius: 2px;
+            box-shadow: 0 0 0 1px rgba(255, 215, 0, 0.2);
+        }
+
+        .find-highlight-current {
+            background: rgba(255, 165, 0, 0.6);
+            border-radius: 2px;
+            box-shadow: 0 0 0 2px rgba(255, 165, 0, 0.4);
+        }
     </style>
 </head>
 <body>
+    <!-- Find bar -->
+    <div id="find-bar" class="find-bar">
+        <input id="find-input" type="text" placeholder="Find in preview..." spellcheck="false" autocomplete="off" />
+        <span id="find-count" class="find-bar-count"></span>
+        <button class="find-bar-btn" onclick="findPrev()" title="Previous match (Shift+Enter)">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="18 15 12 9 6 15"></polyline></svg>
+        </button>
+        <button class="find-bar-btn" onclick="findNext()" title="Next match (Enter)">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg>
+        </button>
+        <button class="find-bar-btn" onclick="closeFindBar()" title="Close (Escape)">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+        </button>
+    </div>
+
     <!-- Modal for expanded HTML view -->
     <div id="html-modal" class="html-modal-overlay">
         <div class="html-modal-content">
@@ -3198,9 +3304,176 @@ function getWebviewContent(renderedHtml: string, existingOutputs: { [blockId: nu
             document.body.style.overflow = '';
         }
         
-        // Close modal on Escape key
-        document.addEventListener('keydown', function(e) {
+        // --- Find in preview ---
+        var _findMatches = [];
+        var _findCurrentIndex = -1;
+        var _findBarOpen = false;
+
+        function openFindBar() {
+            var bar = document.getElementById('find-bar');
+            var input = document.getElementById('find-input');
+            bar.classList.add('active');
+            _findBarOpen = true;
+            input.focus();
+            input.select();
+        }
+
+        function closeFindBar() {
+            var bar = document.getElementById('find-bar');
+            bar.classList.remove('active');
+            _findBarOpen = false;
+            clearFindHighlights();
+            document.getElementById('find-input').value = '';
+            document.getElementById('find-count').textContent = '';
+            _findMatches = [];
+            _findCurrentIndex = -1;
+        }
+
+        function clearFindHighlights() {
+            var marks = document.querySelectorAll('.find-highlight, .find-highlight-current');
+            marks.forEach(function(mark) {
+                var parent = mark.parentNode;
+                parent.replaceChild(document.createTextNode(mark.textContent), mark);
+                parent.normalize();
+            });
+        }
+
+        function performFind(query) {
+            clearFindHighlights();
+            _findMatches = [];
+            _findCurrentIndex = -1;
+            var countEl = document.getElementById('find-count');
+
+            if (!query) {
+                countEl.textContent = '';
+                return;
+            }
+
+            var queryLower = query.toLowerCase();
+            // Walk all text nodes in body, skip the find bar itself and hidden elements
+            var walker = document.createTreeWalker(
+                document.body,
+                NodeFilter.SHOW_TEXT,
+                {
+                    acceptNode: function(node) {
+                        var el = node.parentElement;
+                        if (!el) return NodeFilter.FILTER_REJECT;
+                        if (el.closest('#find-bar')) return NodeFilter.FILTER_REJECT;
+                        if (el.closest('.html-modal-overlay')) return NodeFilter.FILTER_REJECT;
+                        if (el.closest('.export-html-overlay')) return NodeFilter.FILTER_REJECT;
+                        if (el.closest('.drawer-panel')) return NodeFilter.FILTER_REJECT;
+                        if (el.closest('.drawer-overlay')) return NodeFilter.FILTER_REJECT;
+                        // Skip invisible elements
+                        var style = window.getComputedStyle(el);
+                        if (style.display === 'none' || style.visibility === 'hidden') return NodeFilter.FILTER_REJECT;
+                        return NodeFilter.FILTER_ACCEPT;
+                    }
+                }
+            );
+
+            var textNodes = [];
+            var node;
+            while (node = walker.nextNode()) {
+                if (node.textContent.toLowerCase().indexOf(queryLower) !== -1) {
+                    textNodes.push(node);
+                }
+            }
+
+            // Highlight matches by splitting text nodes
+            textNodes.forEach(function(textNode) {
+                var text = textNode.textContent;
+                var lower = text.toLowerCase();
+                var idx = 0;
+                var fragments = [];
+                var pos;
+                while ((pos = lower.indexOf(queryLower, idx)) !== -1) {
+                    if (pos > idx) {
+                        fragments.push(document.createTextNode(text.substring(idx, pos)));
+                    }
+                    var mark = document.createElement('span');
+                    mark.className = 'find-highlight';
+                    mark.textContent = text.substring(pos, pos + query.length);
+                    fragments.push(mark);
+                    _findMatches.push(mark);
+                    idx = pos + query.length;
+                }
+                if (fragments.length > 0) {
+                    if (idx < text.length) {
+                        fragments.push(document.createTextNode(text.substring(idx)));
+                    }
+                    var parent = textNode.parentNode;
+                    fragments.forEach(function(frag) {
+                        parent.insertBefore(frag, textNode);
+                    });
+                    parent.removeChild(textNode);
+                }
+            });
+
+            if (_findMatches.length > 0) {
+                _findCurrentIndex = 0;
+                updateFindCurrent();
+                countEl.textContent = '1 of ' + _findMatches.length;
+            } else {
+                countEl.textContent = 'No results';
+            }
+        }
+
+        function updateFindCurrent() {
+            _findMatches.forEach(function(m, i) {
+                m.className = (i === _findCurrentIndex) ? 'find-highlight-current' : 'find-highlight';
+            });
+            if (_findMatches[_findCurrentIndex]) {
+                _findMatches[_findCurrentIndex].scrollIntoView({ block: 'center', behavior: 'smooth' });
+            }
+        }
+
+        function findNext() {
+            if (_findMatches.length === 0) return;
+            _findCurrentIndex = (_findCurrentIndex + 1) % _findMatches.length;
+            updateFindCurrent();
+            document.getElementById('find-count').textContent = (_findCurrentIndex + 1) + ' of ' + _findMatches.length;
+        }
+
+        function findPrev() {
+            if (_findMatches.length === 0) return;
+            _findCurrentIndex = (_findCurrentIndex - 1 + _findMatches.length) % _findMatches.length;
+            updateFindCurrent();
+            document.getElementById('find-count').textContent = (_findCurrentIndex + 1) + ' of ' + _findMatches.length;
+        }
+
+        // Debounced search on input
+        var _findTimeout = null;
+        document.getElementById('find-input').addEventListener('input', function() {
+            clearTimeout(_findTimeout);
+            var query = this.value;
+            _findTimeout = setTimeout(function() { performFind(query); }, 150);
+        });
+
+        // Enter/Shift+Enter for next/prev in find bar
+        document.getElementById('find-input').addEventListener('keydown', function(e) {
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                if (e.shiftKey) { findPrev(); } else { findNext(); }
+            }
             if (e.key === 'Escape') {
+                e.preventDefault();
+                closeFindBar();
+            }
+        });
+
+        // Global keyboard handler
+        document.addEventListener('keydown', function(e) {
+            // Cmd+F / Ctrl+F → open find bar
+            if ((e.metaKey || e.ctrlKey) && e.key === 'f') {
+                e.preventDefault();
+                openFindBar();
+                return;
+            }
+            if (e.key === 'Escape') {
+                if (_findBarOpen) {
+                    closeFindBar();
+                    return;
+                }
                 closeHtmlModal();
                 closeSettingsDrawer();
                 closeExportHtmlModal();
