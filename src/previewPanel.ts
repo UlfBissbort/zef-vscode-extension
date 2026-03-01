@@ -5508,13 +5508,27 @@ function getWebviewContent(renderedHtml: string, existingOutputs: { [blockId: nu
     <script>
         // Initialize and render mermaid diagrams
         if (typeof mermaid !== 'undefined') {
-            mermaid.initialize({ 
+            mermaid.initialize({
                 theme: 'dark',
                 startOnLoad: false,
-                securityLevel: 'loose'
+                securityLevel: 'loose',
+                suppressErrorRendering: true
             });
             // Render all mermaid diagrams (already created by the tab handling code)
-            mermaid.run({ nodes: document.querySelectorAll('.mermaid') });
+            var mermaidNodes = document.querySelectorAll('.mermaid');
+            if (mermaidNodes.length > 0) {
+                mermaid.run({ nodes: mermaidNodes, suppressErrors: false }).catch(function(err) {
+                    console.error('Mermaid render error:', err);
+                    // On batch failure, try rendering each diagram individually
+                    mermaidNodes.forEach(function(node, idx) {
+                        mermaid.run({ nodes: [node], suppressErrors: false }).catch(function(e) {
+                            console.error('Mermaid diagram ' + idx + ' failed:', e);
+                        });
+                    });
+                });
+            }
+        } else {
+            console.warn('Mermaid library not loaded');
         }
     </script>` : ''}
     ${katexJsUri ? `<script src="${katexJsUri}"></script>
