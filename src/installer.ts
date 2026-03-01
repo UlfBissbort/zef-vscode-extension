@@ -50,19 +50,24 @@ interface InstallStatus {
     uv_path: string | null;
     venv_exists: boolean;
     venv_path: string;
+    config_exists: boolean;
+    config_path: string;
+    vault_exists: boolean;
+    vault_path: string;
 }
 
 // ── Human-readable step labels ────────────────────────────────────────────
 
 const STEP_LABELS: Record<string, string> = {
-    check_wsl:      'Checking WSL...',
-    ensure_uv:      'Setting up UV package manager...',
-    create_venv:    'Creating Python environment...',
-    download_wheel: 'Downloading Zef...',
-    install_wheel:  'Installing Zef...',
-    write_daemon:   'Writing daemon script...',
-    create_service: 'Creating system service...',
-    start_service:  'Starting Tokolosh daemon...',
+    check_wsl:           'Checking WSL...',
+    ensure_uv:           'Setting up UV package manager...',
+    create_venv:         'Creating Python environment...',
+    download_wheel:      'Downloading Zef...',
+    install_wheel:       'Installing Zef...',
+    write_daemon:        'Writing daemon script...',
+    create_service:      'Creating system service...',
+    start_service:       'Starting Tokolosh daemon...',
+    create_vault_config: 'Creating vault & config...',
 };
 
 // ── Output channel for observability ──────────────────────────────────────
@@ -191,7 +196,7 @@ export async function runInstallation(
                 const proc = spawn(bin, ['install']);
                 const rl = readline.createInterface({ input: proc.stdout });
 
-                const totalSteps = 7;
+                const totalSteps = 8;
                 let completedSteps = 0;
                 const increment = 100 / totalSteps;
 
