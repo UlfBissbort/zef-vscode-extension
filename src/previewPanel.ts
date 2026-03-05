@@ -33,6 +33,7 @@ interface PyCell {
  * 
  * A markdown cell is one where the trimmed content starts and ends with
  * """ (or ''') with nothing else outside the quotes.
+ * Also supports raw strings: r""" or r''' prefix.
  * 
  * Pure function: string in, PyCell out.
  */
@@ -40,6 +41,15 @@ function classifyPyCell(content: string): PyCell {
     const trimmed = content.trim();
     
     for (const quote of ['"""', "'''"]) {
+        // Check for r-string prefix (r""" ... """ or r''' ... ''')
+        const rPrefix = 'r' + quote;
+        if (trimmed.startsWith(rPrefix) && trimmed.endsWith(quote) && trimmed.length > rPrefix.length + quote.length) {
+            return {
+                type: 'markdown',
+                content: trimmed.slice(rPrefix.length, -3)
+            };
+        }
+        // Check for regular triple-quoted string
         if (trimmed.startsWith(quote) && trimmed.endsWith(quote) && trimmed.length > 6) {
             return {
                 type: 'markdown',
