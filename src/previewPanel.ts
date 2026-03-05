@@ -1290,6 +1290,13 @@ function renderMarkdown(markdown: string): string {
         mathStore.push(match);
         return `MATHBLOCK${id}ENDMATH`;
     });
+    // Also protect inline math $...$  (run after $$ so no false matches).
+    // Content must be non-empty, contain no $, and not span paragraph breaks.
+    protectedMarkdown = protectedMarkdown.replace(/\$((?:(?!\n\n)[^$])+)\$/g, (match) => {
+        const id = mathStore.length;
+        mathStore.push(match);
+        return `MATHBLOCK${id}ENDMATH`;
+    });
 
     // Preserve extra blank lines before parsing
     const processedMarkdown = preserveBlankLines(protectedMarkdown);
