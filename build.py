@@ -10,13 +10,13 @@ INTERACTIVE MODE (default):
     
     Shows a menu to select what you want to do:
     - Local development (compile + install locally)
-    - Publish to marketplace
+    - Publish to marketplace (always bumps patch version)
     
 COMMAND LINE MODE:
     python build.py dev              # Build and install locally
-    python build.py publish          # Compile, package, publish to marketplace
+    python build.py publish          # Bump patch version and publish
     python build.py dev --clean      # Clean build + install locally
-    python build.py publish --bump patch  # Bump version and publish
+    python build.py publish --bump minor  # Bump minor version and publish
 
 OPTIONS:
     --clean           Remove build artifacts before building
@@ -496,6 +496,7 @@ def interactive_menu():
     header("Zef Extension Builder")
     
     version = get_version()
+    next_version = '.'.join(map(str, list(map(int, version.split('.')))[:2] + [int(version.split('.')[2]) + 1]))
     print(f"  Current version: {C.BOLD}{version}{C.END}")
     print(f"  Directory: {C.DIM}{ROOT}{C.END}")
     print()
@@ -504,21 +505,17 @@ def interactive_menu():
     print()
     print(f"  {C.CYAN}[1]{C.END} {C.BOLD}Local Development{C.END}")
     print(f"      {C.DIM}Compile, package, and install to your local VS Code.{C.END}")
-    print(f"      {C.DIM}Use this to test changes during development.{C.END}")
+    print(f"      {C.DIM}Does not change the version. Use this to test changes.{C.END}")
     print()
     print(f"  {C.CYAN}[2]{C.END} {C.BOLD}Publish to Marketplace{C.END}")
-    print(f"      {C.DIM}Compile, package, and publish to the VS Code Marketplace.{C.END}")
-    print(f"      {C.DIM}Makes your extension available to all VS Code users.{C.END}")
-    print()
-    print(f"  {C.CYAN}[3]{C.END} {C.BOLD}Publish with Version Bump{C.END}")
-    print(f"      {C.DIM}Bump version ({version} → {'.'.join(map(str, list(map(int, version.split('.')))[:2] + [int(version.split('.')[2]) + 1]))}), then publish.{C.END}")
-    print(f"      {C.DIM}Use this for releasing new versions.{C.END}")
+    print(f"      {C.DIM}Bumps version ({version} → {next_version}), compiles, and publishes.{C.END}")
+    print(f"      {C.DIM}Always bumps patch version to ensure no version is skipped.{C.END}")
     print()
     print(f"  {C.DIM}[q] Quit{C.END}")
     print()
     
     try:
-        choice = input(f"  {C.BOLD}Enter choice [1-3, q]:{C.END} ").strip().lower()
+        choice = input(f"  {C.BOLD}Enter choice [1-2, q]:{C.END} ").strip().lower()
     except (KeyboardInterrupt, EOFError):
         print("\n")
         sys.exit(0)
@@ -526,14 +523,12 @@ def interactive_menu():
     if choice == '1':
         workflow_dev()
     elif choice == '2':
-        workflow_publish()
-    elif choice == '3':
         workflow_publish(bump_type="patch")
     elif choice in ('q', 'quit', 'exit'):
         print()
         sys.exit(0)
     else:
-        print(f"\n  {C.RED}Invalid choice. Please enter 1, 2, 3, or q.{C.END}")
+        print(f"\n  {C.RED}Invalid choice. Please enter 1, 2, or q.{C.END}")
         sys.exit(1)
 
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -545,18 +540,19 @@ def print_help():
     print(__doc__)
     print("COMMANDS:")
     print("  dev        Build and install locally (for development)")
-    print("  publish    Build and publish to VS Code Marketplace")
+    print("  publish    Bump patch version, build, and publish to VS Code Marketplace")
     print()
     print("OPTIONS:")
     print("  --clean         Clean build artifacts first")
-    print("  --bump TYPE     Bump version before building (patch/minor/major)")
+    print("  --bump TYPE     Override bump type (patch/minor/major, default: patch)")
     print("  --help          Show this help message")
     print()
     print("EXAMPLES:")
     print("  python build.py              # Interactive menu")
     print("  python build.py dev          # Quick local build and install")
     print("  python build.py dev --clean  # Clean build, then install")
-    print("  python build.py publish --bump patch  # Bump version and publish")
+    print("  python build.py publish      # Bump patch version and publish")
+    print("  python build.py publish --bump minor  # Bump minor version and publish")
     print()
 
 def main():
@@ -589,7 +585,9 @@ def main():
     elif command_args[0] == "dev":
         workflow_dev(clean=clean, bump_type=bump_type)
     elif command_args[0] == "publish":
-        workflow_publish(clean=clean, bump_type=bump_type)
+        # Always bump when publishing (default: patch)
+        publish_bump = bump_type or "patch"
+        workflow_publish(clean=clean, bump_type=publish_bump)
     else:
         error(f"Unknown command: {command_args[0]}")
         print("  Use 'dev' for local development or 'publish' for marketplace.")
