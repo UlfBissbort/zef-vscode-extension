@@ -5,6 +5,54 @@ All notable changes to the Zef extension will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.1.23] - 2026-03-05
+
+### Added
+
+- **Python Raw String Markdown Cells**: Triple-quoted raw strings (`r"""..."""` and `r'''...'''`) after `#%%` cell separators are now rendered as markdown, in addition to regular triple-quoted strings.
+
+## [0.1.22] - 2026-03-01
+
+### Added
+
+- **Installer Vault & Config Support**: Added Step 8 to the auto-installer for vault and configuration setup.
+
+### Improved
+
+- **Better Mermaid Parsing**: Improved parsing of Mermaid diagram blocks for more reliable rendering.
+- **Better LaTeX Parsing**: Improved LaTeX math equation detection and rendering.
+- **Preview Panel Search**: Added search functionality within the preview panel.
+
+## [0.1.20] - 2026-02-26
+
+### Added
+
+- **Python `#%%` Cell Rendering**: Python files using `#%%` cell separators (IPython/VS Code style) are now rendered in the Zef View. Triple-quoted strings after separators render as markdown; other cells render as code blocks.
+- **Export to Jupyter Notebook**: New button to export Zef documents as Jupyter `.ipynb` notebooks.
+- **HTML Export**: Export rendered documents as standalone HTML files.
+- **Svelte Component Export**: Export rendered Svelte components from documents.
+- **Adjustable Export Width**: Exported documents now have adjustable width settings.
+
+## [0.1.19] - 2026-02-20
+
+### Added
+
+- **Toggle Line Comment Command**: Language-aware line comment toggling (e.g., `#` for Python, `//` for Rust/TypeScript).
+- **Follow Links in Obsidian Docs**: Clicking links in the preview now navigates within Obsidian-style documents.
+
+### Improved
+
+- **Preview Panel**: General improvements to the preview panel rendering.
+- **Centered Tables**: Markdown tables are now centered in the preview.
+- **Inline Code Styling**: Improved styling for inline code elements.
+- **Button Alignment**: Further refinements to toolbar button alignment.
+
+## [0.1.18] - 2026-02-14
+
+### Fixed
+
+- **Button Alignment**: Minor button alignment fixes in code block toolbars.
+
 ## [0.1.17] - 2026-02-13
 
 ### Added
