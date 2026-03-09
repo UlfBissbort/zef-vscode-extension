@@ -162,6 +162,60 @@ numbers.reduce((a, b) => a + b, 0);
 []
 ````
 
+---
+
+## Cross-Language Variables: TS/JS to Python
+
+This is where things get interesting. Variables defined in TypeScript or JavaScript blocks are **automatically available in Python**. Any JSON-serializable value crosses the language boundary seamlessly.
+
+### Step 1: Define data in TypeScript
+
+```typescript
+function analyzeSales(records: {region: string, revenue: number, units: number}[]) {
+    const totalRevenue = records.reduce((sum, r) => sum + r.revenue, 0)
+    const byRegion: Record<string, number> = {}
+    for (const r of records) {
+        byRegion[r.region] = (byRegion[r.region] || 0) + r.revenue
+    }
+    return { totalRevenue, byRegion }
+}
+
+const salesData = [
+    { region: "North", revenue: 48200, units: 156 },
+    { region: "South", revenue: 31800, units: 98 },
+    { region: "East",  revenue: 52100, units: 203 },
+    { region: "West",  revenue: 44500, units: 178 },
+    { region: "North", revenue: 39100, units: 142 },
+    { region: "East",  revenue: 28900, units: 112 },
+]
+
+const analysis = analyzeSales(salesData)
+const sorted = Object.entries(analysis.byRegion).sort(([,a], [,b]) => b - a)
+const topRegion = sorted[0][0]
+```
+
+### Step 2: Use it directly in Python
+
+`salesData`, `analysis`, and `topRegion` are now Python variables. No import, no file I/O, no serialization boilerplate.
+
+```python
+total = analysis['totalRevenue']
+print(f"Total revenue: ${total:,}")
+print(f"Top region: {topRegion}")
+print(f"Records: {len(salesData)}")
+
+# Use Python's strengths: list comprehensions, f-strings
+units = [r['units'] for r in salesData]
+avg_units = total / len(units)
+print(f"Avg units per record: {avg_units:.1f}")
+
+# The data is native Python — dicts, lists, strings, numbers
+[type(salesData).__name__, type(analysis).__name__, type(topRegion).__name__]
+```
+
+TypeScript handles the typed data processing. Python handles the analysis and reporting. Variables flow between them as plain JSON — `dict`, `list`, `str`, `int`, `float`, `bool`, `None`.
+
+---
 
 Or
 
@@ -225,6 +279,7 @@ Every function and value is tracked by hash. Six months later, you can reproduce
 |---|---------|-----|
 | **Editor** | Basic web UI | Full VS Code |
 | **Languages** | Python only | Python, Rust, JS/TS |
+| **Cross-language** | N/A | TS/JS variables flow into Python |
 | **Math** | MathJax in output | LaTeX in prose + output |
 | **Diagrams** | Image files | Excalidraw inline editing |
 | **State** | Hidden, fragile | Tracked, reproducible |

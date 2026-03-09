@@ -5,6 +5,8 @@ import * as path from 'path';
 import * as os from 'os';
 import * as crypto from 'crypto';
 import * as vscode from 'vscode';
+import { extractDeclaredVariables } from './evalAndCapture';
+import type { JsonValue } from './executionLog';
 
 const execAsync = promisify(exec);
 
@@ -25,6 +27,8 @@ export interface TsCellResult {
         message: string;
         traceback: string;
     } | null;
+    capturedVariables: Record<string, JsonValue>;
+    nonSerializable: string[];
 }
 
 /**
@@ -135,55 +139,82 @@ export function transformForReturn(code: string): string {
 }
 
 /**
- * Generate the TypeScript wrapper script
+ * Generate the TypeScript wrapper script.
+ * varNames: top-level variable names to capture after execution.
  */
-function generateTsWrapper(userCode: string, resultFile: string): string {
+function generateTsWrapper(userCode: string, resultFile: string, varNames: string[]): string {
     // Extract and hoist imports
     const { imports, remainingCode } = extractImports(userCode);
-    
+
     // Transform the remaining code for return
     const transformed = transformForReturn(remainingCode);
-    
+
+    // Insert capture code before the final return (added by transformForReturn) or at end.
+    // Only checks the LAST non-empty line to avoid matching return inside function bodies.
+    const lines = transformed.split('\n');
+    const captureLines = varNames.map(n =>
+        `try { const __v = ${n}; const __s = JSON.stringify(__v); if (__s !== undefined && __s.length < 1000000) __zef_captured[${JSON.stringify(n)}] = JSON.parse(__s); else __zef_nonser.push(${JSON.stringify(n)}); } catch { __zef_nonser.push(${JSON.stringify(n)}); }`
+    );
+    let lastIdx = -1;
+    for (let i = lines.length - 1; i >= 0; i--) {
+        if (lines[i].trim()) { lastIdx = i; break; }
+    }
+    if (lastIdx >= 0 && lines[lastIdx].trim().startsWith('return ')) {
+        lines.splice(lastIdx, 0, ...captureLines);
+    } else {
+        lines.push(...captureLines);
+    }
+    const codeWithCapture = lines.join('\n');
+
     // Indent user code for inside the try block
-    const indentedCode = transformed.split('\n').map(l => '        ' + l).join('\n');
-    
+    const indentedCode = codeWithCapture.split('\n').map(l => '        ' + l).join('\n');
+
     // Escape the result file path
     const escapedResultFile = resultFile.replace(/\\/g, '\\\\').replace(/'/g, "\\'");
-    
+
     // Build the complete script
     let script = `import { writeFileSync } from 'fs';
 import { inspect } from 'util';
 `;
-    
+
     // Add user imports
     if (imports.length > 0) {
         script += imports.join('\n') + '\n';
     }
-    
+
     script += `
+const __zef_captured: Record<string, any> = {};
+const __zef_nonser: string[] = [];
+
 (async () => {
     try {
 ${indentedCode}
     } catch (e: any) {
         writeFileSync('${escapedResultFile}', JSON.stringify({
             status: 'error',
-            error: { name: e.name || 'Error', message: e.message || String(e), stack: e.stack || '' }
+            error: { name: e.name || 'Error', message: e.message || String(e), stack: e.stack || '' },
+            variables: __zef_captured,
+            nonSerializable: __zef_nonser
         }));
         process.exit(0);
     }
 })().then((result) => {
     writeFileSync('${escapedResultFile}', JSON.stringify({
         status: 'ok',
-        result: result === undefined ? null : inspect(result, { depth: 5, colors: false })
+        result: result === undefined ? null : inspect(result, { depth: 5, colors: false }),
+        variables: __zef_captured,
+        nonSerializable: __zef_nonser
     }));
 }).catch((e: any) => {
     writeFileSync('${escapedResultFile}', JSON.stringify({
         status: 'error',
-        error: { name: e.name || 'Error', message: e.message || String(e), stack: e.stack || '' }
+        error: { name: e.name || 'Error', message: e.message || String(e), stack: e.stack || '' },
+        variables: __zef_captured,
+        nonSerializable: __zef_nonser
     }));
 });
 `;
-    
+
     return script;
 }
 
@@ -275,19 +306,22 @@ export async function executeTs(code: string, cellId: string): Promise<TsCellRes
     const uniqueId = crypto.randomBytes(8).toString('hex');
     const tsFile = path.join(tmpDir, `zef-ts-${uniqueId}.ts`);
     const resultFile = path.join(tmpDir, `zef-ts-result-${uniqueId}.json`);
-    
+
+    // Extract top-level variable names using the TS parser
+    const varNames = extractDeclaredVariables(code);
+
     try {
         // Get bun path
         const bunPath = await getBunPath();
-        
+
         // Generate and write the TypeScript file
-        const tsCode = generateTsWrapper(code, resultFile);
+        const tsCode = generateTsWrapper(code, resultFile, varNames);
         await fs.writeFile(tsFile, tsCode);
-        
+
         // Execute with bun
         let stdout = '';
         let stderr = '';
-        
+
         try {
             const result = await execAsync(`"${bunPath}" run "${tsFile}"`, {
                 timeout: 30000, // 30 second timeout
@@ -299,7 +333,7 @@ export async function executeTs(code: string, cellId: string): Promise<TsCellRes
             // Command failed - could be compilation or runtime error
             stdout = execError.stdout || '';
             stderr = execError.stderr || '';
-            
+
             // If no result file was created, return the error
             try {
                 await fs.access(resultFile);
@@ -316,13 +350,15 @@ export async function executeTs(code: string, cellId: string): Promise<TsCellRes
                         type: 'CompilationError',
                         message: stderr || execError.message || 'TypeScript compilation failed',
                         traceback: stderr
-                    }
+                    },
+                    capturedVariables: {},
+                    nonSerializable: []
                 };
             }
         }
-        
+
         // Read the result file
-        let resultData: { status: string; result?: string; error?: { name: string; message: string; stack?: string } };
+        let resultData: { status: string; result?: string; error?: { name: string; message: string; stack?: string }; variables?: Record<string, JsonValue>; nonSerializable?: string[] };
         try {
             const resultContent = await fs.readFile(resultFile, 'utf-8');
             resultData = JSON.parse(resultContent);
@@ -339,10 +375,15 @@ export async function executeTs(code: string, cellId: string): Promise<TsCellRes
                     type: 'ExecutionError',
                     message: 'No result produced',
                     traceback: stderr
-                }
+                },
+                capturedVariables: {},
+                nonSerializable: []
             };
         }
-        
+
+        const capturedVariables = resultData.variables || {};
+        const nonSerializable = resultData.nonSerializable || [];
+
         // Build side effects
         const sideEffects: SideEffect[] = [];
         if (stdout) {
@@ -351,7 +392,7 @@ export async function executeTs(code: string, cellId: string): Promise<TsCellRes
         if (stderr) {
             sideEffects.push({ what: 'stderr', content: stderr });
         }
-        
+
         if (resultData.status === 'ok') {
             return {
                 cell_id: cellId,
@@ -360,7 +401,9 @@ export async function executeTs(code: string, cellId: string): Promise<TsCellRes
                 stdout,
                 stderr,
                 side_effects: sideEffects,
-                error: null
+                error: null,
+                capturedVariables,
+                nonSerializable
             };
         } else {
             return {
@@ -374,7 +417,9 @@ export async function executeTs(code: string, cellId: string): Promise<TsCellRes
                     type: resultData.error?.name || 'Error',
                     message: resultData.error?.message || 'Unknown error',
                     traceback: resultData.error?.stack || ''
-                }
+                },
+                capturedVariables,
+                nonSerializable
             };
         }
         

@@ -5,6 +5,8 @@ import * as path from 'path';
 import * as os from 'os';
 import * as crypto from 'crypto';
 import * as vscode from 'vscode';
+import { extractDeclaredVariables } from './evalAndCapture';
+import type { JsonValue } from './executionLog';
 
 const execAsync = promisify(exec);
 
@@ -25,6 +27,8 @@ export interface JsCellResult {
         message: string;
         traceback: string;
     } | null;
+    capturedVariables: Record<string, JsonValue>;
+    nonSerializable: string[];
 }
 
 /**
@@ -87,19 +91,24 @@ export function transformForReturn(code: string): string {
 }
 
 /**
- * Generate the JavaScript executor script
+ * Generate the JavaScript executor script.
+ * varNames: top-level variable names to capture after execution.
  */
-function generateJsExecutor(userCodeFile: string, resultFile: string): string {
+function generateJsExecutor(userCodeFile: string, resultFile: string, varNames: string[]): string {
     // Escape paths for JavaScript string
     const escapedCodeFile = userCodeFile.replace(/\\/g, '\\\\').replace(/'/g, "\\'");
     const escapedResultFile = resultFile.replace(/\\/g, '\\\\').replace(/'/g, "\\'");
-    
+    const varNamesJson = JSON.stringify(varNames);
+
     return `
 const fs = require('fs');
 const util = require('util');
 
 const userCode = fs.readFileSync('${escapedCodeFile}', 'utf-8');
 const resultFile = '${escapedResultFile}';
+const __zef_varnames = ${varNamesJson};
+let __zef_captured = {};
+let __zef_nonser = [];
 
 // Keywords that cannot be returned - these are statements, not expressions
 const STATEMENT_KEYWORDS = [
@@ -111,54 +120,82 @@ const STATEMENT_KEYWORDS = [
 // Transform last expression for return
 function transformForReturn(code) {
     const lines = code.trimEnd().split('\\n');
-    
+
     for (let i = lines.length - 1; i >= 0; i--) {
         const line = lines[i].trim();
-        
+
         if (!line || line.startsWith('//') || line.startsWith('/*')) {
             continue;
         }
-        
+
         if (line.endsWith('}')) {
             break;
         }
-        
+
         // Check if line starts with a statement keyword
-        const startsWithKeyword = STATEMENT_KEYWORDS.some(keyword => 
+        const startsWithKeyword = STATEMENT_KEYWORDS.some(keyword =>
             line.startsWith(keyword + ' ') || line.startsWith(keyword + '(') || line === keyword
         );
         if (startsWithKeyword) {
             break;
         }
-        
+
         let modifiedLine = lines[i];
         if (line.endsWith(';')) {
             modifiedLine = modifiedLine.replace(/;\\s*$/, '');
         }
-        
+
         const trimmedModified = modifiedLine.trim();
         if (!trimmedModified.startsWith('return ') && !trimmedModified.startsWith('return;')) {
             const leadingWhitespace = modifiedLine.match(/^(\\s*)/)?.[1] || '';
             const content = modifiedLine.trim();
             modifiedLine = leadingWhitespace + 'return ' + content;
         }
-        
+
         lines[i] = modifiedLine;
         break;
     }
-    
+
+    return lines.join('\\n');
+}
+
+// Insert capture code before the final return (added by transformForReturn) or at end.
+// Only checks the LAST non-empty line to avoid matching return statements inside functions.
+function insertCapture(code) {
+    if (__zef_varnames.length === 0) return code;
+    const captureLines = __zef_varnames.map(n => {
+        return 'try { const __v = ' + n + '; const __s = JSON.stringify(__v); ' +
+               'if (__s !== undefined && __s.length < 1000000) __zef_captured[' + JSON.stringify(n) + '] = JSON.parse(__s); ' +
+               'else __zef_nonser.push(' + JSON.stringify(n) + '); ' +
+               '} catch { __zef_nonser.push(' + JSON.stringify(n) + '); }';
+    });
+    const lines = code.split('\\n');
+    // Find the last non-empty line
+    let lastIdx = -1;
+    for (let i = lines.length - 1; i >= 0; i--) {
+        if (lines[i].trim()) { lastIdx = i; break; }
+    }
+    // Only insert before it if it's a top-level return (no leading whitespace beyond the IIFE indent)
+    if (lastIdx >= 0 && lines[lastIdx].trim().startsWith('return ')) {
+        lines.splice(lastIdx, 0, ...captureLines);
+    } else {
+        lines.push(...captureLines);
+    }
     return lines.join('\\n');
 }
 
 const transformed = transformForReturn(userCode);
-const wrapped = \`(async () => {\\n\${transformed}\\n})()\`;
+const withCapture = insertCapture(transformed);
+const wrapped = \`(async () => {\\n\${withCapture}\\n})()\`;
 
 (async () => {
     try {
         const result = await eval(wrapped);
         const output = {
             status: 'ok',
-            result: result === undefined ? null : util.inspect(result, { depth: 5, colors: false })
+            result: result === undefined ? null : util.inspect(result, { depth: 5, colors: false }),
+            variables: __zef_captured,
+            nonSerializable: __zef_nonser
         };
         fs.writeFileSync(resultFile, JSON.stringify(output));
     } catch (e) {
@@ -168,7 +205,9 @@ const wrapped = \`(async () => {\\n\${transformed}\\n})()\`;
                 name: e.name || 'Error',
                 message: e.message || String(e),
                 stack: e.stack || ''
-            }
+            },
+            variables: __zef_captured,
+            nonSerializable: __zef_nonser
         };
         fs.writeFileSync(resultFile, JSON.stringify(output));
     }
@@ -256,16 +295,19 @@ export async function executeJs(code: string, cellId: string): Promise<JsCellRes
     const userCodeFile = path.join(tmpDir, `zef_js_user_${execId}.js`);
     const executorFile = path.join(tmpDir, `zef_js_executor_${execId}.js`);
     const resultFile = path.join(tmpDir, `zef_js_result_${execId}.json`);
-    
+
+    // Extract top-level variable names using the TS parser
+    const varNames = extractDeclaredVariables(code);
+
     // Get bun path
     const bunPath = await getBun();
-    
+
     try {
         // Write user code to file
         await fs.writeFile(userCodeFile, code);
-        
+
         // Generate and write executor script
-        const executorCode = generateJsExecutor(userCodeFile, resultFile);
+        const executorCode = generateJsExecutor(userCodeFile, resultFile, varNames);
         await fs.writeFile(executorFile, executorCode);
         
         // Execute with bun
@@ -290,12 +332,14 @@ export async function executeJs(code: string, cellId: string): Promise<JsCellRes
                     type: 'RuntimeError',
                     message: 'JavaScript execution failed',
                     traceback: e.stderr || e.message || 'Unknown error'
-                }
+                },
+                capturedVariables: {},
+                nonSerializable: []
             };
         }
-        
+
         // Read result from file
-        let resultData: { status: string; result?: string; error?: any } = { status: 'ok' };
+        let resultData: { status: string; result?: string; error?: any; variables?: Record<string, JsonValue>; nonSerializable?: string[] } = { status: 'ok' };
         try {
             const resultJson = await fs.readFile(resultFile, 'utf-8');
             resultData = JSON.parse(resultJson);
@@ -312,10 +356,15 @@ export async function executeJs(code: string, cellId: string): Promise<JsCellRes
                     type: 'ExecutionError',
                     message: 'Failed to get result',
                     traceback: stderr || 'Unknown error'
-                }
+                },
+                capturedVariables: {},
+                nonSerializable: []
             };
         }
-        
+
+        const capturedVariables = resultData.variables || {};
+        const nonSerializable = resultData.nonSerializable || [];
+
         // Build side effects
         const sideEffects: SideEffect[] = [];
         if (stdout.trim()) {
@@ -324,7 +373,7 @@ export async function executeJs(code: string, cellId: string): Promise<JsCellRes
         if (stderr.trim()) {
             sideEffects.push({ what: 'stderr', content: stderr.trim() });
         }
-        
+
         if (resultData.status === 'error') {
             return {
                 cell_id: cellId,
@@ -337,10 +386,12 @@ export async function executeJs(code: string, cellId: string): Promise<JsCellRes
                     type: resultData.error?.name || 'Error',
                     message: resultData.error?.message || 'Unknown error',
                     traceback: resultData.error?.stack || ''
-                }
+                },
+                capturedVariables,
+                nonSerializable
             };
         }
-        
+
         return {
             cell_id: cellId,
             status: 'ok',
@@ -348,7 +399,9 @@ export async function executeJs(code: string, cellId: string): Promise<JsCellRes
             stdout,
             stderr,
             side_effects: sideEffects,
-            error: null
+            error: null,
+            capturedVariables,
+            nonSerializable
         };
         
     } finally {

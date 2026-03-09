@@ -150,6 +150,16 @@ export class KernelManager {
                 return;
             }
 
+            // inject_variables acknowledgement
+            if (message.command === 'inject_variables') {
+                if (this.pendingResolve) {
+                    this.pendingResolve(message as any);
+                    this.pendingResolve = null;
+                    this.pendingReject = null;
+                }
+                return;
+            }
+
             // This is a cell result
             if (this.pendingResolve) {
                 this.pendingResolve(message as CellResult);
@@ -208,6 +218,55 @@ export class KernelManager {
                 clearTimeout(timeout);
                 originalResolve(result);
             };
+
+            this.process!.stdin!.write(json + '\n');
+        });
+    }
+
+    /**
+     * Inject variables into the kernel namespace.
+     * Starts the kernel if not already running.
+     */
+    async injectVariables(variables: Record<string, any>, pythonPath: string): Promise<void> {
+        if (Object.keys(variables).length === 0) {
+            return;
+        }
+
+        if (!this.isAlive() || this.pythonPath !== pythonPath) {
+            await this.start(pythonPath);
+        }
+
+        if (!this.process?.stdin) {
+            throw new Error('Kernel not available');
+        }
+
+        const request = {
+            command: 'inject_variables',
+            variables
+        };
+
+        const json = JSON.stringify(request);
+        this.outputChannel.appendLine(`[inject] ${Object.keys(variables).length} variables`);
+
+        return new Promise((resolve, reject) => {
+            this.pendingResolve = (() => {
+                resolve();
+            }) as any;
+            this.pendingReject = reject;
+
+            const timeout = setTimeout(() => {
+                if (this.pendingReject) {
+                    this.pendingReject(new Error('Variable injection timeout'));
+                    this.pendingResolve = null;
+                    this.pendingReject = null;
+                }
+            }, 10000);
+
+            const originalResolve = this.pendingResolve;
+            this.pendingResolve = ((result: any) => {
+                clearTimeout(timeout);
+                (originalResolve as any)(result);
+            }) as any;
 
             this.process!.stdin!.write(json + '\n');
         });

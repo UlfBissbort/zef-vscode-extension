@@ -176,7 +176,17 @@ def main():
             if message.get("command") == "shutdown":
                 print(json.dumps({"status": "shutdown"}), flush=True)
                 break
-            
+
+            if message.get("command") == "inject_variables":
+                variables = message.get("variables", {})
+                kernel.namespace.update(variables)
+                print(json.dumps({
+                    "status": "ok",
+                    "command": "inject_variables",
+                    "count": len(variables)
+                }), flush=True)
+                continue
+
             code = message.get("code", "")
             cell_id = message.get("cell_id", "")
             

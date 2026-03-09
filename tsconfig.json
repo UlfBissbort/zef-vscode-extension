@@ -11,5 +11,5 @@
     "skipLibCheck": true,
     "forceConsistentCasingInFileNames": true
   },
-  "exclude": ["node_modules", ".vscode-test", "svelte-compiler", "webview-excalidraw"]
+  "exclude": ["node_modules", ".vscode-test", "svelte-compiler", "webview-excalidraw", "test"]
 }

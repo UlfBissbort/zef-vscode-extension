@@ -10,6 +10,7 @@ import { executeJs, JsCellResult, isBunAvailable } from './jsExecutor';
 import { executeTs, TsCellResult, isBunAvailable as isTsBunAvailable } from './tsExecutor';
 import { compileSvelteComponent, SvelteCompileResult } from './svelteExecutor';
 import { checkInstallation, runInstallation, installCli } from './installer';
+import { pushRecord, resetLog, getLog, contentHash } from './executionLog';
 import { isZefDocument, isZefUri } from './zefUtils';
 import { ZefSettingsViewProvider } from './settingsViewProvider';
 import { initJsonValidator, disposeJsonValidator } from './jsonValidator';
@@ -507,6 +508,7 @@ export function activate(context: vscode.ExtensionContext) {
             const kernel = getKernelManager(context.extensionPath);
             try {
                 await kernel.restart();
+                resetLog();
                 vscode.window.showInformationMessage('Zef: Kernel restarted');
             } catch (e: any) {
                 vscode.window.showErrorMessage(`Zef: Failed to restart kernel - ${e.message}`);
@@ -798,19 +800,37 @@ async function runCodeInKernel(context: vscode.ExtensionContext, code: string, b
     try {
         // Show running indicator
         vscode.window.setStatusBarMessage('$(sync~spin) Running code...', 5000);
-        
+
+        // Inject variables from JS/TS blocks into the Python kernel
+        const pendingVars = getLog().mergedNamespace;
+        if (Object.keys(pendingVars).length > 0) {
+            await kernel.injectVariables(pendingVars, finalPythonPath);
+        }
+
+        const startTime = Date.now();
         const result = await kernel.execute(code, cellId, finalPythonPath);
-        
+        const durationMs = Date.now() - startTime;
+
+        // Record Python execution in log (no captured variables for now)
+        pushRecord({
+            language: 'python',
+            contentHash: contentHash(code),
+            capturedVariables: {},
+            nonSerializable: [],
+            executedAt: startTime,
+            durationMs
+        });
+
         // Send result to preview panel for the specific document
         if (blockId !== undefined) {
             sendCellResult(blockId, result, documentUri);
         }
-        
+
         // Write result to the file as an Output block
         if (blockId !== undefined) {
             await writeOutputToFile(blockId, result, documentUri);
         }
-        
+
         if (result.status === 'error' && result.error) {
             vscode.window.showErrorMessage(`Zef: ${result.error.type}: ${result.error.message}`);
         } else {
@@ -890,9 +910,21 @@ async function runJsCode(context: vscode.ExtensionContext, code: string, blockId
     try {
         // Show running indicator
         vscode.window.setStatusBarMessage('$(sync~spin) Running JavaScript...', 5000);
-        
+
+        const startTime = Date.now();
         const result = await executeJs(code, cellId);
-        
+        const durationMs = Date.now() - startTime;
+
+        // Record in execution log
+        pushRecord({
+            language: 'js',
+            contentHash: contentHash(code),
+            capturedVariables: result.capturedVariables,
+            nonSerializable: result.nonSerializable,
+            executedAt: startTime,
+            durationMs
+        });
+
         // Convert JsCellResult to CellResult format for compatibility
         const cellResult: CellResult = {
             cell_id: result.cell_id,
@@ -903,17 +935,17 @@ async function runJsCode(context: vscode.ExtensionContext, code: string, blockId
             side_effects: result.side_effects,
             error: result.error
         };
-        
+
         // Send result to preview panel for the specific document
         if (blockId !== undefined) {
             sendCellResult(blockId, cellResult, documentUri);
         }
-        
+
         // Write result to the file as an Output block
         if (blockId !== undefined) {
             await writeOutputToFile(blockId, cellResult, documentUri);
         }
-        
+
         if (result.status === 'error' && result.error) {
             vscode.window.showErrorMessage(`Zef JS: ${result.error.type}: ${result.error.message}`);
         } else {
@@ -940,9 +972,21 @@ async function runTsCode(context: vscode.ExtensionContext, code: string, blockId
     try {
         // Show running indicator
         vscode.window.setStatusBarMessage('$(sync~spin) Running TypeScript...', 5000);
-        
+
+        const startTime = Date.now();
         const result = await executeTs(code, cellId);
-        
+        const durationMs = Date.now() - startTime;
+
+        // Record in execution log
+        pushRecord({
+            language: 'ts',
+            contentHash: contentHash(code),
+            capturedVariables: result.capturedVariables,
+            nonSerializable: result.nonSerializable,
+            executedAt: startTime,
+            durationMs
+        });
+
         // Convert TsCellResult to CellResult format for compatibility
         const cellResult: CellResult = {
             cell_id: result.cell_id,
@@ -953,17 +997,17 @@ async function runTsCode(context: vscode.ExtensionContext, code: string, blockId
             side_effects: result.side_effects,
             error: result.error
         };
-        
+
         // Send result to preview panel for the specific document
         if (blockId !== undefined) {
             sendCellResult(blockId, cellResult, documentUri);
         }
-        
+
         // Write result to the file as an Output block
         if (blockId !== undefined) {
             await writeOutputToFile(blockId, cellResult, documentUri);
         }
-        
+
         if (result.status === 'error' && result.error) {
             vscode.window.showErrorMessage(`Zef TS: ${result.error.type}: ${result.error.message}`);
         } else {
