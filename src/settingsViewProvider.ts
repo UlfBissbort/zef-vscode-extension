@@ -3,6 +3,7 @@ import { isRustAvailable } from './rustExecutor';
 import { isBunAvailable } from './jsExecutor';
 import { getPythonPath, getNotebookVenv } from './configManager';
 import { ZefWebSocketService } from './wsService';
+import { TokoloshService } from './tokoloshService';
 
 /**
  * Provider for the Zef sidebar webview with Status and Settings tabs
@@ -14,13 +15,18 @@ export class ZefSettingsViewProvider implements vscode.WebviewViewProvider {
     private _extensionUri: vscode.Uri;
     private _activeTab: 'status' | 'settings' = 'status';
     private _wsService: ZefWebSocketService;
+    private _tokoloshService: TokoloshService;
 
     constructor(extensionUri: vscode.Uri) {
         this._extensionUri = extensionUri;
         this._wsService = ZefWebSocketService.getInstance();
+        this._tokoloshService = TokoloshService.getInstance();
         
-        // Set up status change callback
+        // Set up status change callbacks
         this._wsService.setStatusCallback(() => {
+            this._refreshView();
+        });
+        this._tokoloshService.setStatusCallback(() => {
             this._refreshView();
         });
     }
@@ -475,6 +481,13 @@ export class ZefSettingsViewProvider implements vscode.WebviewViewProvider {
             ? (wsConnected ? 'Connected' : (wsError || 'Connecting...'))
             : 'Disconnected';
 
+        // Tokolosh (local) connection status
+        const tokoloshConnected = this._tokoloshService.isConnected;
+        const tokoloshPort = this._tokoloshService.port;
+        const tokoloshStatusClass = tokoloshConnected ? 'connected' : 'disconnected';
+        const tokoloshStatusText = tokoloshConnected ? 'Connected' : 'Not running';
+        const tokoloshUrl = tokoloshConnected ? `ws://127.0.0.1:${tokoloshPort}/ws` : 'Scans ports 27021–27040';
+
         return `
             <h2>Connection</h2>
             <div class="connection-card">
@@ -486,6 +499,16 @@ export class ZefSettingsViewProvider implements vscode.WebviewViewProvider {
                 <div class="connection-status">
                     <span class="status-dot ${statusClass}"></span>
                     <span>${statusText}</span>
+                </div>
+            </div>
+            <div class="connection-card" style="margin-top: 8px;">
+                <div class="connection-header">
+                    <span class="connection-title">Tokolosh (local)</span>
+                </div>
+                <div class="connection-url">${tokoloshUrl}</div>
+                <div class="connection-status">
+                    <span class="status-dot ${tokoloshStatusClass}"></span>
+                    <span>${tokoloshStatusText}</span>
                 </div>
             </div>
         `;

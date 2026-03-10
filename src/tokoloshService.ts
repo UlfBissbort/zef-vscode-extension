@@ -174,6 +174,7 @@ export class TokoloshService {
     private cache: Map<string, string> = new Map(); // fullUri → data URI
     private pendingRequests: PendingRequest[] = [];
     private connecting: Promise<boolean> | null = null;
+    private statusCallback: (() => void) | null = null;
 
     private constructor() {}
 
@@ -186,6 +187,20 @@ export class TokoloshService {
 
     public get isConnected(): boolean {
         return this.connected && this.handshakeComplete;
+    }
+
+    /** Get the port the tokolosh is connected on, or null. */
+    public get port(): number | null {
+        return this.connectedPort;
+    }
+
+    /** Set a callback to be notified when connection status changes. */
+    public setStatusCallback(callback: () => void): void {
+        this.statusCallback = callback;
+    }
+
+    private notifyStatusChange(): void {
+        if (this.statusCallback) { this.statusCallback(); }
     }
 
     /** Try to connect to the tokolosh. Returns true if connected. */
@@ -249,6 +264,7 @@ export class TokoloshService {
                     clearTimeout(timeout);
                     debugLog('Handshake complete, tokolosh v' + (msg.version || '?'));
                     resolve(true);
+                    this.notifyStatusChange();
                     return;
                 }
 
@@ -268,6 +284,7 @@ export class TokoloshService {
                     req.reject(new Error('Connection closed'));
                 }
                 this.pendingRequests = [];
+                this.notifyStatusChange();
             });
 
             ws.on('error', (err) => {
