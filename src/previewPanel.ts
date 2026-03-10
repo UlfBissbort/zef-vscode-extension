@@ -7,7 +7,7 @@ import { stripFrontmatter, getDocumentSettings, updateDocumentSetting, ZefSettin
 import { ExcalidrawEditorPanel, generateExcalidrawUid } from './excalidrawEditorPanel';
 import { generateNotebook, parseMarkdownCells, parsePythonCells, parsePythonLegacyCells } from './notebookExport';
 import { detectFeatures, inlineKatexFonts, generateStandaloneHtml, embedRenderedBlocks, SvelteBlockExport, HtmlExportInput } from './htmlExport';
-import { TokoloshService, parseZefUri, zefTypeToMime, buildDataUri, buildPlaceholderDataUri, debugLog } from './tokoloshService';
+import { TokoloshService, parseZefUri, zefTypeToMime, buildDataUri, buildPlaceholderDataUri, debugLog, extractFigureRefs } from './tokoloshService';
 
 // Map of document URI string to its panel
 const panels: Map<string, vscode.WebviewPanel> = new Map();
@@ -867,6 +867,7 @@ export async function updatePreview(document: vscode.TextDocument) {
     const existingResults: { [blockId: number]: string } = {};
     const existingSideEffects: { [blockId: number]: string } = {};
     const existingRenderedHtml: { [blockId: number]: string } = {};
+    const existingFigures: { [blockId: number]: string[] } = {};
     let codeBlockIndex = 0;
     
     // Find all executable code blocks and their associated output blocks
@@ -884,6 +885,29 @@ export async function updatePreview(document: vscode.TextDocument) {
         }
         if (match[6]) {  // Has rendered-html block
             existingRenderedHtml[codeBlockIndex] = match[6].trim();
+        }
+    }
+    
+    // Resolve matplotlib figure hashes from side effects
+    const service = TokoloshService.getInstance();
+    for (const [blockIdStr, seText] of Object.entries(existingSideEffects)) {
+        const figRefs = extractFigureRefs(seText);
+        if (figRefs.length > 0) {
+            const dataUris: string[] = [];
+            for (const ref of figRefs) {
+                try {
+                    const result = await service.resolveImage(ref.type, ref.hash);
+                    if (result) {
+                        const mime = zefTypeToMime(ref.type);
+                        dataUris.push(buildDataUri(mime, result));
+                    }
+                } catch (_e) {
+                    // Hash store not available
+                }
+            }
+            if (dataUris.length > 0) {
+                existingFigures[Number(blockIdStr)] = dataUris;
+            }
         }
     }
     
@@ -954,7 +978,7 @@ export async function updatePreview(document: vscode.TextDocument) {
     // Get document settings from frontmatter
     const documentSettings = getDocumentSettings(text);
     
-    panel.webview.html = getWebviewContent(html, existingResults, existingSideEffects, mermaidUri, existingRenderedHtml, documentSettings, katexCssUri, katexJsUri, katexAutoRenderUri, katexFontsUri, excalidrawEditorJsUri, excalidrawEditorCssUri, excalidrawEditorBaseUri, blockSourceLines);
+    panel.webview.html = getWebviewContent(html, existingResults, existingSideEffects, mermaidUri, existingRenderedHtml, documentSettings, katexCssUri, katexJsUri, katexAutoRenderUri, katexFontsUri, excalidrawEditorJsUri, excalidrawEditorCssUri, excalidrawEditorBaseUri, blockSourceLines, existingFigures);
 }
 
 /**
@@ -1473,7 +1497,7 @@ function convertImagePaths(html: string, docDir: string, webview: vscode.Webview
     });
 }
 
-function getWebviewContent(renderedHtml: string, existingOutputs: { [blockId: number]: string } = {}, existingSideEffects: { [blockId: number]: string } = {}, mermaidUri: string = '', existingRenderedHtml: { [blockId: number]: string } = {}, documentSettings: ZefSettings = {}, katexCssUri: string = '', katexJsUri: string = '', katexAutoRenderUri: string = '', katexFontsUri: string = '', excalidrawEditorJsUri: string = '', excalidrawEditorCssUri: string = '', excalidrawEditorBaseUri: string = '', blockSourceLines: number[] = []): string {
+function getWebviewContent(renderedHtml: string, existingOutputs: { [blockId: number]: string } = {}, existingSideEffects: { [blockId: number]: string } = {}, mermaidUri: string = '', existingRenderedHtml: { [blockId: number]: string } = {}, documentSettings: ZefSettings = {}, katexCssUri: string = '', katexJsUri: string = '', katexAutoRenderUri: string = '', katexFontsUri: string = '', excalidrawEditorJsUri: string = '', excalidrawEditorCssUri: string = '', excalidrawEditorBaseUri: string = '', blockSourceLines: number[] = [], existingFigures: { [blockId: number]: string[] } = {}): string {
     // Get the view width setting
     const widthPercent = vscode.workspace.getConfiguration('zef').get('viewWidthPercent', 100) as number;
     const maxWidth = Math.round(680 * widthPercent / 100);
@@ -1486,6 +1510,7 @@ function getWebviewContent(renderedHtml: string, existingOutputs: { [blockId: nu
     const renderedHtmlJson = escapeForScript(JSON.stringify(existingRenderedHtml));
     const documentSettingsJson = escapeForScript(JSON.stringify(documentSettings));
     const blockSourceLinesJson = escapeForScript(JSON.stringify(blockSourceLines));
+    const figuresJson = escapeForScript(JSON.stringify(existingFigures));
 
     return `<!DOCTYPE html>
 <html lang="en">
@@ -4018,6 +4043,7 @@ function getWebviewContent(renderedHtml: string, existingOutputs: { [blockId: nu
             var existingOutputs = ${outputsJson};
             var existingSideEffects = ${sideEffectsJson};
             var existingRenderedHtml = ${renderedHtmlJson};
+            var existingFigures = ${figuresJson};
             
             // Add language data attributes to pre elements
             document.querySelectorAll('pre code').forEach(function(block) {
@@ -5175,6 +5201,19 @@ function getWebviewContent(renderedHtml: string, existingOutputs: { [blockId: nu
                 } else {
                     outputHtml += '<span style="color: var(--text-dim); font-style: italic;">No result yet. Click Run to execute.</span>';
                 }
+                
+                // Show persisted matplotlib figures resolved from hash store
+                var blockFigures = (currentBlockId !== null && existingFigures[currentBlockId]) 
+                    ? existingFigures[currentBlockId] 
+                    : null;
+                if (blockFigures) {
+                    for (var fi = 0; fi < blockFigures.length; fi++) {
+                        outputHtml += '<div style="margin-top: 12px;">' +
+                            '<img src="' + blockFigures[fi] + '" style="max-width: 100%; border-radius: 4px;" />' +
+                            '</div>';
+                    }
+                }
+                
                 outputHtml += '</div></div>';
                 outputContent.innerHTML = outputHtml;
                 

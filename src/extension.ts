@@ -837,6 +837,26 @@ async function runCodeInKernel(context: vscode.ExtensionContext, code: string, b
         const result = await kernel.execute(code, cellId, finalPythonPath);
         const durationMs = Date.now() - startTime;
 
+        // Upload matplotlib figures to hash store and add as side effects
+        if (result.figures && result.figures.length > 0) {
+            const service = TokoloshService.getInstance();
+            for (const fig of result.figures) {
+                try {
+                    const buffer = Buffer.from(fig.data, 'base64');
+                    const zefType = mimeToZefType(fig.mime);
+                    const hash = await service.uploadImage(zefType, buffer);
+                    if (hash) {
+                        result.side_effects.push({
+                            what: 'matplotlib_figure',
+                            content: `${zefType}('🗿-${hash}')`
+                        });
+                    }
+                } catch (_e) {
+                    // Hash store not available — figures still display via base64
+                }
+            }
+        }
+
         // Record Python execution in log (no captured variables for now)
         pushRecord({
             language: 'python',

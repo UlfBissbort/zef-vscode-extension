@@ -147,6 +147,21 @@ export function extractZefImageRefs(html: string): Array<{ type: string; hash: s
     return refs;
 }
 
+/**
+ * Extract matplotlib figure hashes from a persisted side effects text block.
+ * Looks for patterns like: what='matplotlib_figure', content='PngImage(🗿-<hash>)'
+ * Returns the type and full hash string for each figure.
+ */
+export function extractFigureRefs(sideEffectsText: string): Array<{ type: string; hash: string }> {
+    const refs: Array<{ type: string; hash: string }> = [];
+    const figRegex = /what='matplotlib_figure'[\s\S]*?content='(\w+)\('(🗿-[0-9a-fA-F]{64})'\)'/g;
+    let match;
+    while ((match = figRegex.exec(sideEffectsText)) !== null) {
+        refs.push({ type: match[1], hash: match[2] });
+    }
+    return refs;
+}
+
 // ────────────────────────────────────────────────────────────────────
 // TokoloshService — singleton managing WS connection + caching
 // ────────────────────────────────────────────────────────────────────
