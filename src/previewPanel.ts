@@ -2323,19 +2323,57 @@ function getWebviewContent(renderedHtml: string, existingOutputs: { [blockId: nu
             left: 0;
             width: 100%;
             height: 100%;
-            background: rgba(0,0,0,0.85);
+            background-color: rgba(0, 0, 0, 0.2);
+            backdrop-filter: blur(5px);
             display: flex;
             align-items: center;
             justify-content: center;
             z-index: 9999;
             cursor: zoom-out;
-            backdrop-filter: blur(4px);
+            opacity: 0;
+            transition: opacity 0.3s ease;
         }
-        .figure-modal-overlay img {
-            max-width: 95vw;
-            max-height: 92vh;
+        .figure-modal-overlay.active {
+            opacity: 1;
+        }
+        .figure-modal-content {
+            max-width: 90%;
+            max-height: 90vh;
+            transform: scale(0.95);
+            transition: transform 0.3s ease;
+            filter: drop-shadow(0 0 20px rgba(255, 255, 255, 0.07));
+        }
+        .figure-modal-overlay.active .figure-modal-content {
+            transform: scale(1);
+        }
+        .figure-modal-content img {
+            max-width: 100%;
+            max-height: 88vh;
+            object-fit: contain;
             border-radius: 8px;
-            box-shadow: 0 8px 40px rgba(0,0,0,0.6);
+            box-shadow: 0 0 30px rgba(0, 0, 0, 0.2);
+        }
+        .figure-modal-close {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            width: 36px;
+            height: 36px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            background-color: rgba(0, 0, 0, 0.5);
+            border-radius: 50%;
+            border: none;
+            font-size: 22px;
+            opacity: 0.8;
+            transition: opacity 0.2s ease, transform 0.2s ease;
+        }
+        .figure-modal-close:hover {
+            opacity: 1;
+            transform: scale(1.1);
         }
         .figure-tabbed {
             margin-top: 12px;
@@ -4023,19 +4061,32 @@ function getWebviewContent(renderedHtml: string, existingOutputs: { [blockId: nu
             if (!img) return;
             var overlay = document.createElement('div');
             overlay.className = 'figure-modal-overlay';
+            var closeBtn = document.createElement('button');
+            closeBtn.className = 'figure-modal-close';
+            closeBtn.innerHTML = '&times;';
+            var content = document.createElement('div');
+            content.className = 'figure-modal-content';
             var modalImg = document.createElement('img');
             modalImg.src = img.src;
-            overlay.appendChild(modalImg);
-            overlay.addEventListener('click', function() {
-                overlay.remove();
+            content.appendChild(modalImg);
+            overlay.appendChild(closeBtn);
+            overlay.appendChild(content);
+            function closeModal() {
+                overlay.classList.remove('active');
+                setTimeout(function() { overlay.remove(); }, 300);
+            }
+            overlay.addEventListener('click', function(e) {
+                if (e.target === overlay || e.target === closeBtn) closeModal();
             });
+            closeBtn.addEventListener('click', closeModal);
             document.addEventListener('keydown', function handler(e) {
                 if (e.key === 'Escape') {
-                    overlay.remove();
+                    closeModal();
                     document.removeEventListener('keydown', handler);
                 }
             });
             document.body.appendChild(overlay);
+            requestAnimationFrame(function() { overlay.classList.add('active'); });
         }
 
         // Switch between Image and Data View tabs on figures
