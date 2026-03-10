@@ -2230,6 +2230,44 @@ function getWebviewContent(renderedHtml: string, existingOutputs: { [blockId: nu
             letter-spacing: 0.1em;
             color: var(--text-dim);
             margin-bottom: 0.5rem;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 4px;
+            user-select: none;
+        }
+        .effects-label:hover {
+            color: var(--text-muted);
+        }
+        .effects-toggle {
+            display: inline-block;
+            font-size: 0.72rem;
+            transition: transform 0.2s ease;
+            position: relative;
+            top: -1px;
+        }
+        .side-effects-section.collapsed .effects-toggle {
+            transform: rotate(-90deg);
+        }
+        .side-effects-body {
+            overflow: hidden;
+            transition: max-height 0.3s ease;
+        }
+        .side-effects-section.collapsed .side-effects-body {
+            display: none;
+        }
+        .side-effects-collapsed-indicator {
+            display: none;
+            color: var(--text-dim);
+            font-size: 1.05rem;
+            letter-spacing: 0.15em;
+            text-align: center;
+            padding: 0;
+            line-height: 1;
+            opacity: 0.5;
+        }
+        .side-effects-section.collapsed .side-effects-collapsed-indicator {
+            display: block;
         }
         .code-block-output-area:hover .code-copy-btn {
             opacity: 0.75;
@@ -4056,6 +4094,11 @@ function getWebviewContent(renderedHtml: string, existingOutputs: { [blockId: nu
             }
         }
 
+        function toggleSideEffects(el) {
+            var section = el.closest('.side-effects-section');
+            if (section) section.classList.toggle('collapsed');
+        }
+
         function expandFigure(button) {
             var img = button.closest('.figure-wrapper').querySelector('img');
             if (!img) return;
@@ -5502,9 +5545,11 @@ function getWebviewContent(renderedHtml: string, existingOutputs: { [blockId: nu
                 // Side Effects section: each ET.* entry rendered as its own UI component in order
                 outputHtml += '<div id="side-effects-value-' + currentBlockId + '">';
                 if (hasSideEffects) {
-                    outputHtml += '<div class="side-effects-separator">' +
-                        '<div class="effects-label">Side Effects</div>' +
-                        '</div>';
+                    outputHtml += '<div class="side-effects-section">' +
+                        '<div class="side-effects-separator">' +
+                        '<div class="effects-label" onclick="toggleSideEffects(this)"><span class="effects-toggle">&#9660;</span> Side Effects</div>' +
+                        '</div>' +
+                        '<div class="side-effects-body">';
                     
                     var blockFigureData = (currentBlockId !== null && existingFigureData[currentBlockId])
                         ? existingFigureData[currentBlockId]
@@ -5567,6 +5612,9 @@ function getWebviewContent(renderedHtml: string, existingOutputs: { [blockId: nu
                                 '</div>';
                         }
                     }
+                    outputHtml += '</div>'; // close side-effects-body
+                    outputHtml += '<div class="side-effects-collapsed-indicator">&#8942;</div>';
+                    outputHtml += '</div>'; // close side-effects-section
                 }
                 outputHtml += '</div>';
                 
@@ -5772,7 +5820,9 @@ function getWebviewContent(renderedHtml: string, existingOutputs: { [blockId: nu
                         var hasEffects = result.side_effects && result.side_effects.length > 0;
                         
                         if (hasFigures || hasEffects) {
-                            var seHtml = '<div class="side-effects-separator"><div class="effects-label">Side Effects</div></div>';
+                            var seHtml = '<div class="side-effects-section">' +
+                                '<div class="side-effects-separator"><div class="effects-label" onclick="toggleSideEffects(this)"><span class="effects-toggle">&#9660;</span> Side Effects</div></div>' +
+                                '<div class="side-effects-body">';
                             
                             if (hasEffects) {
                                 var figIdx = 0;
@@ -5838,6 +5888,9 @@ function getWebviewContent(renderedHtml: string, existingOutputs: { [blockId: nu
                                 });
                             }
                             
+                            seHtml += '</div>'; // close side-effects-body
+                            seHtml += '<div class="side-effects-collapsed-indicator">&#8942;</div>';
+                            seHtml += '</div>'; // close side-effects-section
                             sideEffectsValue.innerHTML = seHtml;
                         } else {
                             sideEffectsValue.innerHTML = '';
