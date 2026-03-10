@@ -19,7 +19,7 @@ import { TokoloshService, mimeToZefType, buildZefMarkdownLink } from './tokolosh
 
 let statusBarItem: vscode.StatusBarItem;
 
-// Document paste provider for handling image paste in .zef.md files
+// Document paste provider for handling image paste in .zef.md and other files
 class ZefImagePasteProvider implements vscode.DocumentPasteEditProvider {
     async provideDocumentPasteEdits(
         document: vscode.TextDocument,
@@ -28,6 +28,14 @@ class ZefImagePasteProvider implements vscode.DocumentPasteEditProvider {
         _context: vscode.DocumentPasteEditContext,
         token: vscode.CancellationToken
     ): Promise<vscode.DocumentPasteEdit[] | undefined> {
+        // For non-zef-markdown files, check the setting dynamically
+        const isZefMd = document.languageId === 'zef-markdown';
+        if (!isZefMd) {
+            const config = vscode.workspace.getConfiguration('zef');
+            if (!config.get<boolean>('allowImagePasteInAllFiles', true)) {
+                return undefined;
+            }
+        }
         // Check for image data in clipboard
         const pngItem = dataTransfer.get('image/png');
         const jpegItem = dataTransfer.get('image/jpeg');
@@ -280,35 +288,23 @@ export function activate(context: vscode.ExtensionContext) {
         })
     );
 
-    // Register image paste provider for zef-markdown files (and other file types when enabled)
+    // Register image paste provider for zef-markdown and other file types
+    // (setting check happens dynamically inside the provider)
     const imagePasteProvider = new ZefImagePasteProvider();
     const pasteProviderOpts = {
         providedPasteEditKinds: [vscode.DocumentDropOrPasteEditKind.Empty],
         pasteMimeTypes: ['image/png', 'image/jpeg', 'image/gif', 'image/*']
     };
 
-    // Always register for zef-markdown
-    context.subscriptions.push(
-        vscode.languages.registerDocumentPasteEditProvider(
-            { language: 'zef-markdown' },
-            imagePasteProvider,
-            pasteProviderOpts
-        )
-    );
-
-    // Register for additional file types if setting enabled
-    const config = vscode.workspace.getConfiguration('zef');
-    if (config.get<boolean>('allowImagePasteInAllFiles', true)) {
-        const extraLanguages = ['markdown', 'python', 'rust', 'typescript', 'javascript'];
-        for (const lang of extraLanguages) {
-            context.subscriptions.push(
-                vscode.languages.registerDocumentPasteEditProvider(
-                    { language: lang },
-                    imagePasteProvider,
-                    pasteProviderOpts
-                )
-            );
-        }
+    const pasteLanguages = ['zef-markdown', 'markdown', 'python', 'rust', 'typescript', 'javascript'];
+    for (const lang of pasteLanguages) {
+        context.subscriptions.push(
+            vscode.languages.registerDocumentPasteEditProvider(
+                { language: lang },
+                imagePasteProvider,
+                pasteProviderOpts
+            )
+        );
     }
 
     // Register CodeLens provider for .zef.md files (and .md files when setting enabled)
