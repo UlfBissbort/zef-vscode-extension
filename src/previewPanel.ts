@@ -5340,8 +5340,8 @@ function getWebviewContent(renderedHtml: string, existingOutputs: { [blockId: nu
                         var dataText = (blockFigureData && blockFigureData[fi]) ? blockFigureData[fi] : '';
                         outputHtml += '<div class="figure-tabbed">' +
                             '<div class="figure-tab-bar">' +
-                            '<button class="figure-tab active" onclick="switchFigureTab(this, \'image\')">Image</button>' +
-                            '<button class="figure-tab" onclick="switchFigureTab(this, \'data\')">Data View</button>' +
+                            '<button class="figure-tab active" onclick="switchFigureTab(this, &#39;image&#39;)">Image</button>' +
+                            '<button class="figure-tab" onclick="switchFigureTab(this, &#39;data&#39;)">Data View</button>' +
                             '</div>' +
                             '<div class="figure-panel active" data-panel="image">' +
                             '<div class="figure-wrapper">' +
@@ -5571,8 +5571,8 @@ function getWebviewContent(renderedHtml: string, existingOutputs: { [blockId: nu
                                         "ET.UnmanagedEffect(what='" + mplEffect.what + "', content=" + mplEffect.content + ")" : '';
                                     html += '<div class="figure-tabbed">' +
                                             '<div class="figure-tab-bar">' +
-                                            '<button class="figure-tab active" onclick="switchFigureTab(this, \'image\')">Image</button>' +
-                                            '<button class="figure-tab" onclick="switchFigureTab(this, \'data\')">Data View</button>' +
+                                            '<button class="figure-tab active" onclick="switchFigureTab(this, &#39;image&#39;)">Image</button>' +
+                                            '<button class="figure-tab" onclick="switchFigureTab(this, &#39;data&#39;)">Data View</button>' +
                                             '</div>' +
                                             '<div class="figure-panel active" data-panel="image">' +
                                             '<div class="figure-wrapper">' +
