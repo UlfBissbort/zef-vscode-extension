@@ -896,13 +896,12 @@ export async function updatePreview(document: vscode.TextDocument) {
             const dataUris: string[] = [];
             for (const ref of figRefs) {
                 try {
-                    const result = await service.resolveImage(ref.type, ref.hash);
-                    if (result) {
-                        const mime = zefTypeToMime(ref.type);
-                        dataUris.push(buildDataUri(mime, result));
+                    const dataUri = await service.resolveImage(ref.type, ref.hash);
+                    if (dataUri) {
+                        dataUris.push(dataUri);
                     }
-                } catch (_e) {
-                    // Hash store not available
+                } catch (e: any) {
+                    // figure resolution failed silently
                 }
             }
             if (dataUris.length > 0) {
