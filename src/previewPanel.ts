@@ -2229,6 +2229,54 @@ function getWebviewContent(renderedHtml: string, existingOutputs: { [blockId: nu
         .code-block-output-area:hover .code-copy-btn {
             opacity: 0.75;
         }
+        .figure-wrapper {
+            position: relative;
+            margin-top: 12px;
+            display: inline-block;
+        }
+        .figure-wrapper .figure-copy-btn {
+            position: absolute;
+            top: 8px;
+            right: 8px;
+            width: 28px;
+            height: 28px;
+            background: rgba(0,0,0,0.6);
+            border: 1px solid rgba(255,255,255,0.15);
+            border-radius: 6px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            opacity: 0;
+            transition: opacity 0.2s;
+            padding: 4px;
+            z-index: 2;
+        }
+        .figure-wrapper:hover .figure-copy-btn {
+            opacity: 0.75;
+        }
+        .figure-wrapper .figure-copy-btn:hover {
+            opacity: 1;
+            background: rgba(0,0,0,0.8);
+            border-color: rgba(255,255,255,0.3);
+        }
+        .figure-wrapper .figure-copy-btn svg {
+            width: 16px;
+            height: 16px;
+            fill: none;
+            stroke: #ccc;
+            stroke-width: 2;
+            stroke-linecap: round;
+            stroke-linejoin: round;
+        }
+        .figure-wrapper .figure-copy-btn.copied {
+            opacity: 1;
+            background: rgba(60, 120, 80, 0.85);
+            border-color: rgba(152, 195, 121, 0.5);
+        }
+        .figure-wrapper .figure-copy-btn.copied svg {
+            stroke: #fff;
+        }
 
         blockquote {
             border-left: 3px solid #3a404f;
@@ -3842,6 +3890,14 @@ function getWebviewContent(renderedHtml: string, existingOutputs: { [blockId: nu
             }
         }
 
+        // Copy figure image to clipboard (for matplotlib figures in output area)
+        async function copyFigure(button) {
+            var img = button.closest('.figure-wrapper').querySelector('img');
+            if (img) {
+                await copyImage(button, img.src);
+            }
+        }
+
         // Copy code block text to clipboard
         async function copyCodeBlock(button) {
             try {
@@ -5217,8 +5273,9 @@ function getWebviewContent(renderedHtml: string, existingOutputs: { [blockId: nu
                 // Matplotlib figures
                 if (blockFigures) {
                     for (var fi = 0; fi < blockFigures.length; fi++) {
-                        outputHtml += '<div style="margin-top: 12px;">' +
+                        outputHtml += '<div class="figure-wrapper">' +
                             '<img src="' + blockFigures[fi] + '" style="max-width: 100%; border-radius: 4px;" />' +
+                            '<button class="figure-copy-btn" onclick="copyFigure(this)" title="Copy image"><svg viewBox="0 0 24 24"><rect x="8" y="6" width="12" height="15" rx="1.5" ry="1.5"></rect><path d="M4 18V5a1.5 1.5 0 0 1 1.5-1.5h9"></path></svg></button>' +
                             '</div>';
                     }
                 }
@@ -5232,9 +5289,6 @@ function getWebviewContent(renderedHtml: string, existingOutputs: { [blockId: nu
                         '</div>';
                 }
                 outputHtml += '</div>';
-                
-                // Copy button for output area
-                outputHtml += codeCopyBtnHtml;
                 
                 outputArea.innerHTML = outputHtml;
                 
@@ -5421,9 +5475,10 @@ function getWebviewContent(renderedHtml: string, existingOutputs: { [blockId: nu
                             // Show matplotlib figures if any
                             if (result.figures && result.figures.length > 0) {
                                 result.figures.forEach(function(fig) {
-                                    html += '<div style="margin-top: 12px;">' +
+                                    html += '<div class="figure-wrapper">' +
                                             '<img src="data:' + fig.mime + ';base64,' + fig.data + '" ' +
                                             'style="max-width: 100%; border-radius: 4px;" />' +
+                                            '<button class="figure-copy-btn" onclick="copyFigure(this)" title="Copy image"><svg viewBox="0 0 24 24"><rect x="8" y="6" width="12" height="15" rx="1.5" ry="1.5"></rect><path d="M4 18V5a1.5 1.5 0 0 1 1.5-1.5h9"></path></svg></button>' +
                                             '</div>';
                                 });
                             }
