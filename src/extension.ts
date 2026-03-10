@@ -848,7 +848,7 @@ async function runCodeInKernel(context: vscode.ExtensionContext, code: string, b
                     if (hash) {
                         result.side_effects.push({
                             what: 'matplotlib_figure',
-                            content: `${zefType}('🗿-${hash}')`
+                            content: `${zefType}('${hash}')`
                         });
                     }
                 } catch (_e) {
@@ -1262,6 +1262,10 @@ async function writeOutputToFile(blockId: number, result: CellResult, documentUr
     const sideEffects = result.side_effects || [];
     if (sideEffects.length > 0) {
         const effectStrings = sideEffects.map(effect => {
+            if (effect.what === 'matplotlib_figure') {
+                // matplotlib_figure content is a value (PngImage('hash')), not a string
+                return `    ET.UnmanagedEffect(\n        what='${effect.what}',\n        content=${effect.content}\n    )`;
+            }
             // Escape the content for Python string representation
             const escapedContent = effect.content
                 .replace(/\\/g, '\\\\')
