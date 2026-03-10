@@ -174,6 +174,11 @@
           "default": false,
           "description": "Enable Zef features (code execution, live preview, run buttons) for all .md files, not just .zef.md files. Power users can enable this to use Zef with any markdown file."
         },
+        "zef.allowImagePasteInAllFiles": {
+          "type": "boolean",
+          "default": true,
+          "description": "Allow pasting images into zef MD sections in any .md, .py, .rs, .ts, .js file (uploads to hash store and inserts zef: image link)."
+        },
         "zef.wsConnectionEnabled": {
           "type": "boolean",
           "default": false,

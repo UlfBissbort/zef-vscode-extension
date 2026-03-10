@@ -82,6 +82,12 @@ export class ZefSettingsViewProvider implements vscode.WebviewViewProvider {
                     await config.update('treatAllMarkdownAsZef', !current, vscode.ConfigurationTarget.Global);
                     this._refreshView();
                     break;
+                case 'toggleAllowImagePaste':
+                    const imgConfig = vscode.workspace.getConfiguration('zef');
+                    const imgCurrent = imgConfig.get<boolean>('allowImagePasteInAllFiles', true);
+                    await imgConfig.update('allowImagePasteInAllFiles', !imgCurrent, vscode.ConfigurationTarget.Global);
+                    this._refreshView();
+                    break;
                 case 'setViewWidth':
                     const widthConfig = vscode.workspace.getConfiguration('zef');
                     const widthValue = parseInt(message.tab, 10);
@@ -150,6 +156,7 @@ export class ZefSettingsViewProvider implements vscode.WebviewViewProvider {
         
         const config = vscode.workspace.getConfiguration('zef');
         const treatAllMd = config.get<boolean>('treatAllMarkdownAsZef', false);
+        const allowImagePaste = config.get<boolean>('allowImagePasteInAllFiles', true);
         const rustcPath = config.get<string>('rustcPath', '');
         const bunPath = config.get<string>('bunPath', '');
         const wsEnabled = config.get<boolean>('wsConnectionEnabled', false);
@@ -447,7 +454,7 @@ export class ZefSettingsViewProvider implements vscode.WebviewViewProvider {
     
     <div class="content">
         ${statusTab ? this._getStatusContent(wsEnabled) : ''}
-        ${settingsTab ? this._getSettingsContent(pythonPath ?? undefined, pythonDisplay, rustAvailable, bunAvailable, rustcPath, bunPath, treatAllMd, viewWidthPercent) : ''}
+        ${settingsTab ? this._getSettingsContent(pythonPath ?? undefined, pythonDisplay, rustAvailable, bunAvailable, rustcPath, bunPath, treatAllMd, allowImagePaste, viewWidthPercent) : ''}
     </div>
 
     <script>
@@ -522,6 +529,7 @@ export class ZefSettingsViewProvider implements vscode.WebviewViewProvider {
         rustcPath: string,
         bunPath: string,
         treatAllMd: boolean,
+        allowImagePaste: boolean,
         viewWidthPercent: number
     ): string {
         return `
@@ -566,6 +574,10 @@ export class ZefSettingsViewProvider implements vscode.WebviewViewProvider {
                 <div class="toggle-row">
                     <input type="checkbox" class="checkbox" id="treatAllMd" ${treatAllMd ? 'checked' : ''} onchange="send('toggleTreatAllMd')">
                     <label class="toggle-label" for="treatAllMd">Treat all .md as Zef</label>
+                </div>
+                <div class="toggle-row">
+                    <input type="checkbox" class="checkbox" id="allowImagePaste" ${allowImagePaste ? 'checked' : ''} onchange="send('toggleAllowImagePaste')">
+                    <label class="toggle-label" for="allowImagePaste">Allow pasting images into zef MD sections</label>
                 </div>
                 <div class="slider-row">
                     <div class="slider-header">

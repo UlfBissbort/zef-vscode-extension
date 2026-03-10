@@ -280,18 +280,36 @@ export function activate(context: vscode.ExtensionContext) {
         })
     );
 
-    // Register image paste provider for zef-markdown files
+    // Register image paste provider for zef-markdown files (and other file types when enabled)
     const imagePasteProvider = new ZefImagePasteProvider();
+    const pasteProviderOpts = {
+        providedPasteEditKinds: [vscode.DocumentDropOrPasteEditKind.Empty],
+        pasteMimeTypes: ['image/png', 'image/jpeg', 'image/gif', 'image/*']
+    };
+
+    // Always register for zef-markdown
     context.subscriptions.push(
         vscode.languages.registerDocumentPasteEditProvider(
             { language: 'zef-markdown' },
             imagePasteProvider,
-            {
-                providedPasteEditKinds: [vscode.DocumentDropOrPasteEditKind.Empty],
-                pasteMimeTypes: ['image/png', 'image/jpeg', 'image/gif', 'image/*']
-            }
+            pasteProviderOpts
         )
     );
+
+    // Register for additional file types if setting enabled
+    const config = vscode.workspace.getConfiguration('zef');
+    if (config.get<boolean>('allowImagePasteInAllFiles', true)) {
+        const extraLanguages = ['markdown', 'python', 'rust', 'typescript', 'javascript'];
+        for (const lang of extraLanguages) {
+            context.subscriptions.push(
+                vscode.languages.registerDocumentPasteEditProvider(
+                    { language: lang },
+                    imagePasteProvider,
+                    pasteProviderOpts
+                )
+            );
+        }
+    }
 
     // Register CodeLens provider for .zef.md files (and .md files when setting enabled)
     const codeLensProvider = new CodeBlockProvider();
