@@ -126,9 +126,12 @@ class ZefKernel:
         figures = []
         for num in fignums:
             fig = plt.figure(num)
+            # Darken axes/subplot backgrounds to match figure background
+            for ax in fig.get_axes():
+                ax.set_facecolor('#0f0f0f')
             buf = io.BytesIO()
             fig.savefig(buf, format='png', dpi=100, bbox_inches='tight',
-                        facecolor='#1e1e1e', edgecolor='none')
+                        facecolor='#0f0f0f', edgecolor='none')
             buf.seek(0)
             data = base64.b64encode(buf.read()).decode('ascii')
             figures.append({'mime': 'image/png', 'data': data})
