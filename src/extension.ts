@@ -1257,16 +1257,22 @@ async function writeOutputToFile(blockId: number, result: CellResult, documentUr
         }
     }
     
-    // Format side effects as ET.UnmanagedEffect entries
+    // Format side effects as type-specific ET entries
     let sideEffectsContent = '';
     const sideEffects = result.side_effects || [];
     if (sideEffects.length > 0) {
         const effectStrings = sideEffects.map(effect => {
             if (effect.what === 'matplotlib_figure') {
                 // matplotlib_figure content is a value (PngImage('hash')), not a string
-                return `    ET.UnmanagedEffect(\n        what='${effect.what}',\n        content=${effect.content}\n    )`;
+                return `    ET.MatplotlibFigurePrinted(${effect.content})`;
             }
-            // Escape the content for Python string representation
+            if (effect.what === 'stdout') {
+                const escapedContent = effect.content
+                    .replace(/\\/g, '\\\\')
+                    .replace(/'/g, "\\'");
+                return `    ET.StdOutPrinted('${escapedContent}')`;
+            }
+            // Generic fallback
             const escapedContent = effect.content
                 .replace(/\\/g, '\\\\')
                 .replace(/'/g, "\\'");

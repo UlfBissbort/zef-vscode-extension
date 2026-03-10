@@ -901,7 +901,7 @@ export async function updatePreview(document: vscode.TextDocument) {
                     const dataUri = await service.resolveImage(ref.type, ref.hash);
                     if (dataUri) {
                         dataUris.push(dataUri);
-                        dataTexts.push(`ET.UnmanagedEffect(what='matplotlib_figure', content=${ref.type}('${ref.hash}'))`);
+                        dataTexts.push(`ET.MatplotlibFigurePrinted(${ref.type}('${ref.hash}'))`);
                     }
                 } catch (e: any) {
                     // figure resolution failed silently
@@ -5331,43 +5331,48 @@ function getWebviewContent(renderedHtml: string, existingOutputs: { [blockId: nu
                 }
                 outputHtml += '</div>';
                 
-                // Matplotlib figures with Image/Data View tabs
-                var blockFigureData = (currentBlockId !== null && existingFigureData[currentBlockId])
-                    ? existingFigureData[currentBlockId]
-                    : null;
-                if (blockFigures) {
-                    for (var fi = 0; fi < blockFigures.length; fi++) {
-                        var dataText = (blockFigureData && blockFigureData[fi]) ? blockFigureData[fi] : '';
-                        outputHtml += '<div class="figure-tabbed">' +
-                            '<div class="figure-tab-bar">' +
-                            '<button class="figure-tab active" onclick="switchFigureTab(this, &#39;image&#39;)">Image</button>' +
-                            '<button class="figure-tab" onclick="switchFigureTab(this, &#39;data&#39;)">Data View</button>' +
-                            '</div>' +
-                            '<div class="figure-panel active" data-panel="image">' +
-                            '<div class="figure-wrapper">' +
-                            '<img src="' + blockFigures[fi] + '" style="max-width: 100%; border-radius: 4px;" />' +
-                            '<button class="figure-copy-btn" onclick="copyFigure(this)" title="Copy image"><svg viewBox="0 0 24 24"><rect x="8" y="6" width="12" height="15" rx="1.5" ry="1.5"></rect><path d="M4 18V5a1.5 1.5 0 0 1 1.5-1.5h9"></path></svg></button>' +
-                            '</div>' +
-                            '</div>' +
-                            '<div class="figure-panel" data-panel="data">' +
-                            '<div class="figure-data-view"><pre style="margin: 0; background: transparent;"><code>' + highlightCode(dataText, 'python') + '</code></pre></div>' +
-                            '</div>' +
-                            '</div>';
-                    }
-                }
+                // Determine if there are any side effects (matplotlib or other)
+                var hasSideEffects = existingSideEffect || blockFigures;
                 
-                // Side effects (filter out matplotlib_figure entries — shown in Data View tabs above)
+                // Side Effects section: title above, then individual effect UI elements
                 outputHtml += '<div id="side-effects-value-' + currentBlockId + '">';
-                if (existingSideEffect) {
-                    // Remove matplotlib_figure entries from the side effects text
-                    var filteredSe = existingSideEffect.replace(/\\s*ET\\.UnmanagedEffect\\(what='matplotlib_figure'[^)]*\\),?/g, '').trim();
-                    // Clean up empty list brackets
-                    filteredSe = filteredSe.replace(/^\\[\\s*\\]$/, '').trim();
-                    if (filteredSe && filteredSe !== '[' && filteredSe !== '[]') {
-                        outputHtml += '<div class="side-effects-separator">' +
-                            '<div class="effects-label">Side Effects</div>' +
-                            '<pre style="margin: 0; background: transparent;"><code>' + highlightCode(filteredSe, 'python') + '</code></pre>' +
-                            '</div>';
+                if (hasSideEffects) {
+                    outputHtml += '<div class="side-effects-separator">' +
+                        '<div class="effects-label">Side Effects</div>' +
+                        '</div>';
+                    
+                    // Matplotlib figures with Image/Data View tabs
+                    var blockFigureData = (currentBlockId !== null && existingFigureData[currentBlockId])
+                        ? existingFigureData[currentBlockId]
+                        : null;
+                    if (blockFigures) {
+                        for (var fi = 0; fi < blockFigures.length; fi++) {
+                            var dataText = (blockFigureData && blockFigureData[fi]) ? blockFigureData[fi] : '';
+                            outputHtml += '<div class="figure-tabbed">' +
+                                '<div class="figure-tab-bar">' +
+                                '<button class="figure-tab active" onclick="switchFigureTab(this, &#39;image&#39;)">Image</button>' +
+                                '<button class="figure-tab" onclick="switchFigureTab(this, &#39;data&#39;)">Data View</button>' +
+                                '</div>' +
+                                '<div class="figure-panel active" data-panel="image">' +
+                                '<div class="figure-wrapper">' +
+                                '<img src="' + blockFigures[fi] + '" style="max-width: 100%; border-radius: 4px;" />' +
+                                '<button class="figure-copy-btn" onclick="copyFigure(this)" title="Copy image"><svg viewBox="0 0 24 24"><rect x="8" y="6" width="12" height="15" rx="1.5" ry="1.5"></rect><path d="M4 18V5a1.5 1.5 0 0 1 1.5-1.5h9"></path></svg></button>' +
+                                '</div>' +
+                                '</div>' +
+                                '<div class="figure-panel" data-panel="data">' +
+                                '<div class="figure-data-view"><pre style="margin: 0; background: transparent;"><code>' + highlightCode(dataText, 'python') + '</code></pre></div>' +
+                                '</div>' +
+                                '</div>';
+                        }
+                    }
+                    
+                    // Other (non-matplotlib) side effects as data view
+                    if (existingSideEffect) {
+                        var filteredSe = existingSideEffect.replace(/\\s*ET\\.MatplotlibFigurePrinted\\([^)]*\\),?/g, '').replace(/\\s*ET\\.UnmanagedEffect\\(what='matplotlib_figure'[^)]*\\),?/g, '').trim();
+                        filteredSe = filteredSe.replace(/^\\[\\s*\\]$/, '').trim();
+                        if (filteredSe && filteredSe !== '[' && filteredSe !== '[]') {
+                            outputHtml += '<div class="figure-data-view"><pre style="margin: 0; background: transparent;"><code>' + highlightCode(filteredSe, 'python') + '</code></pre></div>';
+                        }
                     }
                 }
                 outputHtml += '</div>';
@@ -5554,9 +5559,30 @@ function getWebviewContent(renderedHtml: string, existingOutputs: { [blockId: nu
                                     html += '</div>';
                                 }
                             }
-                            // Show matplotlib figures if any, with Image/Data View tabs
-                            if (result.figures && result.figures.length > 0) {
-                                // Pair figures with their matplotlib side effects
+                            // Show matplotlib figures if any — these are rendered inside sideEffectsValue below
+                            // (figures are side effects, rendered as type-specific UI elements)
+                            
+                            // If nothing to show
+                            if (!html && !(result.figures && result.figures.length > 0)) {
+                                html = '<span style="color: var(--text-dim); font-style: italic;">Executed successfully (no result)</span>';
+                            }
+                        }
+                        
+                        resultValue.innerHTML = html;
+                    }
+                    
+                    // Update side effects in inline output area
+                    // Side Effects section: label, then figures (with Image/Data View tabs), then other effects
+                    var sideEffectsValue = document.getElementById('side-effects-value-' + blockId);
+                    if (sideEffectsValue) {
+                        var hasFigures = result.figures && result.figures.length > 0;
+                        var hasOtherEffects = result.side_effects && result.side_effects.some(function(e) { return e.what !== 'matplotlib_figure'; });
+                        
+                        if (hasFigures || hasOtherEffects) {
+                            var seHtml = '<div class="side-effects-separator"><div class="effects-label">Side Effects</div></div>';
+                            
+                            // Matplotlib figures with Image/Data View tabs
+                            if (hasFigures) {
                                 var mplEffects = [];
                                 if (result.side_effects) {
                                     result.side_effects.forEach(function(effect) {
@@ -5568,8 +5594,8 @@ function getWebviewContent(renderedHtml: string, existingOutputs: { [blockId: nu
                                 result.figures.forEach(function(fig, idx) {
                                     var mplEffect = mplEffects[idx];
                                     var dataText = mplEffect ?
-                                        "ET.UnmanagedEffect(what='" + mplEffect.what + "', content=" + mplEffect.content + ")" : '';
-                                    html += '<div class="figure-tabbed">' +
+                                        'ET.MatplotlibFigurePrinted(' + mplEffect.content + ')' : '';
+                                    seHtml += '<div class="figure-tabbed">' +
                                             '<div class="figure-tab-bar">' +
                                             '<button class="figure-tab active" onclick="switchFigureTab(this, &#39;image&#39;)">Image</button>' +
                                             '<button class="figure-tab" onclick="switchFigureTab(this, &#39;data&#39;)">Data View</button>' +
@@ -5587,41 +5613,31 @@ function getWebviewContent(renderedHtml: string, existingOutputs: { [blockId: nu
                                             '</div>';
                                 });
                             }
-                            // If nothing to show
-                            if (!html) {
-                                html = '<span style="color: var(--text-dim); font-style: italic;">Executed successfully (no result)</span>';
+                            
+                            // Other (non-matplotlib) side effects as data view
+                            if (hasOtherEffects) {
+                                var otherEffects = result.side_effects.filter(function(e) { return e.what !== 'matplotlib_figure'; });
+                                var effectsText = '[\\n';
+                                otherEffects.forEach(function(effect, idx) {
+                                    var escapedContent = effect.content.replace(/\\n/g, '\\\\n');
+                                    if (effect.what === 'stdout') {
+                                        effectsText += '    ET.StdOutPrinted(\\'' + escapedContent + '\\')';
+                                    } else {
+                                        effectsText += '    ET.UnmanagedEffect(what=\\'' + effect.what + '\\', content=\\'' + escapedContent + '\\')';
+                                    }
+                                    if (idx < otherEffects.length - 1) {
+                                        effectsText += ',';
+                                    }
+                                    effectsText += '\\n';
+                                });
+                                effectsText += ']';
+                                seHtml += '<div class="figure-data-view"><pre style="margin: 0; background: transparent;"><code>' + highlightCode(effectsText, 'python') + '</code></pre></div>';
                             }
-                        }
-                        
-                        resultValue.innerHTML = html;
-                    }
-                    
-                    // Update side effects in inline output area (filter out matplotlib_figure — shown in Data View tabs)
-                    var sideEffectsValue = document.getElementById('side-effects-value-' + blockId);
-                    if (sideEffectsValue && result.side_effects && result.side_effects.length > 0) {
-                        var otherEffects = result.side_effects.filter(function(effect) {
-                            return effect.what !== 'matplotlib_figure';
-                        });
-                        if (otherEffects.length > 0) {
-                            var effectsText = '[\\n';
-                            otherEffects.forEach(function(effect, idx) {
-                                var escapedContent = effect.content.replace(/\\n/g, '\\\\n');
-                                effectsText += '    ET.UnmanagedEffect(what=\\'' + effect.what + '\\', content=\\'' + escapedContent + '\\')';
-                                if (idx < otherEffects.length - 1) {
-                                    effectsText += ',';
-                                }
-                                effectsText += '\\n';
-                            });
-                            effectsText += ']';
-                            sideEffectsValue.innerHTML = '<div class="side-effects-separator">' +
-                                '<div class="effects-label">Side Effects</div>' +
-                                '<pre style="margin: 0; background: transparent;"><code>' + highlightCode(effectsText, 'python') + '</code></pre>' +
-                                '</div>';
+                            
+                            sideEffectsValue.innerHTML = seHtml;
                         } else {
                             sideEffectsValue.innerHTML = '';
                         }
-                    } else if (sideEffectsValue) {
-                        sideEffectsValue.innerHTML = '';
                     }
                     
                     // Show inline output area

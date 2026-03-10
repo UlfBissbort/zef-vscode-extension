@@ -154,7 +154,8 @@ export function extractZefImageRefs(html: string): Array<{ type: string; hash: s
  */
 export function extractFigureRefs(sideEffectsText: string): Array<{ type: string; hash: string }> {
     const refs: Array<{ type: string; hash: string }> = [];
-    const figRegex = /what='matplotlib_figure'[\s\S]*?content=(\w+)\('(🗿-[0-9a-fA-F]{64})'\)/g;
+    // Match both new format ET.MatplotlibFigurePrinted(PngImage('hash')) and legacy ET.UnmanagedEffect(what='matplotlib_figure'...)
+    const figRegex = /(?:ET\.MatplotlibFigurePrinted\(|what='matplotlib_figure'[\s\S]*?content=)(\w+)\('(🗿-[0-9a-fA-F]{64})'\)/g;
     let match;
     while ((match = figRegex.exec(sideEffectsText)) !== null) {
         refs.push({ type: match[1], hash: match[2] });
