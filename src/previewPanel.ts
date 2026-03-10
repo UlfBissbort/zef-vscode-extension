@@ -2324,7 +2324,7 @@ function getWebviewContent(renderedHtml: string, existingOutputs: { [blockId: nu
         }
 
         .side-effect-item {
-            padding: 8px 12px;
+            padding: 4px 12px;
             margin-top: 6px;
             background: rgba(255, 255, 255, 0.03);
             border: 1px solid var(--border-color);
@@ -2333,6 +2333,14 @@ function getWebviewContent(renderedHtml: string, existingOutputs: { [blockId: nu
             font-size: 0.8rem;
             line-height: 1.6;
             color: var(--text-muted);
+        }
+
+        .side-effect-item pre {
+            margin: 0;
+            padding: 0;
+            background: transparent;
+            border: none;
+            border-radius: 0;
         }
 
         blockquote {
