@@ -2282,6 +2282,61 @@ function getWebviewContent(renderedHtml: string, existingOutputs: { [blockId: nu
         .figure-wrapper .figure-copy-btn.copied svg {
             stroke: #fff;
         }
+        .figure-wrapper .figure-expand-btn {
+            position: absolute;
+            top: 8px;
+            right: 42px;
+            width: 28px;
+            height: 28px;
+            background: rgba(0,0,0,0.6);
+            border: 1px solid rgba(255,255,255,0.15);
+            border-radius: 6px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            opacity: 0;
+            transition: opacity 0.2s;
+            padding: 4px;
+            z-index: 2;
+        }
+        .figure-wrapper:hover .figure-expand-btn {
+            opacity: 0.75;
+        }
+        .figure-wrapper .figure-expand-btn:hover {
+            opacity: 1;
+            background: rgba(0,0,0,0.8);
+            border-color: rgba(255,255,255,0.3);
+        }
+        .figure-wrapper .figure-expand-btn svg {
+            width: 16px;
+            height: 16px;
+            fill: none;
+            stroke: #ccc;
+            stroke-width: 2;
+            stroke-linecap: round;
+            stroke-linejoin: round;
+        }
+        .figure-modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.85);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 9999;
+            cursor: zoom-out;
+            backdrop-filter: blur(4px);
+        }
+        .figure-modal-overlay img {
+            max-width: 95vw;
+            max-height: 92vh;
+            border-radius: 8px;
+            box-shadow: 0 8px 40px rgba(0,0,0,0.6);
+        }
         .figure-tabbed {
             margin-top: 12px;
         }
@@ -3963,6 +4018,26 @@ function getWebviewContent(renderedHtml: string, existingOutputs: { [blockId: nu
             }
         }
 
+        function expandFigure(button) {
+            var img = button.closest('.figure-wrapper').querySelector('img');
+            if (!img) return;
+            var overlay = document.createElement('div');
+            overlay.className = 'figure-modal-overlay';
+            var modalImg = document.createElement('img');
+            modalImg.src = img.src;
+            overlay.appendChild(modalImg);
+            overlay.addEventListener('click', function() {
+                overlay.remove();
+            });
+            document.addEventListener('keydown', function handler(e) {
+                if (e.key === 'Escape') {
+                    overlay.remove();
+                    document.removeEventListener('keydown', handler);
+                }
+            });
+            document.body.appendChild(overlay);
+        }
+
         // Switch between Image and Data View tabs on figures
         function switchFigureTab(tab, panelName) {
             var tabbed = tab.closest('.figure-tabbed');
@@ -5403,6 +5478,7 @@ function getWebviewContent(renderedHtml: string, existingOutputs: { [blockId: nu
                                         '<div class="figure-panel active" data-panel="image">' +
                                         '<div class="figure-wrapper">' +
                                         '<img src="' + figSrc + '" style="max-width: 100%; border-radius: 4px;" />' +
+                                        '<button class="figure-expand-btn" onclick="expandFigure(this)" title="Expand image"><svg viewBox="0 0 24 24"><polyline points="15 3 21 3 21 9"></polyline><polyline points="9 21 3 21 3 15"></polyline><line x1="21" y1="3" x2="14" y2="10"></line><line x1="3" y1="21" x2="10" y2="14"></line></svg></button>' +
                                         '<button class="figure-copy-btn" onclick="copyFigure(this)" title="Copy image"><svg viewBox="0 0 24 24"><rect x="8" y="6" width="12" height="15" rx="1.5" ry="1.5"></rect><path d="M4 18V5a1.5 1.5 0 0 1 1.5-1.5h9"></path></svg></button>' +
                                         '</div>' +
                                         '</div>' +
@@ -5430,6 +5506,7 @@ function getWebviewContent(renderedHtml: string, existingOutputs: { [blockId: nu
                                 '<div class="figure-panel active" data-panel="image">' +
                                 '<div class="figure-wrapper">' +
                                 '<img src="' + blockFigures[fi] + '" style="max-width: 100%; border-radius: 4px;" />' +
+                                '<button class="figure-expand-btn" onclick="expandFigure(this)" title="Expand image"><svg viewBox="0 0 24 24"><polyline points="15 3 21 3 21 9"></polyline><polyline points="9 21 3 21 3 15"></polyline><line x1="21" y1="3" x2="14" y2="10"></line><line x1="3" y1="21" x2="10" y2="14"></line></svg></button>' +
                                 '<button class="figure-copy-btn" onclick="copyFigure(this)" title="Copy image"><svg viewBox="0 0 24 24"><rect x="8" y="6" width="12" height="15" rx="1.5" ry="1.5"></rect><path d="M4 18V5a1.5 1.5 0 0 1 1.5-1.5h9"></path></svg></button>' +
                                 '</div>' +
                                 '</div>' +
@@ -5664,6 +5741,7 @@ function getWebviewContent(renderedHtml: string, existingOutputs: { [blockId: nu
                                                 '<div class="figure-wrapper">' +
                                                 '<img src="data:' + fig.mime + ';base64,' + fig.data + '" ' +
                                                 'style="max-width: 100%; border-radius: 4px;" />' +
+                                                '<button class="figure-expand-btn" onclick="expandFigure(this)" title="Expand image"><svg viewBox="0 0 24 24"><polyline points="15 3 21 3 21 9"></polyline><polyline points="9 21 3 21 3 15"></polyline><line x1="21" y1="3" x2="14" y2="10"></line><line x1="3" y1="21" x2="10" y2="14"></line></svg></button>' +
                                                 '<button class="figure-copy-btn" onclick="copyFigure(this)" title="Copy image"><svg viewBox="0 0 24 24"><rect x="8" y="6" width="12" height="15" rx="1.5" ry="1.5"></rect><path d="M4 18V5a1.5 1.5 0 0 1 1.5-1.5h9"></path></svg></button>' +
                                                 '</div>' +
                                                 '</div>' +
@@ -5698,6 +5776,7 @@ function getWebviewContent(renderedHtml: string, existingOutputs: { [blockId: nu
                                         '<div class="figure-wrapper">' +
                                         '<img src="data:' + fig.mime + ';base64,' + fig.data + '" ' +
                                         'style="max-width: 100%; border-radius: 4px;" />' +
+                                        '<button class="figure-expand-btn" onclick="expandFigure(this)" title="Expand image"><svg viewBox="0 0 24 24"><polyline points="15 3 21 3 21 9"></polyline><polyline points="9 21 3 21 3 15"></polyline><line x1="21" y1="3" x2="14" y2="10"></line><line x1="3" y1="21" x2="10" y2="14"></line></svg></button>' +
                                         '<button class="figure-copy-btn" onclick="copyFigure(this)" title="Copy image"><svg viewBox="0 0 24 24"><rect x="8" y="6" width="12" height="15" rx="1.5" ry="1.5"></rect><path d="M4 18V5a1.5 1.5 0 0 1 1.5-1.5h9"></path></svg></button>' +
                                         '</div>' +
                                         '</div>' +
