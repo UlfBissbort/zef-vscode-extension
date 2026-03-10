@@ -2384,7 +2384,6 @@ function getWebviewContent(renderedHtml: string, existingOutputs: { [blockId: nu
             max-height: 90vh;
             transform: scale(0.95);
             transition: transform 0.3s ease;
-            filter: drop-shadow(0 0 20px rgba(255, 255, 255, 0.07));
         }
         .figure-modal-overlay.active .figure-modal-content {
             transform: scale(1);
@@ -2394,7 +2393,11 @@ function getWebviewContent(renderedHtml: string, existingOutputs: { [blockId: nu
             max-height: 88vh;
             object-fit: contain;
             border-radius: 8px;
-            box-shadow: 0 0 30px rgba(0, 0, 0, 0.2);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            box-shadow:
+                0 2px 8px rgba(0, 0, 0, 0.5),
+                0 8px 24px rgba(0, 0, 0, 0.4),
+                0 20px 60px rgba(0, 0, 0, 0.3);
         }
         .figure-modal-close {
             position: absolute;
