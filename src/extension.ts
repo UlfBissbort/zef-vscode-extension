@@ -15,6 +15,7 @@ import { isZefDocument, isZefUri } from './zefUtils';
 import { ZefSettingsViewProvider } from './settingsViewProvider';
 import { initJsonValidator, disposeJsonValidator } from './jsonValidator';
 import { shouldPersistSvelteOutput, shouldPersistOutput, shouldPersistSideEffects } from './frontmatterParser';
+import { TokoloshService, mimeToZefType, buildZefMarkdownLink } from './tokoloshService';
 
 let statusBarItem: vscode.StatusBarItem;
 
@@ -28,7 +29,10 @@ class ZefImagePasteProvider implements vscode.DocumentPasteEditProvider {
         token: vscode.CancellationToken
     ): Promise<vscode.DocumentPasteEdit[] | undefined> {
         // Check for image data in clipboard
-        const imageItem = dataTransfer.get('image/png') || dataTransfer.get('image/jpeg') || dataTransfer.get('image/gif');
+        const pngItem = dataTransfer.get('image/png');
+        const jpegItem = dataTransfer.get('image/jpeg');
+        const gifItem = dataTransfer.get('image/gif');
+        const imageItem = pngItem || jpegItem || gifItem;
         
         if (!imageItem) {
             return undefined;
@@ -41,24 +45,32 @@ class ZefImagePasteProvider implements vscode.DocumentPasteEditProvider {
             }
 
             const buffer = Buffer.from(await imageData.data());
-            
-            // Generate unique filename with timestamp
+            const mime = pngItem ? 'image/png' : jpegItem ? 'image/jpeg' : 'image/gif';
+            const zefType = mimeToZefType(mime);
+
+            // Try to upload to hash store via tokolosh
+            const service = TokoloshService.getInstance();
+            const hash = await service.uploadImage(zefType, buffer);
+
+            if (hash) {
+                // Success — insert zef: content-addressed link
+                const markdownLink = buildZefMarkdownLink(zefType, hash);
+                const edit = new vscode.DocumentPasteEdit(markdownLink, 'Insert Content-Addressed Image', vscode.DocumentDropOrPasteEditKind.Empty);
+                return [edit];
+            }
+
+            // Fallback: save as local file
             const timestamp = Date.now();
-            // Get extension from the file name if available, else default to png
             const originalName = imageData.name || '';
             const ext = path.extname(originalName).slice(1) || 'png';
             const fileName = `image_${timestamp}.${ext}`;
             
-            // Save to same directory as the document
             const docDir = path.dirname(document.uri.fsPath);
             const imagePath = path.join(docDir, fileName);
             
-            // Write the image file
             fs.writeFileSync(imagePath, buffer);
             
-            // Create the markdown link
             const markdownLink = `![${fileName}](./${fileName})`;
-            
             const edit = new vscode.DocumentPasteEdit(markdownLink, 'Insert Image', vscode.DocumentDropOrPasteEditKind.Empty);
             return [edit];
         } catch (error) {
@@ -1260,4 +1272,5 @@ async function writeOutputToFile(blockId: number, result: CellResult, documentUr
 export function deactivate() {
     disposeKernelManager();
     disposeJsonValidator();
+    TokoloshService.getInstance().dispose();
 }

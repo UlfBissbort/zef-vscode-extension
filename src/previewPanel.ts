@@ -7,6 +7,7 @@ import { stripFrontmatter, getDocumentSettings, updateDocumentSetting, ZefSettin
 import { ExcalidrawEditorPanel, generateExcalidrawUid } from './excalidrawEditorPanel';
 import { generateNotebook, parseMarkdownCells, parsePythonCells, parsePythonLegacyCells } from './notebookExport';
 import { detectFeatures, inlineKatexFonts, generateStandaloneHtml, embedRenderedBlocks, SvelteBlockExport, HtmlExportInput } from './htmlExport';
+import { TokoloshService, parseZefUri, zefTypeToMime, buildDataUri, buildPlaceholderDataUri, debugLog } from './tokoloshService';
 
 // Map of document URI string to its panel
 const panels: Map<string, vscode.WebviewPanel> = new Map();
@@ -838,7 +839,7 @@ async function resolveAndOpenWikiLink(pageName: string, context: vscode.Extensio
     createPreviewPanel(context);
 }
 
-export function updatePreview(document: vscode.TextDocument) {
+export async function updatePreview(document: vscode.TextDocument) {
     const docKey = document.uri.toString();
     const panel = panels.get(docKey);
 
@@ -915,6 +916,9 @@ export function updatePreview(document: vscode.TextDocument) {
     // Convert relative image paths to webview URIs
     const docDir = path.dirname(document.uri.fsPath);
     html = convertImagePaths(html, docDir, panel.webview);
+    
+    // Resolve zef: content-addressed image URIs to data URIs
+    html = await resolveZefImages(html);
     
     // Get mermaid script URI if extension path is available
     let mermaidUri = '';
@@ -1390,6 +1394,54 @@ function renderMarkdown(markdown: string): string {
  * Convert relative image paths in HTML to webview URIs and wrap with copy button
  * This is necessary because webviews can't directly access local file:// URLs
  */
+/**
+ * Resolve zef: image URIs to data URIs via the local tokolosh service.
+ * Falls back to placeholder SVGs if the tokolosh is unavailable or the hash is not found.
+ */
+async function resolveZefImages(html: string): Promise<string> {
+    // Quick check: any zef: URIs present?
+    debugLog('resolveZefImages: called, html length=' + html.length + ', has zef:=' + html.includes('zef:'));
+    if (!html.includes('zef:')) { return html; }
+
+    // Match zef: URIs with either literal 🗿 or percent-encoded %F0%9F%97%BF
+    // (marked URL-encodes non-ASCII characters in image src attributes)
+    const zefUriRegex = /zef:(\w+)\/((?:🗿|%F0%9F%97%BF)-[0-9a-fA-F]{64})/g;
+    const matches = new Set<string>();
+    let m;
+    while ((m = zefUriRegex.exec(html)) !== null) {
+        matches.add(m[0]);
+    }
+    debugLog('resolveZefImages: found ' + matches.size + ' unique zef: URIs: ' + [...matches].join(', '));
+    if (matches.size === 0) { return html; }
+
+    const service = TokoloshService.getInstance();
+    const replacements = new Map<string, string>();
+
+    // Resolve all unique zef: URIs in parallel
+    await Promise.all([...matches].map(async (encodedUri) => {
+        // Decode percent-encoded URI for parsing
+        const decodedUri = decodeURIComponent(encodedUri);
+        const parsed = parseZefUri(decodedUri);
+        debugLog('resolveZefImages: parsing ' + encodedUri + ' => ' + JSON.stringify(parsed));
+        if (!parsed) { return; }
+
+        const dataUri = await service.resolveImage(parsed.type, parsed.hash);
+        debugLog('resolveZefImages: resolved ' + encodedUri + ' => ' + (dataUri ? 'dataUri(' + dataUri.length + ' chars)' : 'null'));
+        if (dataUri) {
+            replacements.set(encodedUri, dataUri);
+        } else {
+            replacements.set(encodedUri, buildPlaceholderDataUri(parsed.type, parsed.hash, 'Not found'));
+        }
+    }));
+
+    // Replace all zef: URIs in the HTML
+    let result = html;
+    for (const [uri, replacement] of replacements) {
+        result = result.split(uri).join(replacement);
+    }
+    return result;
+}
+
 function convertImagePaths(html: string, docDir: string, webview: vscode.Webview): string {
     // Match img tags with src attribute
     const imgRegex = /<img\s+([^>]*?)src=["']([^"']+)["']([^>]*?)>/gi;
@@ -1400,9 +1452,9 @@ function convertImagePaths(html: string, docDir: string, webview: vscode.Webview
     return html.replace(imgRegex, (match, before, src, after) => {
         let imgSrc = src;
         
-        // Convert relative paths to webview URIs
+        // Convert relative paths to webview URIs (skip absolute URLs, data URIs, and zef: URIs)
         if (!src.startsWith('http://') && !src.startsWith('https://') && 
-            !src.startsWith('data:') && !src.startsWith('vscode-')) {
+            !src.startsWith('data:') && !src.startsWith('vscode-') && !src.startsWith('zef:')) {
             // Convert relative path to absolute path
             const absolutePath = path.isAbsolute(src) ? src : path.join(docDir, src);
             
