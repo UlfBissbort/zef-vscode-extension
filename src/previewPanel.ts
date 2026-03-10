@@ -2323,7 +2323,7 @@ function getWebviewContent(renderedHtml: string, existingOutputs: { [blockId: nu
             left: 0;
             width: 100%;
             height: 100%;
-            background-color: rgba(0, 0, 0, 0.2);
+            background-color: rgba(0, 0, 0, 0.45);
             backdrop-filter: blur(5px);
             display: flex;
             align-items: center;
