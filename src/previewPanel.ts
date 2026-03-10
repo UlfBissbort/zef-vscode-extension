@@ -5368,9 +5368,12 @@ function getWebviewContent(renderedHtml: string, existingOutputs: { [blockId: nu
                     
                     // Other (non-matplotlib) side effects as data view
                     if (existingSideEffect) {
-                        var filteredSe = existingSideEffect.replace(/\\s*ET\\.MatplotlibFigurePrinted\\([^)]*\\),?/g, '').replace(/\\s*ET\\.UnmanagedEffect\\(what='matplotlib_figure'[^)]*\\),?/g, '').trim();
+                        // Filter out matplotlib figure entries (handle nested parens in PngImage('hash'))
+                        var filteredSe = existingSideEffect.replace(/\\s*ET\\.MatplotlibFigurePrinted\\(\\w+\\('[^']*'\\)\\),?/g, '').replace(/\\s*ET\\.UnmanagedEffect\\([\\s\\S]*?what='matplotlib_figure'[\\s\\S]*?\\w+\\('[^']*'\\)\\s*\\),?/g, '').trim();
+                        // Clean up empty list brackets and trailing commas
+                        filteredSe = filteredSe.replace(/,\\s*\\]/g, '\\n]');
                         filteredSe = filteredSe.replace(/^\\[\\s*\\]$/, '').trim();
-                        if (filteredSe && filteredSe !== '[' && filteredSe !== '[]') {
+                        if (filteredSe && filteredSe !== '[' && filteredSe !== '[]' && filteredSe !== '[\\n]') {
                             outputHtml += '<div class="figure-data-view"><pre style="margin: 0; background: transparent;"><code>' + highlightCode(filteredSe, 'python') + '</code></pre></div>';
                         }
                     }
