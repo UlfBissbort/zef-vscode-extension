@@ -453,7 +453,7 @@ export class TokoloshService {
      * Upload an image to the hash store.
      * Returns the hash string on success, or null on failure.
      */
-    public async uploadImage(type: string, buffer: Buffer): Promise<string | null> {
+    public async uploadZefValue(type: string, buffer: Buffer): Promise<string | null> {
         const ok = await this.ensureConnected();
         if (!ok) { return null; }
 

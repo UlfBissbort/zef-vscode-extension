@@ -187,7 +187,7 @@ async function testUploadImage() {
 
     // Upload the image
     console.log('Uploading PngImage...');
-    const hash = await service.uploadImage('PngImage', buffer);
+    const hash = await service.uploadZefValue('PngImage', buffer);
     if (hash) {
         console.log(`✓ Image uploaded, hash: ${hash}`);
 

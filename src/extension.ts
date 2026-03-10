@@ -58,7 +58,7 @@ class ZefImagePasteProvider implements vscode.DocumentPasteEditProvider {
 
             // Try to upload to hash store via tokolosh
             const service = TokoloshService.getInstance();
-            const hash = await service.uploadImage(zefType, buffer);
+            const hash = await service.uploadZefValue(zefType, buffer);
 
             if (hash) {
                 // Success — insert zef: content-addressed link
@@ -844,7 +844,7 @@ async function runCodeInKernel(context: vscode.ExtensionContext, code: string, b
                 try {
                     const buffer = Buffer.from(fig.data, 'base64');
                     const zefType = mimeToZefType(fig.mime);
-                    const hash = await service.uploadImage(zefType, buffer);
+                    const hash = await service.uploadZefValue(zefType, buffer);
                     if (hash) {
                         result.side_effects.push({
                             what: 'matplotlib_figure',
@@ -1098,6 +1098,12 @@ async function compileSvelteBlock(context: vscode.ExtensionContext, code: string
         }
         
         if (result.success) {
+            // Save Svelte source to hash store (fire-and-forget)
+            const service = TokoloshService.getInstance();
+            service.uploadZefValue('ET.SvelteComponent', Buffer.from(code)).then(hash => {
+                if (hash) { console.log('Svelte component saved to hash store:', hash); }
+            });
+
             // Show compile time in green status bar
             vscode.window.setStatusBarMessage(`$(check) Svelte: Compiled in ${result.compileTime}ms`, 3000);
         } else {
