@@ -9,7 +9,9 @@ import {
     buildZefMarkdownLink,
     generateUid,
     buildRetrieveMessage,
+    buildSaveMessage,
     parseRetrieveResponse,
+    parseSaveResponse,
     extractZefImageRefs,
     buildPlaceholderDataUri,
     mimeToZefType,
@@ -93,6 +95,28 @@ function testPureFunctions() {
     console.assert(placeholder.startsWith('data:image/svg+xml,'), 'placeholder is SVG data URI');
     console.log('✓ buildPlaceholderDataUri');
 
+    // buildSaveMessage
+    const saveMsg = buildSaveMessage('PngImage', 'iVBORw0KGgo=', '🍃-save1') as any;
+    console.assert(saveMsg.__type === 'FX.SaveToHashStore', 'save msg type');
+    console.assert(saveMsg.__uid === '🍃-save1', 'save msg uid');
+    console.assert(saveMsg.value.__type === 'PngImage', 'save msg value type');
+    console.assert(saveMsg.value.data === 'iVBORw0KGgo=', 'save msg value data');
+    console.log('✓ buildSaveMessage');
+
+    // parseSaveResponse — ET.HashStoreResponse with ZefValueHash object
+    const saveOk = parseSaveResponse({
+        __type: 'ET.HashStoreResponse',
+        hash: { __type: 'ZefValueHash', data_type: 'PngImage', hash: '🗿-abcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890' }
+    });
+    console.assert(saveOk.status === 'saved', 'parseSaveResponse saved status');
+    console.assert(saveOk.status === 'saved' && saveOk.hash === '🗿-abcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890', 'parseSaveResponse hash');
+    console.log('✓ parseSaveResponse — ZefValueHash object');
+
+    // parseSaveResponse — error case
+    const saveErr = parseSaveResponse({ __type: 'ET.Unknown' });
+    console.assert(saveErr.status === 'error', 'parseSaveResponse error status');
+    console.log('✓ parseSaveResponse — error');
+
     console.log('\n=== All pure function tests passed ===\n');
 }
 
@@ -134,8 +158,61 @@ async function testTokoloshConnection() {
     console.assert(notFound === null, 'Non-existent hash should return null');
     console.log('✓ Non-existent hash returns null');
 
-    service.dispose();
     console.log('\n=== Integration test complete ===');
+}
+
+// ── Integration test: upload image to hash store ────────────
+
+async function testUploadImage() {
+    console.log('=== Upload Image Integration Test ===\n');
+
+    // Sample image from the user (small 10x11 PNG)
+    const sampleBase64 = 'iVBORw0KGgoAAAANSUhEUgAAAAoAAAALCAYAAABGbhwYAAABAklEQVR4nI2Rv0oDQRDGf7NuwiU5ieGI'
+        + 'hPinCWenhBQ2VikEBREE24D6CHkIU/g2Nj6FYK8PoIXYCAHvbtbdnOZPl9ndZvab7/tmxiY7qWONMKwZ'
+        + 'tlmvILKcktldCa9preQLyFKFiJmjwrGqOgc45/7YhUJ/QmJWEJ5d1RD/p8S1FsP+He1mj5fXJ57fHktg'
+        + 'yRSolM1awujsgf3tQ1Qdu60Bnx/Tf0YhWOi2U0bnE7pJSpZliDFU68pxZ1wCVTN6ewNuLiZsxR2vkGOr'
+        + 'Blc4cm+1shGXwKODIbeX90TVRphE6AFvFWeE6Xe5D3vSv+L6dEwUNRZjU99UAYUv+3ovPLvwC9+aUmH+'
+        + '4ZqPAAAAAElFTkSuQmCC';
+
+    const buffer = Buffer.from(sampleBase64, 'base64');
+    console.log(`Sample image: ${buffer.length} bytes`);
+
+    const service = TokoloshService.getInstance();
+    const connected = await service.ensureConnected();
+    if (!connected) {
+        console.log('⚠ Tokolosh not running — skipping upload test');
+        return;
+    }
+    console.log('✓ Connected to tokolosh');
+
+    // Upload the image
+    console.log('Uploading PngImage...');
+    const hash = await service.uploadImage('PngImage', buffer);
+    if (hash) {
+        console.log(`✓ Image uploaded, hash: ${hash}`);
+
+        // Verify by retrieving it back
+        console.log('Verifying by retrieving...');
+        // Clear cache to force WS retrieval
+        service.clearCache();
+        const dataUri = await service.resolveImage('PngImage', hash);
+
+        if (dataUri) {
+            console.log(`✓ Round-trip verified, data URI length: ${dataUri.length}`);
+            
+            // Verify the markdown link format
+            const link = buildZefMarkdownLink('PngImage', hash);
+            console.log(`  Markdown: ${link}`);
+            console.assert(link.startsWith('![](zef:PngImage/'), 'Markdown link format');
+            console.log('✓ Markdown link format correct');
+        } else {
+            console.log('✗ Could not retrieve uploaded image');
+        }
+    } else {
+        console.log('✗ Upload failed');
+    }
+
+    console.log('\n=== Upload test complete ===');
 }
 
 // ── Markdown rendering pipeline test ────────────────────────────
@@ -223,7 +300,10 @@ And some text after.
 async function main() {
     testPureFunctions();
     await testMarkdownPipeline();
+    // Note: integration tests share the singleton — don't dispose between them
     await testTokoloshConnection();
+    await testUploadImage();
+    TokoloshService.getInstance().dispose();
     process.exit(0);
 }
 

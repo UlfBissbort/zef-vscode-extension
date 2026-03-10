@@ -109,10 +109,12 @@ export function parseRetrieveResponse(msg: any): { status: 'found'; type: string
     return { status: 'error', message: `Unexpected response type: ${msg?.__type}` };
 }
 
-/** Parse a hash store save response. */
+/** Parse a hash store save response (ET.HashStoreResponse). */
 export function parseSaveResponse(msg: any): { status: 'saved'; hash: string } | { status: 'error'; message: string } {
-    if (msg?.hash) {
-        const hashStr = typeof msg.hash === 'string' ? msg.hash : msg.hash?.hash;
+    if (msg?.__type === 'ET.HashStoreResponse' && msg.hash) {
+        // hash can be a ZefValueHash object {__type: 'ZefValueHash', data_type: '...', hash: '🗿-...'} or a string
+        const hashObj = msg.hash;
+        const hashStr = typeof hashObj === 'string' ? hashObj : hashObj?.hash;
         if (hashStr) {
             return { status: 'saved', hash: hashStr };
         }
@@ -153,7 +155,7 @@ export function extractZefImageRefs(html: string): Array<{ type: string; hash: s
 const HASH_STORE_RESPONSE_TYPES = new Set([
     'ET.HashStoreGetResponse',
     'ET.HashStoreNotFound',
-    'ET.HashStoreSaveResponse',
+    'ET.HashStoreResponse',
 ]);
 
 interface PendingRequest {
