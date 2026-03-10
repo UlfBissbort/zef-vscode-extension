@@ -69,6 +69,7 @@ class ZefKernel:
             "stdout": "",
             "stderr": "",
             "side_effects": [],
+            "figures": [],
             "error": None
         }
         
@@ -106,7 +107,34 @@ class ZefKernel:
         # Collect all side effects (stdout and stderr events)
         result["side_effects"] = stdout_capture.get_effects() + stderr_capture.get_effects()
         
+        # Capture any matplotlib figures created during execution
+        result["figures"] = self._capture_figures()
+        
         return result
+    
+    def _capture_figures(self) -> list:
+        """Capture any open matplotlib figures as base64 PNG data."""
+        if 'matplotlib.pyplot' not in sys.modules:
+            return []
+        
+        import matplotlib.pyplot as plt
+        fignums = plt.get_fignums()
+        if not fignums:
+            return []
+        
+        import base64
+        figures = []
+        for num in fignums:
+            fig = plt.figure(num)
+            buf = io.BytesIO()
+            fig.savefig(buf, format='png', dpi=100, bbox_inches='tight',
+                        facecolor='#1e1e1e', edgecolor='none')
+            buf.seek(0)
+            data = base64.b64encode(buf.read()).decode('ascii')
+            figures.append({'mime': 'image/png', 'data': data})
+        
+        plt.close('all')
+        return figures
     
     def _execute_code(self, code: str):
         """

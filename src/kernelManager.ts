@@ -8,6 +8,11 @@ export interface SideEffect {
     content: string;   // The content of the side effect
 }
 
+export interface FigureData {
+    mime: string;   // e.g., 'image/png'
+    data: string;   // base64-encoded image data
+}
+
 export interface CellResult {
     cell_id: string;
     status: 'ok' | 'error';
@@ -15,6 +20,7 @@ export interface CellResult {
     stdout: string;
     stderr: string;
     side_effects: SideEffect[];
+    figures: FigureData[];
     error: {
         type: string;
         message: string;
@@ -71,6 +77,7 @@ export class KernelManager {
 
         this.process = spawn(pythonPath, ['-u', kernelScript], {
             stdio: ['pipe', 'pipe', 'pipe'],
+            env: { ...process.env, MPLBACKEND: 'Agg' },
         });
 
         if (!this.process.stdout || !this.process.stdin || !this.process.stderr) {

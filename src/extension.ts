@@ -897,6 +897,7 @@ async function runRustCode(context: vscode.ExtensionContext, code: string, block
             stdout: result.stdout,
             stderr: result.stderr,
             side_effects: result.side_effects,
+            figures: [],
             error: result.error
         };
         
@@ -959,6 +960,7 @@ async function runJsCode(context: vscode.ExtensionContext, code: string, blockId
             stdout: result.stdout,
             stderr: result.stderr,
             side_effects: result.side_effects,
+            figures: [],
             error: result.error
         };
 
@@ -1021,6 +1023,7 @@ async function runTsCode(context: vscode.ExtensionContext, code: string, blockId
             stdout: result.stdout,
             stderr: result.stderr,
             side_effects: result.side_effects,
+            figures: [],
             error: result.error
         };
 

@@ -5382,6 +5382,15 @@ function getWebviewContent(renderedHtml: string, existingOutputs: { [blockId: nu
                                     html += '</div>';
                                 }
                             }
+                            // Show matplotlib figures if any
+                            if (result.figures && result.figures.length > 0) {
+                                result.figures.forEach(function(fig) {
+                                    html += '<div style="margin-top: 12px;">' +
+                                            '<img src="data:' + fig.mime + ';base64,' + fig.data + '" ' +
+                                            'style="max-width: 100%; border-radius: 4px;" />' +
+                                            '</div>';
+                                });
+                            }
                             // If nothing to show
                             if (!html) {
                                 html = '<span style="color: var(--text-dim); font-style: italic;">Executed successfully (no result)</span>';
