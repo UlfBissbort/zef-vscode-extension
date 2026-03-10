@@ -2251,23 +2251,28 @@ function getWebviewContent(renderedHtml: string, existingOutputs: { [blockId: nu
         }
         .side-effects-body {
             overflow: hidden;
-            transition: max-height 0.3s ease;
+            transition: max-height 0.35s ease, opacity 0.25s ease;
+            opacity: 1;
         }
         .side-effects-section.collapsed .side-effects-body {
-            display: none;
+            max-height: 0 !important;
+            opacity: 0;
         }
         .side-effects-collapsed-indicator {
-            display: none;
             color: var(--text-dim);
             font-size: 1.05rem;
             letter-spacing: 0.15em;
             text-align: center;
             padding: 0;
             line-height: 1;
-            opacity: 0.5;
+            opacity: 0;
+            max-height: 0;
+            overflow: hidden;
+            transition: opacity 0.25s ease, max-height 0.25s ease;
         }
         .side-effects-section.collapsed .side-effects-collapsed-indicator {
-            display: block;
+            opacity: 0.5;
+            max-height: 30px;
         }
         .code-block-output-area:hover .code-copy-btn {
             opacity: 0.75;
@@ -4096,7 +4101,27 @@ function getWebviewContent(renderedHtml: string, existingOutputs: { [blockId: nu
 
         function toggleSideEffects(el) {
             var section = el.closest('.side-effects-section');
-            if (section) section.classList.toggle('collapsed');
+            if (!section) return;
+            var body = section.querySelector('.side-effects-body');
+            if (!body) return;
+            
+            if (section.classList.contains('collapsed')) {
+                // Expanding: measure actual height, set it, then clear
+                body.style.maxHeight = body.scrollHeight + 'px';
+                body.style.opacity = '1';
+                section.classList.remove('collapsed');
+                body.addEventListener('transitionend', function handler() {
+                    body.style.maxHeight = '';
+                    body.removeEventListener('transitionend', handler);
+                });
+            } else {
+                // Collapsing: set current height first, then trigger transition to 0
+                body.style.maxHeight = body.scrollHeight + 'px';
+                body.offsetHeight; // force reflow
+                body.style.maxHeight = '0';
+                body.style.opacity = '0';
+                section.classList.add('collapsed');
+            }
         }
 
         function expandFigure(button) {
