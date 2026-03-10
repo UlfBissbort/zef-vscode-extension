@@ -2192,6 +2192,44 @@ function getWebviewContent(renderedHtml: string, existingOutputs: { [blockId: nu
             color: #d19a66;
         }
 
+        /* Inline output area below code blocks (Vercel-inspired) */
+        .code-block-output-area {
+            display: none;
+            border-top: 1px solid rgba(255,255,255,0.06);
+            background: #000;
+            padding: 16px 20px;
+            font-family: 'SF Mono', 'Fira Code', Consolas, 'Courier New', monospace;
+            font-size: 0.8rem;
+            line-height: 1.6;
+            color: var(--text-muted);
+            position: relative;
+        }
+        .code-block-output-area.has-content {
+            display: block;
+        }
+        .code-block-output-area .output-value {
+            color: #98c379;
+        }
+        .code-block-output-area .output-value pre {
+            margin: 0;
+            background: transparent;
+        }
+        .code-block-output-area .side-effects-separator {
+            margin-top: 12px;
+            padding-top: 10px;
+            border-top: 1px solid rgba(255,255,255,0.04);
+        }
+        .code-block-output-area .effects-label {
+            font-size: 0.65rem;
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+            color: var(--text-dim);
+            margin-bottom: 0.5rem;
+        }
+        .code-block-output-area:hover .code-copy-btn {
+            opacity: 0.75;
+        }
+
         blockquote {
             border-left: 3px solid #3a404f;
             border-radius: 0 8px 8px 0;
@@ -3807,7 +3845,7 @@ function getWebviewContent(renderedHtml: string, existingOutputs: { [blockId: nu
         // Copy code block text to clipboard
         async function copyCodeBlock(button) {
             try {
-                var content = button.closest('.code-block-content');
+                var content = button.closest('.code-block-content') || button.closest('.code-block-output-area');
                 var text = '';
                 var codeEl = content.querySelector('pre code');
                 var outputVal = content.querySelector('.output-value');
@@ -5088,43 +5126,11 @@ function getWebviewContent(renderedHtml: string, existingOutputs: { [blockId: nu
                     container.setAttribute('data-source-line', blockSourceLines[preIndex]);
                 }
 
-                // Create tabs bar
+                // Create header bar (no tabs — results shown inline below code)
                 var tabsBar = document.createElement('div');
                 tabsBar.className = 'code-block-tabs';
                 
-                var tabs = ['Code', 'Result', 'Side Effects'];
-                tabs.forEach(function(tabName, index) {
-                    var tab = document.createElement('button');
-                    tab.className = 'code-block-tab' + (index === 0 ? ' active' : '');
-                    tab.textContent = tabName;
-                    tab.setAttribute('data-tab', tabName.toLowerCase().replace(' ', '-'));
-                    if (currentBlockId !== null) {
-                        tab.setAttribute('data-block', currentBlockId);
-                    }
-                    tab.onclick = (function(thisContainer, thisBlockId, thisTab) {
-                        return function() {
-                            // Deactivate all tabs in this container
-                            thisContainer.querySelectorAll('.code-block-tab').forEach(function(t) {
-                                t.classList.remove('active');
-                            });
-                            // Activate this tab
-                            thisTab.classList.add('active');
-                            // Show corresponding content
-                            thisContainer.querySelectorAll('.code-block-content').forEach(function(c) {
-                                c.classList.remove('active');
-                            });
-                            var targetId = 'content-' + thisBlockId + '-' + thisTab.getAttribute('data-tab');
-                            var targetContent = document.getElementById(targetId);
-                            if (targetContent) {
-                                targetContent.classList.add('active');
-                            }
-                        };
-                    })(container, currentBlockId, tab);
-                    tabsBar.appendChild(tab);
-                });
-                
                 // Add Run button for Python, Rust, JavaScript, and TypeScript blocks
-                // (reuse the isPython, isRust, isJs, isTs already computed above)
                 if (isPython || isRust || isJs || isTs) {
                     var runBtn = document.createElement('button');
                     runBtn.className = 'code-block-run';
@@ -5176,35 +5182,39 @@ function getWebviewContent(renderedHtml: string, existingOutputs: { [blockId: nu
                 // Copy button HTML for code blocks
                 var codeCopyBtnHtml = '<button class="code-copy-btn" onclick="copyCodeBlock(this)" title="Copy to clipboard"><svg viewBox="0 0 24 24"><rect x="8" y="6" width="12" height="15" rx="1.5" ry="1.5"></rect><path d="M4 18V5a1.5 1.5 0 0 1 1.5-1.5h9"></path></svg></button>';
 
-                // Create content containers
+                // Create code content (always visible)
                 var codeContent = document.createElement('div');
                 codeContent.className = 'code-block-content active';
                 codeContent.id = 'content-' + currentBlockId + '-code';
                 
-                // Check for existing output from file
+                // Check for existing output/side effects/figures from file
                 var existingOutput = (currentBlockId !== null && existingOutputs[currentBlockId]) 
                     ? existingOutputs[currentBlockId] 
                     : null;
-                
-                var outputContent = document.createElement('div');
-                outputContent.className = 'code-block-content';
-                outputContent.id = 'content-' + currentBlockId + '-result';
-                
-                var outputHtml = codeCopyBtnHtml + '<div class="tab-content-output">' +
-                    '<div class="output-label">Result</div>' +
-                    '<div class="output-value" id="result-value-' + currentBlockId + '">';
-                    
-                if (existingOutput) {
-                    // Show existing output with Python syntax highlighting (results are always Python/zef expressions)
-                    outputHtml += '<pre style="margin: 0; background: transparent;"><code>' + highlightCode(existingOutput, 'python') + '</code></pre>';
-                } else {
-                    outputHtml += '<span style="color: var(--text-dim); font-style: italic;">No result yet. Click Run to execute.</span>';
-                }
-                
-                // Show persisted matplotlib figures resolved from hash store
+                var existingSideEffect = (currentBlockId !== null && existingSideEffects[currentBlockId]) 
+                    ? existingSideEffects[currentBlockId] 
+                    : null;
                 var blockFigures = (currentBlockId !== null && existingFigures[currentBlockId]) 
                     ? existingFigures[currentBlockId] 
                     : null;
+                
+                var hasOutput = existingOutput || existingSideEffect || blockFigures;
+                
+                // Create inline output area (below code, not in a tab)
+                var outputArea = document.createElement('div');
+                outputArea.className = 'code-block-output-area' + (hasOutput ? ' has-content' : '');
+                outputArea.id = 'output-area-' + currentBlockId;
+                
+                var outputHtml = '';
+                
+                // Result value
+                outputHtml += '<div class="output-value" id="result-value-' + currentBlockId + '">';
+                if (existingOutput) {
+                    outputHtml += '<pre style="margin: 0; background: transparent;"><code>' + highlightCode(existingOutput, 'python') + '</code></pre>';
+                }
+                outputHtml += '</div>';
+                
+                // Matplotlib figures
                 if (blockFigures) {
                     for (var fi = 0; fi < blockFigures.length; fi++) {
                         outputHtml += '<div style="margin-top: 12px;">' +
@@ -5213,31 +5223,20 @@ function getWebviewContent(renderedHtml: string, existingOutputs: { [blockId: nu
                     }
                 }
                 
-                outputHtml += '</div></div>';
-                outputContent.innerHTML = outputHtml;
-                
-                var sideEffectsContent = document.createElement('div');
-                sideEffectsContent.className = 'code-block-content';
-                sideEffectsContent.id = 'content-' + currentBlockId + '-side-effects';
-                
-                // Check for existing side effects from file
-                var existingSideEffect = (currentBlockId !== null && existingSideEffects[currentBlockId]) 
-                    ? existingSideEffects[currentBlockId] 
-                    : null;
-                
-                var sideEffectsHtml = codeCopyBtnHtml + '<div class="tab-content-side-effects">' +
-                    '<div class="effects-label">Side Effects</div>' +
-                    '<div id="side-effects-value-' + currentBlockId + '">';
-                
+                // Side effects
+                outputHtml += '<div id="side-effects-value-' + currentBlockId + '">';
                 if (existingSideEffect) {
-                    // Parse the side effects list and display with Python syntax highlighting
-                    sideEffectsHtml += '<pre style="margin: 0; background: transparent;"><code>' + highlightCode(existingSideEffect, 'python') + '</code></pre>';
-                } else {
-                    sideEffectsHtml += '<span style="color: var(--text-dim); font-style: italic;">No side effects recorded.</span>';
+                    outputHtml += '<div class="side-effects-separator">' +
+                        '<div class="effects-label">Side Effects</div>' +
+                        '<pre style="margin: 0; background: transparent;"><code>' + highlightCode(existingSideEffect, 'python') + '</code></pre>' +
+                        '</div>';
                 }
+                outputHtml += '</div>';
                 
-                sideEffectsHtml += '</div></div>';
-                sideEffectsContent.innerHTML = sideEffectsHtml;
+                // Copy button for output area
+                outputHtml += codeCopyBtnHtml;
+                
+                outputArea.innerHTML = outputHtml;
                 
                 // Insert container before pre
                 pre.parentNode.insertBefore(container, pre);
@@ -5249,8 +5248,7 @@ function getWebviewContent(renderedHtml: string, existingOutputs: { [blockId: nu
                 // Assemble container
                 container.appendChild(tabsBar);
                 container.appendChild(codeContent);
-                container.appendChild(outputContent);
-                container.appendChild(sideEffectsContent);
+                container.appendChild(outputArea);
             });
 
             // Context menu on title bars for "Jump to Source"
@@ -5438,7 +5436,7 @@ function getWebviewContent(renderedHtml: string, existingOutputs: { [blockId: nu
                         resultValue.innerHTML = html;
                     }
                     
-                    // Update side effects tab if we have side effects
+                    // Update side effects in inline output area
                     var sideEffectsValue = document.getElementById('side-effects-value-' + blockId);
                     if (sideEffectsValue && result.side_effects && result.side_effects.length > 0) {
                         var effectsText = '[\\n';
@@ -5451,28 +5449,18 @@ function getWebviewContent(renderedHtml: string, existingOutputs: { [blockId: nu
                             effectsText += '\\n';
                         });
                         effectsText += ']';
-                        var effectsHtml = '<pre style="margin: 0; background: transparent;"><code>' + highlightCode(effectsText, 'python') + '</code></pre>';
-                        sideEffectsValue.innerHTML = effectsHtml;
+                        sideEffectsValue.innerHTML = '<div class="side-effects-separator">' +
+                            '<div class="effects-label">Side Effects</div>' +
+                            '<pre style="margin: 0; background: transparent;"><code>' + highlightCode(effectsText, 'python') + '</code></pre>' +
+                            '</div>';
                     } else if (sideEffectsValue) {
-                        sideEffectsValue.innerHTML = '<span style="color: var(--text-dim); font-style: italic;">No side effects recorded.</span>';
+                        sideEffectsValue.innerHTML = '';
                     }
                     
-                    // Switch to result tab
-                    var container = document.querySelector('[data-block-id="' + blockId + '"]');
-                    if (container) {
-                        container.querySelectorAll('.code-block-tab').forEach(function(t) {
-                            t.classList.remove('active');
-                            if (t.getAttribute('data-tab') === 'result') {
-                                t.classList.add('active');
-                            }
-                        });
-                        container.querySelectorAll('.code-block-content').forEach(function(c) {
-                            c.classList.remove('active');
-                        });
-                        var resultTab = document.getElementById('content-' + blockId + '-result');
-                        if (resultTab) {
-                            resultTab.classList.add('active');
-                        }
+                    // Show inline output area
+                    var outputArea = document.getElementById('output-area-' + blockId);
+                    if (outputArea) {
+                        outputArea.classList.add('has-content');
                     }
                 }
                 
