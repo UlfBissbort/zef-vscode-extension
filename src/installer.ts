@@ -380,3 +380,64 @@ function installCliWsl(src: string): boolean {
         return false;
     }
 }
+
+// ── Zef Venv Discovery ───────────────────────────────────────────────────
+
+/**
+ * Returns the platform-specific parent directory of the tokolosh venv.
+ * macOS:  ~/Library/Application Support/Zef
+ * Linux:  ~/.local/share/zef
+ */
+function getZefVenvParentDir(): string | null {
+    const platform = process.platform;
+    const home = os.homedir();
+
+    if (platform === 'darwin') {
+        return path.join(home, 'Library', 'Application Support', 'Zef');
+    }
+    if (platform === 'linux') {
+        return path.join(home, '.local', 'share', 'zef');
+    }
+    // Windows: WSL Python has its own interpreter discovery — skip.
+    return null;
+}
+
+/**
+ * Ensure the Zef tokolosh venv is discoverable by VSCode's Python extension.
+ *
+ * Sets `python.venvPath` (user-level) to the Zef venv parent directory,
+ * but only if the setting is currently empty. Never overwrites a user's
+ * existing configuration.
+ */
+export function ensureZefVenvDiscoverable(): void {
+    const venvParent = getZefVenvParentDir();
+    if (!venvParent) {
+        return; // Unsupported platform
+    }
+
+    // Check that the venv actually exists before configuring discovery
+    const venvPython = path.join(venvParent, 'tokolosh_venv', 'bin', 'python');
+    if (!fs.existsSync(venvPython)) {
+        log(`Zef venv not found at ${venvPython}, skipping venv discovery setup`);
+        return;
+    }
+
+    const config = vscode.workspace.getConfiguration('python');
+    const currentValue = config.inspect<string>('venvPath');
+    const globalValue = currentValue?.globalValue;
+
+    if (globalValue && globalValue !== venvParent) {
+        // User has a custom value — don't overwrite
+        log(`python.venvPath already set to "${globalValue}", not overwriting with Zef path`);
+        return;
+    }
+
+    if (globalValue === venvParent) {
+        // Already set to our value — nothing to do
+        return;
+    }
+
+    // Setting is empty — configure it to point to Zef venv parent directory
+    config.update('venvPath', venvParent, vscode.ConfigurationTarget.Global);
+    log(`Set python.venvPath to "${venvParent}" for Zef venv discovery`);
+}
