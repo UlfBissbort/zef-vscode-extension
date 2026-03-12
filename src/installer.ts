@@ -322,19 +322,16 @@ export async function installCli(
 
 /**
  * Install CLI on macOS / Linux: copy to ~/.local/bin/zef
+ * Only installs if no binary exists yet — never overwrites a user-installed version.
  */
 function installCliUnix(src: string): boolean {
     const dest = path.join(os.homedir(), '.local', 'bin', 'zef');
     const destDir = path.dirname(dest);
 
-    // Skip if already identical (same size = same build)
+    // Never overwrite an existing binary — the user may have built a newer version
     if (fs.existsSync(dest)) {
-        const srcStat = fs.statSync(src);
-        const dstStat = fs.statSync(dest);
-        if (srcStat.size === dstStat.size) {
-            log(`CLI already up to date at ${dest}`);
-            return true;
-        }
+        log(`CLI already exists at ${dest}, skipping (won't overwrite)`);
+        return true;
     }
 
     fs.mkdirSync(destDir, { recursive: true });
@@ -347,9 +344,19 @@ function installCliUnix(src: string): boolean {
 
 /**
  * Install Linux CLI binary into WSL at ~/.local/bin/zef
+ * Only installs if no binary exists yet — never overwrites a user-installed version.
  */
 function installCliWsl(src: string): boolean {
     try {
+        // Check if binary already exists in WSL
+        try {
+            execSync('wsl test -f ~/.local/bin/zef');
+            log('CLI already exists in WSL at ~/.local/bin/zef, skipping (won\'t overwrite)');
+            return true;
+        } catch {
+            // File doesn't exist, proceed with installation
+        }
+
         // Copy binary to a Windows temp location
         const tmpPath = path.join(os.tmpdir(), 'zef');
         fs.copyFileSync(src, tmpPath);
