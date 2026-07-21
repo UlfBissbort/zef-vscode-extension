@@ -2115,6 +2115,11 @@ function getWebviewContent(renderedHtml: string, existingOutputs: { [blockId: nu
         }
 
         /* Svelte preview */
+        .zef-svelte-embed {
+            outline: 1px solid rgba(100, 116, 139, 0.42);
+            outline-offset: 4px;
+        }
+
         .svelte-container .code-block-lang {
             margin-left: 0;
         }
@@ -5781,6 +5786,9 @@ function getWebviewContent(renderedHtml: string, existingOutputs: { [blockId: nu
                         vscode.postMessage({ type: 'compileZefSvelteEmbed', hash: hash });
                     };
                 }
+                // Stored embeds bypass the regular Svelte-fence transformer, so
+                // they need their own width handles.
+                addWidthResizeHandle(container);
             });
 
             // Compile all Svelte blocks (called from the top-right button)
