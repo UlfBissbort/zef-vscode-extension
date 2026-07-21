@@ -1211,7 +1211,6 @@ function preserveBlankLines(markdown: string): string {
     let inCodeBlock = false;
     let codeBlockFence = '';
     let blankLineCount = 0;
-    let justExitedCodeBlock = false;  // Track if we just closed a code block
     
     for (const line of lines) {
         // Check for code block fence (3+ backticks)
@@ -1222,10 +1221,9 @@ function preserveBlankLines(markdown: string): string {
                 // Before entering code block, output any accumulated blank lines
                 if (blankLineCount > 0) {
                     result.push('');
-                    // If we just exited a code block, add visible spacing for EACH blank line
-                    // Otherwise, only add extra spacing for 2+ blank lines
-                    const startFrom = justExitedCodeBlock ? 0 : 1;
-                    for (let i = startFrom; i < blankLineCount; i++) {
+                    // The first blank line is normal Markdown separation. Only
+                    // preserve additional blank lines as visible spacing.
+                    for (let i = 1; i < blankLineCount; i++) {
                         result.push('<div class="blank-line"></div>');
                         result.push('');
                     }
@@ -1234,14 +1232,12 @@ function preserveBlankLines(markdown: string): string {
                 // Entering code block - push the opening fence and continue
                 inCodeBlock = true;
                 codeBlockFence = fenceMatch[1];
-                justExitedCodeBlock = false;
                 result.push(line);
                 continue;  // Skip rest of processing for this line
             } else if (line.startsWith(codeBlockFence) && line.slice(codeBlockFence.length).trim() === '') {
                 // Exiting code block - push the closing fence and continue
                 inCodeBlock = false;
                 codeBlockFence = '';
-                justExitedCodeBlock = true;  // Mark that we just exited
                 result.push(line);
                 continue;  // Skip rest of processing for this line
             }
@@ -1258,17 +1254,15 @@ function preserveBlankLines(markdown: string): string {
             if (blankLineCount > 0) {
                 // First blank line = standard paragraph break
                 result.push('');
-                // If we just exited a code block, add visible spacing for EACH blank line
-                // Otherwise, only add extra spacing for 2+ blank lines
-                const startFrom = justExitedCodeBlock ? 0 : 1;
-                for (let i = startFrom; i < blankLineCount; i++) {
+                // The first blank line is normal Markdown separation. Only
+                // preserve additional blank lines as visible spacing.
+                for (let i = 1; i < blankLineCount; i++) {
                     result.push('<div class="blank-line"></div>');
                     result.push('');
                 }
             }
             result.push(line);
             blankLineCount = 0;
-            justExitedCodeBlock = false;  // Reset since we processed content
         }
     }
     
@@ -1561,6 +1555,11 @@ function getWebviewContent(renderedHtml: string, existingOutputs: { [blockId: nu
             --heading-color: #fafafa;
             --link-color: #888;
             --accent: #444;
+            --code-surface: #0d0d0d;
+            --code-header: #111111;
+            --code-border: #252525;
+            --code-header-height: 34px;
+            --code-inline-padding: 18px;
         }
 
         * {
@@ -1610,7 +1609,7 @@ function getWebviewContent(renderedHtml: string, existingOutputs: { [blockId: nu
         }
 
         p {
-            margin: 1.2em 0;
+            margin: 0.85em 0;
             color: var(--text-dim);
         }
 
@@ -1833,31 +1832,30 @@ function getWebviewContent(renderedHtml: string, existingOutputs: { [blockId: nu
         }
 
         pre {
-            background-color: var(--code-bg);
-            border: 1px solid var(--border-color);
-            border-radius: 8px;
-            padding: 1.5rem;
-            padding-top: 2.5rem;
+            background-color: var(--code-surface);
+            border: 1px solid var(--code-border);
+            border-radius: 10px;
+            padding: 1rem var(--code-inline-padding);
             overflow-x: auto;
             position: relative;
-            margin: 1.5rem 0;
+            margin: 0.85rem 0;
         }
 
         pre code {
             background-color: transparent;
             padding: 0;
             font-size: 0.8rem;
-            line-height: 1.6;
+            line-height: 1.55;
             color: #aaa;
         }
 
         /* Syntax highlighting - subtle and elegant */
-        .hl-kw { color: #c9a0dc !important; }
-        .hl-str { color: #98c379 !important; }
-        .hl-cmt { color: #555 !important; font-style: italic; }
-        .hl-fn { color: #61afef !important; }
-        .hl-num { color: #d19a66 !important; }
-        .hl-ty { color: #56b6c2 !important; }
+        .hl-kw { color: #c9a7ff !important; }
+        .hl-str { color: #9ecbff !important; }
+        .hl-cmt { color: #69717a !important; font-style: normal; }
+        .hl-fn { color: #82b7f5 !important; }
+        .hl-num { color: #79c0ff !important; }
+        .hl-ty { color: #76c7c0 !important; }
         
         /* Mermaid diagrams */
         .mermaid {
@@ -2064,24 +2062,39 @@ function getWebviewContent(renderedHtml: string, existingOutputs: { [blockId: nu
             font-weight: normal;
         }
 
-        /* Code block container with tabs */
+        /* Compact code block shell */
         .code-block-container {
-            margin: 1.5rem 0;
-            border: 1px solid var(--border-color);
-            border-radius: 8px;
+            margin: 0.7rem 0 1rem;
+            border: 1px solid var(--code-border);
+            border-radius: 11px;
+            background: var(--code-surface);
             overflow: hidden;
+        }
+
+        p:has(+ .code-block-container) {
+            margin-bottom: 0.55rem;
+        }
+
+        p + .code-block-container {
+            margin-top: 0.55rem;
+        }
+
+        .code-block-container + p {
+            margin-top: 0.85rem;
         }
 
         .code-block-tabs {
             display: flex;
-            background: var(--border-color);
-            border-bottom: 1px solid var(--border-color);
+            align-items: center;
+            min-height: var(--code-header-height);
+            background: var(--code-header);
+            border-bottom: 1px solid #202020;
         }
 
         .code-block-tab {
-            padding: 8px 16px;
-            font-size: 0.75rem;
-            letter-spacing: 0.05em;
+            padding: 7px 12px;
+            font-size: 0.72rem;
+            letter-spacing: 0.025em;
             color: var(--text-dim);
             background: transparent;
             border: none;
@@ -2130,13 +2143,31 @@ function getWebviewContent(renderedHtml: string, existingOutputs: { [blockId: nu
 
         .code-block-lang {
             margin-left: auto;
-            padding: 8px 16px;
-            font-size: 0.75rem;
-            letter-spacing: 0.05em;
+            padding: 7px 12px;
+            font-size: 0.72rem;
+            letter-spacing: 0.025em;
             color: var(--text-dim);
             display: flex;
             align-items: center;
-            gap: 6px;
+        }
+
+        .code-block-header {
+            padding: 0 7px;
+        }
+
+        .code-block-header .code-block-lang {
+            margin-left: 0;
+            padding: 0 8px;
+            color: #aaa;
+            letter-spacing: 0;
+            text-transform: none;
+        }
+
+        .code-block-actions {
+            display: flex;
+            align-items: center;
+            gap: 2px;
+            margin-left: auto;
         }
         
         /* For mermaid blocks, the first action button has margin-left:auto to push right */
@@ -2184,25 +2215,33 @@ function getWebviewContent(renderedHtml: string, existingOutputs: { [blockId: nu
         .code-block-expand {
             display: inline-flex;
             align-items: center;
-            padding: 4px 8px;
-            margin-right: 6px;
-            font-size: 11px;
-            color: rgba(255, 255, 255, 0.5);
+            justify-content: center;
+            width: 26px;
+            height: 26px;
+            padding: 0;
+            margin: 0;
+            font-size: 14px;
+            line-height: 1;
+            color: #666;
             background: transparent;
-            border: 1px solid rgba(255, 255, 255, 0.1);
-            border-radius: 4px;
+            border: 1px solid transparent;
+            border-radius: 5px;
             cursor: pointer;
-            transition: all 0.2s ease;
+            transition: color 0.15s ease, background 0.15s ease, border-color 0.15s ease;
         }
         .code-block-expand:hover {
-            color: rgba(255, 255, 255, 0.9);
-            background: rgba(255, 255, 255, 0.05);
-            border-color: rgba(255, 255, 255, 0.2);
+            color: #aaa;
+            background: rgba(255, 255, 255, 0.035);
+            border-color: #292929;
         }
         .code-block-expand.active {
-            color: #61afef;
-            background: rgba(97, 175, 239, 0.1);
-            border-color: rgba(97, 175, 239, 0.3);
+            color: #79a8d8;
+            background: rgba(97, 175, 239, 0.06);
+            border-color: rgba(97, 175, 239, 0.18);
+        }
+
+        .code-block-expand-height {
+            font-size: 18px;
         }
 
         /* Code block height toggle */
@@ -2222,46 +2261,51 @@ function getWebviewContent(renderedHtml: string, existingOutputs: { [blockId: nu
             transform: translateX(-50%);
         }
 
-        .json-container .code-block-lang {
-            margin-left: auto;
-        }
-        
-        .zen-container .code-block-lang {
-            margin-left: auto;
-        }
-        
         .html-container .code-block-lang {
             margin-left: auto;
         }
         
         .code-block-run {
             margin-left: auto;
-            padding: 4px 12px;
-            font-size: 0.7rem;
-            letter-spacing: 0.05em;
-            color: #98c379;
-            background: rgba(152, 195, 121, 0.1);
-            border: 1px solid rgba(152, 195, 121, 0.3);
-            border-radius: 4px;
+            padding: 3px 7px;
+            min-height: 24px;
+            font-size: 0.68rem;
+            letter-spacing: 0;
+            color: #777;
+            background: transparent;
+            border: 1px solid transparent;
+            border-radius: 5px;
             cursor: pointer;
-            transition: all 0.2s;
-            margin-left: auto;
-            margin-right: 8px;
+            transition: color 0.15s ease, background 0.15s ease, border-color 0.15s ease;
             display: flex;
             align-items: center;
             gap: 4px;
         }
+
+        .code-block-actions .code-block-run {
+            margin: 0;
+        }
+
+        .code-block-run svg {
+            width: 10px;
+            height: 10px;
+        }
         
         .code-block-run:hover {
-            background: rgba(152, 195, 121, 0.2);
-            border-color: rgba(152, 195, 121, 0.5);
+            color: #aaa;
+            background: rgba(255, 255, 255, 0.035);
+            border-color: #292929;
         }
         
         .code-block-run.running {
-            color: #d19a66;
-            background: rgba(209, 154, 102, 0.1);
-            border-color: rgba(209, 154, 102, 0.3);
+            color: #999;
+            background: rgba(255, 255, 255, 0.025);
+            border-color: #292929;
             cursor: wait;
+        }
+
+        .code-block-run.running svg {
+            display: none;
         }
         
         .code-block-run.running::before {
@@ -2289,30 +2333,30 @@ function getWebviewContent(renderedHtml: string, existingOutputs: { [blockId: nu
 
         .code-block-content pre {
             margin: 0;
+            padding: 14px var(--code-inline-padding) 17px;
             border: none;
             border-radius: 0;
+            background: var(--code-surface);
         }
 
         .code-copy-btn {
-            position: absolute;
-            top: 8px;
-            right: 8px;
-            width: 28px;
-            height: 28px;
+            position: static;
+            width: 26px;
+            height: 26px;
             background: transparent;
             border: none;
             cursor: pointer;
             display: flex;
             align-items: center;
             justify-content: center;
-            opacity: 0.4;
-            transition: opacity 0.2s;
+            opacity: 0.48;
+            transition: opacity 0.15s ease, background 0.15s ease;
             padding: 4px;
             z-index: 2;
         }
 
-        .code-block-content:hover .code-copy-btn {
-            opacity: 0.75;
+        .code-block-container:hover .code-copy-btn {
+            opacity: 0.7;
         }
 
         .code-copy-btn:hover {
@@ -2320,8 +2364,8 @@ function getWebviewContent(renderedHtml: string, existingOutputs: { [blockId: nu
         }
 
         .code-copy-btn svg {
-            width: 18px;
-            height: 18px;
+            width: 15px;
+            height: 15px;
             fill: none;
             stroke: #888;
             stroke-width: 2;
@@ -4423,6 +4467,12 @@ function getWebviewContent(renderedHtml: string, existingOutputs: { [blockId: nu
         async function copyCodeBlock(button) {
             try {
                 var content = button.closest('.code-block-content') || button.closest('.code-block-output-area');
+                if (!content) {
+                    var container = button.closest('.code-block-container');
+                    content = container ? container.querySelector('.code-block-content') : null;
+                }
+                if (!content) return;
+
                 var text = '';
                 var codeEl = content.querySelector('pre code');
                 var outputVal = content.querySelector('.output-value');
@@ -5017,6 +5067,66 @@ function getWebviewContent(renderedHtml: string, existingOutputs: { [blockId: nu
                 }
             });
 
+            function getCodeLanguageLabel(language) {
+                var normalized = (language || 'code').toLowerCase();
+                var labels = {
+                    py: 'Python', python: 'Python',
+                    rs: 'Rust', rust: 'Rust',
+                    js: 'JavaScript', javascript: 'JavaScript',
+                    ts: 'TypeScript', typescript: 'TypeScript',
+                    json: 'JSON', zen: 'Zen',
+                    bash: 'Bash', sh: 'Shell', shell: 'Shell',
+                    html: 'HTML', css: 'CSS', sql: 'SQL',
+                    yaml: 'YAML', yml: 'YAML', toml: 'TOML'
+                };
+                return labels[normalized] || normalized.charAt(0).toUpperCase() + normalized.slice(1);
+            }
+
+            function setCodeRunState(button, running) {
+                if (!button) return;
+                button.classList.toggle('running', running);
+                var label = button.querySelector('.code-block-run-label');
+                if (label) label.textContent = running ? 'Running' : 'Run';
+            }
+
+            function createCodeBlockHeader(language, options) {
+                options = options || {};
+
+                var header = document.createElement('div');
+                header.className = 'code-block-tabs code-block-header';
+
+                var languageLabel = document.createElement('div');
+                languageLabel.className = 'code-block-lang';
+                languageLabel.textContent = getCodeLanguageLabel(language);
+                header.appendChild(languageLabel);
+
+                var actions = document.createElement('div');
+                actions.className = 'code-block-actions';
+
+                var runButton = null;
+                if (options.onRun) {
+                    runButton = document.createElement('button');
+                    runButton.className = 'code-block-run';
+                    if (options.runButtonId) runButton.id = options.runButtonId;
+                    runButton.innerHTML = '<svg viewBox="0 0 12 12" aria-hidden="true"><path d="M3 2.25L9 6 3 9.75Z" fill="currentColor"></path></svg><span class="code-block-run-label">Run</span>';
+                    runButton.onclick = options.onRun;
+                    actions.appendChild(runButton);
+                }
+
+                if (options.copy !== false) {
+                    var copyButton = document.createElement('button');
+                    copyButton.className = 'code-copy-btn';
+                    copyButton.title = 'Copy to clipboard';
+                    copyButton.setAttribute('aria-label', 'Copy code to clipboard');
+                    copyButton.innerHTML = '<svg viewBox="0 0 24 24"><rect x="8" y="6" width="12" height="15" rx="1.5" ry="1.5"></rect><path d="M4 18V5a1.5 1.5 0 0 1 1.5-1.5h9"></path></svg>';
+                    copyButton.onclick = function() { copyCodeBlock(copyButton); };
+                    actions.appendChild(copyButton);
+                }
+
+                header.appendChild(actions);
+                return { header: header, actions: actions, runButton: runButton };
+            }
+
             document.querySelectorAll('pre').forEach(function(pre, preIndex) {
                 var lang = pre.getAttribute('data-lang') || 'code';
                 var langLower = lang.toLowerCase();
@@ -5415,7 +5525,7 @@ function getWebviewContent(renderedHtml: string, existingOutputs: { [blockId: nu
                     // Add language indicator
                     var htmlLangIndicator = document.createElement('div');
                     htmlLangIndicator.className = 'code-block-lang';
-                    htmlLangIndicator.innerHTML = '<span>HTML</span><span>&lt;/&gt;</span>';
+                    htmlLangIndicator.textContent = 'HTML';
                     htmlTabsBar.appendChild(htmlLangIndicator);
                     
                     // Create "Rendered" content (the HTML preview in iframe)
@@ -5635,15 +5745,8 @@ function getWebviewContent(renderedHtml: string, existingOutputs: { [blockId: nu
                         jsonContainer.setAttribute('data-source-line', blockSourceLines[preIndex]);
                     }
 
-                    // Create header bar with just language indicator
-                    var jsonHeaderBar = document.createElement('div');
-                    jsonHeaderBar.className = 'code-block-tabs';
-                    
-                    // Add language indicator
-                    var jsonLangIndicator = document.createElement('div');
-                    jsonLangIndicator.className = 'code-block-lang';
-                    jsonLangIndicator.innerHTML = '<span>JSON</span><span>{ }</span>';
-                    jsonHeaderBar.appendChild(jsonLangIndicator);
+                    // Use the same compact header as ordinary code blocks.
+                    var jsonHeaderBar = createCodeBlockHeader('json', { copy: true }).header;
                     
                     // Create code content
                     var jsonCodeContent = document.createElement('div');
@@ -5669,15 +5772,8 @@ function getWebviewContent(renderedHtml: string, existingOutputs: { [blockId: nu
                         zenContainer.setAttribute('data-source-line', blockSourceLines[preIndex]);
                     }
 
-                    // Create header bar with just language indicator
-                    var zenHeaderBar = document.createElement('div');
-                    zenHeaderBar.className = 'code-block-tabs';
-                    
-                    // Add language indicator
-                    var zenLangIndicator = document.createElement('div');
-                    zenLangIndicator.className = 'code-block-lang';
-                    zenLangIndicator.innerHTML = '<span>Zen</span><span>🌿</span>';
-                    zenHeaderBar.appendChild(zenLangIndicator);
+                    // Use the same compact header as ordinary code blocks.
+                    var zenHeaderBar = createCodeBlockHeader('zen', { copy: true }).header;
                     
                     // Create code content
                     var zenCodeContent = document.createElement('div');
@@ -5704,61 +5800,28 @@ function getWebviewContent(renderedHtml: string, existingOutputs: { [blockId: nu
                     container.setAttribute('data-source-line', blockSourceLines[preIndex]);
                 }
 
-                // Create header bar (no tabs — results shown inline below code)
-                var tabsBar = document.createElement('div');
-                tabsBar.className = 'code-block-tabs';
-                
-                // Add Run button for Python, Rust, JavaScript, and TypeScript blocks
-                if (isPython || isRust || isJs || isTs) {
-                    var runBtn = document.createElement('button');
-                    runBtn.className = 'code-block-run';
-                    runBtn.id = 'run-btn-' + currentBlockId;
-                    runBtn.innerHTML = '▶ Run';
-                    runBtn.onclick = (function(thisBlockId, thisLang) {
-                        return function() {
-                            var btn = document.getElementById('run-btn-' + thisBlockId);
-                            if (btn.classList.contains('running')) return;
-                            btn.classList.add('running');
-                            btn.innerHTML = 'Running...';
-                            
-                            var code = codeBlocks[thisBlockId];
-                            vscode.postMessage({
-                                type: 'runCode',
-                                code: code,
-                                blockId: thisBlockId,
-                                language: thisLang
-                            });
-                        };
-                    })(currentBlockId, langLower);
-                    tabsBar.appendChild(runBtn);
-                }
-                
-                // Add language indicator with emoji on the right
-                var langIndicator = document.createElement('div');
-                langIndicator.className = 'code-block-lang';
-                var emoji = '';
-                var langName = langLower;
-                if (isPython) {
-                    emoji = '🐍';
-                    langName = 'Python';
-                } else if (isRust) {
-                    emoji = '🦀';
-                    langName = 'Rust';
-                } else if (isJs) {
-                    emoji = '📜';
-                    langName = 'JavaScript';
-                } else if (isTs) {
-                    emoji = '📘';
-                    langName = 'TypeScript';
-                }
-                langIndicator.innerHTML = '<span>' + langName + '</span><span>' + emoji + '</span>';
-                if (isPython || isRust || isJs || isTs) {
-                    langIndicator.style.marginLeft = '0';
-                }
-                tabsBar.appendChild(langIndicator);
-                
-                // Copy button HTML for code blocks
-                var codeCopyBtnHtml = '<button class="code-copy-btn" onclick="copyCodeBlock(this)" title="Copy to clipboard"><svg viewBox="0 0 24 24"><rect x="8" y="6" width="12" height="15" rx="1.5" ry="1.5"></rect><path d="M4 18V5a1.5 1.5 0 0 1 1.5-1.5h9"></path></svg></button>';
+                // Create one shared compact header: language left, quiet actions right.
+                var canRun = isPython || isRust || isJs || isTs;
+                var runHandler = canRun ? (function(thisBlockId, thisLang) {
+                    return function() {
+                        var btn = document.getElementById('run-btn-' + thisBlockId);
+                        if (!btn || btn.classList.contains('running')) return;
+                        setCodeRunState(btn, true);
+
+                        vscode.postMessage({
+                            type: 'runCode',
+                            code: codeBlocks[thisBlockId],
+                            blockId: thisBlockId,
+                            language: thisLang
+                        });
+                    };
+                })(currentBlockId, langLower) : null;
+                var headerParts = createCodeBlockHeader(langLower, {
+                    copy: true,
+                    runButtonId: canRun ? 'run-btn-' + currentBlockId : undefined,
+                    onRun: runHandler
+                });
+                var tabsBar = headerParts.header;
 
                 // Create code content (always visible)
                 var codeContent = document.createElement('div');
@@ -5876,9 +5939,8 @@ function getWebviewContent(renderedHtml: string, existingOutputs: { [blockId: nu
                 // Insert container before pre
                 pre.parentNode.insertBefore(container, pre);
                 
-                // Move pre into code content
+                // Move pre into code content. Header actions are created separately.
                 codeContent.appendChild(pre);
-                codeContent.insertAdjacentHTML('beforeend', codeCopyBtnHtml);
 
                 // Assemble container
                 container.appendChild(tabsBar);
@@ -5951,14 +6013,17 @@ function getWebviewContent(renderedHtml: string, existingOutputs: { [blockId: nu
                     if (lineCount > 25) {
                         codeContent.classList.add('height-collapsed');
                         var heightBtn = document.createElement('button');
-                        heightBtn.className = 'code-block-expand';
-                        heightBtn.innerHTML = '<span style="font-size: 24px; line-height: 1;">⇕</span>';
+                        heightBtn.className = 'code-block-expand code-block-expand-height';
+                        heightBtn.textContent = '⇕';
                         heightBtn.title = 'Toggle full height';
                         heightBtn.onclick = function() {
                             codeContent.classList.toggle('height-collapsed');
                             heightBtn.classList.toggle('active');
                         };
-                        if (langIndicator) {
+                        var actions = tabsBar.querySelector('.code-block-actions');
+                        if (actions) {
+                            actions.insertBefore(heightBtn, actions.querySelector('.code-copy-btn'));
+                        } else if (langIndicator) {
                             if (!hasRunBtn) {
                                 langIndicator.style.marginLeft = '0';
                                 heightBtn.style.marginLeft = 'auto';
@@ -5977,13 +6042,16 @@ function getWebviewContent(renderedHtml: string, existingOutputs: { [blockId: nu
 
                     var expandBtn = document.createElement('button');
                     expandBtn.className = 'code-block-expand';
-                    expandBtn.innerHTML = '<span style="font-size: 18px; line-height: 1;">⇔</span>';
+                    expandBtn.textContent = '⇔';
                     expandBtn.title = 'Expand code block';
                     expandBtn.onclick = function() {
                         container.classList.toggle('expanded');
                         expandBtn.classList.toggle('active');
                     };
-                    if (langIndicator) {
+                    var actions = tabsBar.querySelector('.code-block-actions');
+                    if (actions) {
+                        actions.insertBefore(expandBtn, actions.querySelector('.code-copy-btn'));
+                    } else if (langIndicator) {
                         if (!hasRunBtn && !tabsBar.querySelector('.code-block-expand')) {
                             expandBtn.style.marginLeft = 'auto';
                             langIndicator.style.marginLeft = '0';
@@ -6017,8 +6085,7 @@ function getWebviewContent(renderedHtml: string, existingOutputs: { [blockId: nu
                     // Reset run button
                     var runBtn = document.getElementById('run-btn-' + blockId);
                     if (runBtn) {
-                        runBtn.classList.remove('running');
-                        runBtn.innerHTML = '▶ Run';
+                        setCodeRunState(runBtn, false);
                     }
                     
                     // Update result tab
