@@ -1479,7 +1479,7 @@ function escapeSvelteEmbedSource(source: string): string {
 
 function renderSvelteEmbed(hash: string, source: string | null): string {
     const content = source
-        ? `<pre data-lang="svelte"><code>${escapeSvelteEmbedSource(source)}</code></pre>`
+        ? `<pre data-lang="svelte" data-zef-svelte-embed-source><code>${escapeSvelteEmbedSource(source)}</code></pre>`
         : '<div class="svelte-error-report">Stored Svelte component was not found.</div>';
     const canCompile = source ? '' : ' disabled';
     return `<div class="code-block-container svelte-container zef-svelte-embed" data-zef-svelte-embed-hash="${hash}">
@@ -5891,6 +5891,8 @@ function getWebviewContent(renderedHtml: string, existingOutputs: { [blockId: nu
             }
 
             document.querySelectorAll('pre').forEach(function(pre, preIndex) {
+                // This source pane already belongs to a stored-component container.
+                if (pre.hasAttribute('data-zef-svelte-embed-source')) return;
                 var lang = pre.getAttribute('data-lang') || 'code';
                 var langLower = lang.toLowerCase();
                 var isPython = (langLower === 'python' || langLower === 'py');
