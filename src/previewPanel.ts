@@ -1834,7 +1834,7 @@ function getWebviewContent(renderedHtml: string, existingOutputs: { [blockId: nu
         pre {
             background-color: var(--code-surface);
             border: 1px solid var(--code-border);
-            border-radius: 10px;
+            border-radius: 6px;
             padding: 1rem var(--code-inline-padding);
             overflow-x: auto;
             position: relative;
@@ -1856,6 +1856,17 @@ function getWebviewContent(renderedHtml: string, existingOutputs: { [blockId: nu
         .hl-fn { color: #82b7f5 !important; }
         .hl-num { color: #79c0ff !important; }
         .hl-ty { color: #76c7c0 !important; }
+
+        /* JSON uses the green-key, purple-value palette and bracket-pair
+           colors from the reference editor theme. */
+        .json-key { color: #99e490; }
+        .json-string { color: #a784f9; }
+        .json-number { color: #e4c65a; }
+        .json-literal { color: #689ad2; }
+        .json-punctuation { color: #b8b8b8; }
+        .json-bracket-0 { color: #ffd700; }
+        .json-bracket-1 { color: #da70d6; }
+        .json-bracket-2 { color: #179fff; }
         
         /* Mermaid diagrams */
         .mermaid {
@@ -2066,7 +2077,7 @@ function getWebviewContent(renderedHtml: string, existingOutputs: { [blockId: nu
         .code-block-container {
             margin: 0.7rem 0 1rem;
             border: 1px solid var(--code-border);
-            border-radius: 11px;
+            border-radius: 7px;
             background: var(--code-surface);
             overflow: hidden;
         }
@@ -4839,7 +4850,82 @@ function getWebviewContent(renderedHtml: string, existingOutputs: { [blockId: nu
                 makeHandle('right');
             }
 
+            function highlightJson(code) {
+                var result = '';
+                var depth = 0;
+                var i = 0;
+
+                while (i < code.length) {
+                    var ch = code[i];
+
+                    if (ch === '"') {
+                        var start = i;
+                        i++;
+                        while (i < code.length) {
+                            if (code[i] === '\\\\' && i + 1 < code.length) {
+                                i += 2;
+                            } else if (code[i] === '"') {
+                                i++;
+                                break;
+                            } else {
+                                i++;
+                            }
+                        }
+                        var rawString = code.slice(start, i);
+                        var lookAhead = i;
+                        while (lookAhead < code.length && /\\s/.test(code[lookAhead])) lookAhead++;
+                        var stringClass = code[lookAhead] === ':' ? 'json-key' : 'json-string';
+                        result += '<span class="' + stringClass + '">' + escapeHtml(rawString) + '</span>';
+                        continue;
+                    }
+
+                    if (ch === '{' || ch === '[') {
+                        result += '<span class="json-bracket-' + (depth % 3) + '">' + ch + '</span>';
+                        depth++;
+                        i++;
+                        continue;
+                    }
+
+                    if (ch === '}' || ch === ']') {
+                        depth = Math.max(0, depth - 1);
+                        result += '<span class="json-bracket-' + (depth % 3) + '">' + ch + '</span>';
+                        i++;
+                        continue;
+                    }
+
+                    if (ch === ':' || ch === ',') {
+                        result += '<span class="json-punctuation">' + ch + '</span>';
+                        i++;
+                        continue;
+                    }
+
+                    var remaining = code.slice(i);
+                    var numberMatch = remaining.match(/^-?(?:0|[1-9]\\d*)(?:\\.\\d+)?(?:[eE][+-]?\\d+)?/);
+                    if (numberMatch) {
+                        result += '<span class="json-number">' + numberMatch[0] + '</span>';
+                        i += numberMatch[0].length;
+                        continue;
+                    }
+
+                    var literalMatch = remaining.match(/^(?:true|false|null)\\b/);
+                    if (literalMatch) {
+                        result += '<span class="json-literal">' + literalMatch[0] + '</span>';
+                        i += literalMatch[0].length;
+                        continue;
+                    }
+
+                    result += escapeHtml(ch);
+                    i++;
+                }
+
+                return result;
+            }
+
             function highlightCode(code, lang) {
+                if (lang === 'json') {
+                    return highlightJson(code);
+                }
+
                 var lines = code.split('\\n');
                 var result = [];
                 
