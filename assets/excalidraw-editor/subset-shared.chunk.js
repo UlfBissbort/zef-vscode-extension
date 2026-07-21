@@ -58,7 +58,7 @@ SOFTWARE.
 * @license MIT
 * @version 0.3.6
 
-Apache license for Zephyr libc implementations (zephyr-string.c),
+Apache license for Zefyr libc implementations (zefyr-string.c),
 emmalloc.cpp (from emscripten project) and MIT for rest of the project
 
 Copyright (c) 2019 Ebrahim Byagowi

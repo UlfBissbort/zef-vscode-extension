@@ -3,7 +3,7 @@ import * as path from 'path';
 import { marked } from 'marked';
 import { CellResult } from './kernelManager';
 import { isZefDocument, isZefPythonFile, isZefRustFile } from './zefUtils';
-import { stripFrontmatter, getDocumentSettings, updateDocumentSetting, ZefSettings } from './frontmatterParser';
+import { stripFrontmatter, getDocumentSettings, updateDocumentSetting, parseDocumentFrontmatter, renderDocumentFrontmatter, ZefSettings } from './frontmatterParser';
 import { ExcalidrawEditorPanel, generateExcalidrawUid } from './excalidrawEditorPanel';
 import { generateNotebook, parseMarkdownCells, parsePythonCells, parsePythonLegacyCells } from './notebookExport';
 import { detectFeatures, inlineKatexFonts, generateStandaloneHtml, embedRenderedBlocks, SvelteBlockExport, HtmlExportInput } from './htmlExport';
@@ -857,6 +857,7 @@ export async function updatePreview(document: vscode.TextDocument) {
     // For Python files, convert to markdown representation first
     const isPythonFile = isZefPythonFile(document);
     const isRustFile = isZefRustFile(document);
+    const documentFrontmatter = (isPythonFile || isRustFile) ? null : parseDocumentFrontmatter(text);
     if (isPythonFile) {
         text = convertPythonToMarkdown(text);
     } else if (isRustFile) {
@@ -938,7 +939,7 @@ export async function updatePreview(document: vscode.TextDocument) {
         .replace(/\n````Side Effects\s*\n[\s\S]*?````/g, '')
         .replace(/\n````rendered-html\s*\n[\s\S]*?````/g, '');
     
-    let html = renderMarkdown(cleanText);
+    let html = renderDocumentFrontmatter(documentFrontmatter) + renderMarkdown(cleanText);
     
     // Convert relative image paths to webview URIs
     const docDir = path.dirname(document.uri.fsPath);
@@ -1639,6 +1640,179 @@ function getWebviewContent(renderedHtml: string, existingOutputs: { [blockId: nu
         a.wiki-link:hover {
             color: #a8ddf0;
             border-bottom-color: #a8ddf0;
+        }
+
+        .document-identity {
+            display: flex;
+            align-items: center;
+            gap: 0.65rem;
+            margin: 0 0 1.5rem;
+            color: var(--text-muted);
+        }
+
+        .document-identity-type {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.4rem;
+            max-width: 100%;
+            padding: 0.15rem 0.45rem 0.15rem 0.65rem;
+            border: 1px solid #355040;
+            border-radius: 999px;
+            color: #8fc9a3;
+            background: #111a14;
+            font-family: 'SF Mono', 'Fira Code', Consolas, monospace;
+            font-size: 0.74rem;
+            white-space: nowrap;
+        }
+
+        .document-identity-text {
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .document-identity-copy {
+            display: inline-flex;
+            flex: 0 0 auto;
+            align-items: center;
+            justify-content: center;
+            width: 1.25rem;
+            height: 1.25rem;
+            padding: 0;
+            border: 0;
+            border-radius: 50%;
+            color: currentColor;
+            background: transparent;
+            cursor: pointer;
+            opacity: 0.3;
+            transition: opacity 0.15s ease, background 0.15s ease;
+        }
+
+        .document-identity-copy:hover,
+        .document-identity-copy:focus-visible {
+            background: rgba(143, 201, 163, 0.08);
+            opacity: 0.8;
+            outline: none;
+        }
+
+        .document-identity-copy.copied {
+            opacity: 1;
+        }
+
+        .document-identity-copy svg {
+            width: 0.75rem;
+            height: 0.75rem;
+        }
+
+        .frontmatter-properties {
+            margin: 0 0 2rem;
+        }
+
+        .frontmatter-property {
+            display: grid;
+            grid-template-columns: 1.25rem minmax(6rem, 8rem) minmax(0, 1fr);
+            align-items: start;
+            min-height: 1.9rem;
+            color: var(--text-dim);
+        }
+
+        .frontmatter-property-icon {
+            color: #666;
+            font-size: 0.8rem;
+        }
+
+        .frontmatter-property-name {
+            overflow: hidden;
+            padding-right: 0.75rem;
+            color: #858585;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        .frontmatter-property-value {
+            min-width: 0;
+            overflow-wrap: anywhere;
+            color: #ccc;
+        }
+
+        .frontmatter-chips {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.35rem;
+        }
+
+        .frontmatter-chip {
+            padding: 0.05rem 0.55rem;
+            border: 1px solid #3b518d;
+            border-radius: 999px;
+            color: #91b2ff;
+            background: #141a2d;
+            line-height: 1.55;
+        }
+
+        .frontmatter-rating {
+            display: inline-flex;
+            gap: 0.12rem;
+            font-size: 0.9rem;
+            line-height: 1.55;
+            letter-spacing: 0.02rem;
+        }
+
+        .frontmatter-star.filled {
+            color: #f0b84b;
+        }
+
+        .frontmatter-star.empty {
+            color: #51462f;
+        }
+
+        .frontmatter-time-group {
+            display: inline-flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 0.55rem;
+        }
+
+        .frontmatter-time {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.4rem;
+            padding: 0.05rem 0.55rem;
+            border: 1px solid #3b518d;
+            border-radius: 6px;
+            color: #91b2ff;
+            background: #141a2d;
+            font-variant-numeric: tabular-nums;
+            line-height: 1.55;
+        }
+
+        .frontmatter-time-icon {
+            color: #83a9ff;
+            font-size: 0.9rem;
+        }
+
+        .frontmatter-time-zone {
+            color: #687fae;
+            font-size: 0.75rem;
+        }
+
+        .frontmatter-relative-time {
+            color: #777;
+            font-size: 0.78rem;
+            white-space: nowrap;
+        }
+
+        .frontmatter-empty {
+            color: #555;
+        }
+
+        .frontmatter-error {
+            margin: 0 0 1.5rem;
+            padding: 0.65rem 0.8rem;
+            border: 1px solid #4b302b;
+            border-radius: 6px;
+            color: #d99a8f;
+            background: #1b1211;
+            font-size: 0.8rem;
         }
 
         code {
@@ -3577,6 +3751,57 @@ function getWebviewContent(renderedHtml: string, existingOutputs: { [blockId: nu
 
         // Document settings from frontmatter
         const documentSettings = ${documentSettingsJson};
+
+        async function copyEntityDescriptor(button) {
+            var value = button.dataset.identity || '';
+            if (!value) return;
+            try {
+                await navigator.clipboard.writeText(value);
+                button.classList.add('copied');
+                window.setTimeout(function() { button.classList.remove('copied'); }, 900);
+            } catch (error) {
+                console.error('Could not copy entity descriptor:', error);
+            }
+        }
+
+        function formatRelativeTime(timestamp) {
+            var target = new Date(timestamp).getTime();
+            if (!Number.isFinite(target)) return '';
+
+            var seconds = Math.round((Date.now() - target) / 1000);
+            var future = seconds < 0;
+            var elapsed = Math.abs(seconds);
+            if (elapsed < 45) return future ? 'in a moment' : 'just now';
+
+            var value;
+            var unit;
+            if (elapsed < 60 * 60) {
+                value = Math.max(1, Math.round(elapsed / 60));
+                unit = 'min';
+            } else if (elapsed < 24 * 60 * 60) {
+                value = Math.round(elapsed / (60 * 60));
+                unit = value === 1 ? 'hour' : 'hours';
+            } else if (elapsed < 30 * 24 * 60 * 60) {
+                value = Math.round(elapsed / (24 * 60 * 60));
+                unit = value === 1 ? 'day' : 'days';
+            } else if (elapsed < 365 * 24 * 60 * 60) {
+                value = Math.round(elapsed / (30.4375 * 24 * 60 * 60));
+                unit = value === 1 ? 'month' : 'months';
+            } else {
+                value = Math.round(elapsed / (365.25 * 24 * 60 * 60));
+                unit = value === 1 ? 'year' : 'years';
+            }
+            return future ? 'in ' + value + ' ' + unit : value + ' ' + unit + ' ago';
+        }
+
+        function updateRelativeTimes() {
+            document.querySelectorAll('.frontmatter-relative-time').forEach(function(element) {
+                element.textContent = formatRelativeTime(element.dataset.timestamp || '');
+            });
+        }
+
+        updateRelativeTimes();
+        setInterval(updateRelativeTimes, 60000);
 
         // Source line numbers for each code block (indexed by pre element order)
         const blockSourceLines = ${blockSourceLinesJson};
