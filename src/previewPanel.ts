@@ -1846,16 +1846,32 @@ function getWebviewContent(renderedHtml: string, existingOutputs: { [blockId: nu
             padding: 0;
             font-size: 0.8rem;
             line-height: 1.55;
-            color: #aaa;
+            color: #d4d4d4;
         }
 
         /* Syntax highlighting - subtle and elegant */
-        .hl-kw { color: #c9a7ff !important; }
-        .hl-str { color: #9ecbff !important; }
-        .hl-cmt { color: #69717a !important; font-style: normal; }
-        .hl-fn { color: #82b7f5 !important; }
-        .hl-num { color: #79c0ff !important; }
-        .hl-ty { color: #76c7c0 !important; }
+        .hl-kw { color: #69bdce !important; }
+        .hl-str { color: #a784f9 !important; }
+        .hl-cmt { color: #8995ad !important; font-style: normal; }
+        .hl-fn { color: #b4e150 !important; }
+        .hl-num { color: #e1c540 !important; }
+        .hl-ty { color: #7dbbad !important; }
+        .hl-lit { color: #689ad2 !important; }
+
+        /* Shared JavaScript / TypeScript / Svelte script palette. */
+        .web-keyword { color: #69bdce; }
+        .web-function,
+        .web-decorator { color: #b4e150; }
+        .web-type { color: #7dbbad; }
+        .web-string { color: #a784f9; }
+        .web-number,
+        .web-operator { color: #e1c540; }
+        .web-literal { color: #689ad2; }
+        .web-comment { color: #8995ad; }
+        .web-bracket-0 { color: #e1c540; }
+        .web-bracket-1 { color: #da70d6; }
+        .web-bracket-2 { color: #179fff; }
+        .web-bracket-3 { color: #e06c75; }
 
         /* JSON uses the green-key, purple-value palette and bracket-pair
            colors from the reference editor theme. */
@@ -1879,6 +1895,22 @@ function getWebviewContent(renderedHtml: string, existingOutputs: { [blockId: nu
         .python-bracket { color: #e1c540; }
         .python-literal { color: #689ad2; }
         .python-comment { color: #69717a; }
+
+        /* Rust palette matching the reference's lime calls, cyan keywords,
+           teal types, and bracket-pair colors. */
+        .rust-declaration-keyword { color: #e06c75; }
+        .rust-keyword { color: #69bdce; }
+        .rust-function { color: #b4e150; }
+        .rust-type { color: #7dbbad; }
+        .rust-string { color: #a784f9; }
+        .rust-number,
+        .rust-operator { color: #e1c540; }
+        .rust-literal { color: #689ad2; }
+        .rust-comment { color: #8995ad; }
+        .rust-bracket-0 { color: #e1c540; }
+        .rust-bracket-1 { color: #da70d6; }
+        .rust-bracket-2 { color: #179fff; }
+        .rust-bracket-3 { color: #e06c75; }
         
         /* Mermaid diagrams */
         .mermaid {
@@ -1976,8 +2008,21 @@ function getWebviewContent(renderedHtml: string, existingOutputs: { [blockId: nu
 
         /* Svelte preview */
         .svelte-container .code-block-lang {
-            /* Don't push to the right for svelte, there's a compile button */
+            margin-left: 0;
         }
+
+        .svelte-header-actions {
+            display: flex;
+            align-items: center;
+            gap: 2px;
+            margin-left: auto;
+            padding-right: 6px;
+        }
+
+        .svelte-header-actions .code-block-run {
+            margin: 0;
+        }
+
         .svelte-preview-frame {
             width: 100%;
             height: 700px;
@@ -4772,7 +4817,9 @@ function getWebviewContent(renderedHtml: string, existingOutputs: { [blockId: nu
                         'from', 'as', 'new', 'this', 'try', 'catch', 'finally',
                         'throw', 'async', 'await', 'typeof', 'instanceof', 'in',
                         'of', 'default', 'switch', 'case', 'break', 'continue',
-                        'null', 'undefined', 'true', 'false'];
+                        'interface', 'implements', 'type', 'enum', 'namespace',
+                        'declare', 'abstract', 'public', 'private', 'protected',
+                        'readonly', 'static', 'keyof', 'infer', 'satisfies'];
 
             // JSON keywords
             var jsonKw = ['true', 'false', 'null'];
@@ -4860,6 +4907,129 @@ function getWebviewContent(renderedHtml: string, existingOutputs: { [blockId: nu
 
                 makeHandle('left');
                 makeHandle('right');
+            }
+
+            function highlightWebCode(code) {
+                var webTypes = ['string', 'number', 'boolean', 'bigint', 'symbol', 'object', 'unknown', 'any', 'never', 'void', 'undefined'];
+                var webLiterals = ['true', 'false', 'null', 'undefined'];
+                var result = '';
+                var depth = 0;
+                var expectFunctionName = false;
+                var expectTypeName = false;
+                var i = 0;
+
+                while (i < code.length) {
+                    var ch = code[i];
+
+                    if (ch === '/' && code[i + 1] === '/') {
+                        var lineEnd = code.indexOf('\\n', i);
+                        if (lineEnd < 0) lineEnd = code.length;
+                        result += '<span class="web-comment">' + escapeHtml(code.slice(i, lineEnd)) + '</span>';
+                        i = lineEnd;
+                        continue;
+                    }
+
+                    if (ch === '/' && code[i + 1] === '*') {
+                        var commentEnd = code.indexOf('*/', i + 2);
+                        if (commentEnd < 0) commentEnd = code.length - 2;
+                        commentEnd += 2;
+                        result += '<span class="web-comment">' + escapeHtml(code.slice(i, commentEnd)) + '</span>';
+                        i = commentEnd;
+                        continue;
+                    }
+
+                    if (ch === '"' || ch === "'" || ch.charCodeAt(0) === 96) {
+                        var quote = ch;
+                        var stringStart = i;
+                        i++;
+                        while (i < code.length) {
+                            if (code[i] === '\\\\' && i + 1 < code.length) {
+                                i += 2;
+                            } else if (code[i] === quote) {
+                                i++;
+                                break;
+                            } else {
+                                i++;
+                            }
+                        }
+                        result += '<span class="web-string">' + escapeHtml(code.slice(stringStart, i)) + '</span>';
+                        continue;
+                    }
+
+                    if (ch === '@' && /[A-Za-z_$]/.test(code[i + 1] || '')) {
+                        var decoratorStart = i;
+                        i += 2;
+                        while (i < code.length && /[A-Za-z0-9_$.]/.test(code[i])) i++;
+                        result += '<span class="web-decorator">' + escapeHtml(code.slice(decoratorStart, i)) + '</span>';
+                        continue;
+                    }
+
+                    var remaining = code.slice(i);
+                    var numberMatch = remaining.match(/^(?:0[xX][0-9a-fA-F_]+|0[bB][01_]+|0[oO][0-7_]+|(?:\\d[\\d_]*(?:\\.[\\d_]*)?|\\.\\d[\\d_]*)(?:[eE][+-]?[\\d_]+)?n?)/);
+                    if (numberMatch) {
+                        result += '<span class="web-number">' + numberMatch[0] + '</span>';
+                        i += numberMatch[0].length;
+                        continue;
+                    }
+
+                    if (/[A-Za-z_$]/.test(ch)) {
+                        var identifierStart = i;
+                        i++;
+                        while (i < code.length && /[A-Za-z0-9_$]/.test(code[i])) i++;
+                        var identifier = code.slice(identifierStart, i);
+                        var lookAhead = i;
+                        while (lookAhead < code.length && /\\s/.test(code[lookAhead])) lookAhead++;
+                        var className = '';
+
+                        if (expectFunctionName) {
+                            className = 'web-function';
+                            expectFunctionName = false;
+                        } else if (expectTypeName) {
+                            className = 'web-type';
+                            expectTypeName = false;
+                        } else if (webLiterals.indexOf(identifier) >= 0) {
+                            className = 'web-literal';
+                        } else if (jsKw.indexOf(identifier) >= 0) {
+                            className = 'web-keyword';
+                            if (identifier === 'function') expectFunctionName = true;
+                            if (identifier === 'class' || identifier === 'interface' || identifier === 'type' || identifier === 'enum' || identifier === 'namespace') expectTypeName = true;
+                        } else if (webTypes.indexOf(identifier) >= 0 || /^[A-Z]/.test(identifier)) {
+                            className = 'web-type';
+                        } else if (code[lookAhead] === '(') {
+                            className = 'web-function';
+                        }
+
+                        result += className
+                            ? '<span class="' + className + '">' + identifier + '</span>'
+                            : identifier;
+                        continue;
+                    }
+
+                    if ('()[]{}'.indexOf(ch) >= 0) {
+                        if (ch === '(' || ch === '[' || ch === '{') {
+                            result += '<span class="web-bracket-' + (depth % 4) + '">' + ch + '</span>';
+                            depth++;
+                        } else {
+                            depth = Math.max(0, depth - 1);
+                            result += '<span class="web-bracket-' + (depth % 4) + '">' + ch + '</span>';
+                        }
+                        i++;
+                        continue;
+                    }
+
+                    if ((ch === '=' && code[i + 1] === '>') ||
+                        (ch === '?' && code[i + 1] === '?') ||
+                        (ch === '?' && code[i + 1] === '.')) {
+                        result += '<span class="web-operator">' + ch + code[i + 1] + '</span>';
+                        i += 2;
+                        continue;
+                    }
+
+                    result += escapeHtml(ch);
+                    i++;
+                }
+
+                return result;
             }
 
             function highlightPython(code) {
@@ -4960,6 +5130,125 @@ function getWebviewContent(renderedHtml: string, existingOutputs: { [blockId: nu
                 }).join('\\n');
             }
 
+            function highlightRust(code) {
+                var rustLiterals = ['true', 'false'];
+                var result = '';
+                var depth = 0;
+                var expectFunctionName = false;
+                var i = 0;
+
+                while (i < code.length) {
+                    var ch = code[i];
+
+                    if (ch === '/' && code[i + 1] === '/') {
+                        var lineEnd = code.indexOf('\\n', i);
+                        if (lineEnd < 0) lineEnd = code.length;
+                        result += '<span class="rust-comment">' + escapeHtml(code.slice(i, lineEnd)) + '</span>';
+                        i = lineEnd;
+                        continue;
+                    }
+
+                    if (ch === '/' && code[i + 1] === '*') {
+                        var commentEnd = code.indexOf('*/', i + 2);
+                        if (commentEnd < 0) commentEnd = code.length - 2;
+                        commentEnd += 2;
+                        result += '<span class="rust-comment">' + escapeHtml(code.slice(i, commentEnd)) + '</span>';
+                        i = commentEnd;
+                        continue;
+                    }
+
+                    var isCharLiteral = ch === "'" && (
+                        (code[i + 1] === '\\\\' && code[i + 3] === "'") ||
+                        code[i + 2] === "'"
+                    );
+                    if (ch === '"' || isCharLiteral) {
+                        var quote = ch;
+                        var stringStart = i;
+                        i++;
+                        while (i < code.length) {
+                            if (code[i] === '\\\\' && i + 1 < code.length) {
+                                i += 2;
+                            } else if (code[i] === quote) {
+                                i++;
+                                break;
+                            } else {
+                                i++;
+                            }
+                        }
+                        result += '<span class="rust-string">' + escapeHtml(code.slice(stringStart, i)) + '</span>';
+                        continue;
+                    }
+
+                    var remaining = code.slice(i);
+                    var numberMatch = remaining.match(/^(?:0[xX][0-9a-fA-F_]+|0[bB][01_]+|0[oO][0-7_]+|(?:\\d[\\d_]*(?:\\.[\\d_]*)?|\\.\\d[\\d_]*)(?:[eE][+-]?[\\d_]+)?)(?:[iu](?:8|16|32|64|128|size)|f(?:32|64))?/);
+                    if (numberMatch) {
+                        result += '<span class="rust-number">' + numberMatch[0] + '</span>';
+                        i += numberMatch[0].length;
+                        continue;
+                    }
+
+                    if (/[A-Za-z_]/.test(ch)) {
+                        var identifierStart = i;
+                        i++;
+                        while (i < code.length && /[A-Za-z0-9_]/.test(code[i])) i++;
+                        var identifier = code.slice(identifierStart, i);
+                        var lookAhead = i;
+                        while (lookAhead < code.length && /\\s/.test(code[lookAhead])) lookAhead++;
+                        var className = '';
+
+                        if (expectFunctionName) {
+                            className = 'rust-function';
+                            expectFunctionName = false;
+                        } else if (identifier === 'fn') {
+                            className = 'rust-declaration-keyword';
+                            expectFunctionName = true;
+                        } else if (rustLiterals.indexOf(identifier) >= 0) {
+                            className = 'rust-literal';
+                        } else if (rsKw.indexOf(identifier) >= 0) {
+                            className = 'rust-keyword';
+                        } else if (rsTypes.indexOf(identifier) >= 0 || /^[A-Z]/.test(identifier)) {
+                            className = 'rust-type';
+                        } else if (code[lookAhead] === '(' || code[lookAhead] === '!') {
+                            className = 'rust-function';
+                        }
+
+                        var suffix = '';
+                        if (code[lookAhead] === '!' && lookAhead === i) {
+                            suffix = '!';
+                            i++;
+                        }
+                        var renderedIdentifier = identifier + suffix;
+                        result += className
+                            ? '<span class="' + className + '">' + renderedIdentifier + '</span>'
+                            : renderedIdentifier;
+                        continue;
+                    }
+
+                    if ('()[]{}'.indexOf(ch) >= 0) {
+                        if (ch === '(' || ch === '[' || ch === '{') {
+                            result += '<span class="rust-bracket-' + (depth % 4) + '">' + ch + '</span>';
+                            depth++;
+                        } else {
+                            depth = Math.max(0, depth - 1);
+                            result += '<span class="rust-bracket-' + (depth % 4) + '">' + ch + '</span>';
+                        }
+                        i++;
+                        continue;
+                    }
+
+                    if ((ch === '-' && code[i + 1] === '>') || (ch === '=' && code[i + 1] === '>')) {
+                        result += '<span class="rust-operator">' + ch + code[i + 1] + '</span>';
+                        i += 2;
+                        continue;
+                    }
+
+                    result += escapeHtml(ch);
+                    i++;
+                }
+
+                return result;
+            }
+
             function highlightJson(code) {
                 var result = '';
                 var depth = 0;
@@ -5034,6 +5323,15 @@ function getWebviewContent(renderedHtml: string, existingOutputs: { [blockId: nu
             function highlightCode(code, lang) {
                 if (lang === 'python' || lang === 'py') {
                     return highlightPython(code);
+                }
+                if (lang === 'rust' || lang === 'rs') {
+                    return highlightRust(code);
+                }
+                if (lang === 'javascript' || lang === 'js' || lang === 'typescript' || lang === 'ts') {
+                    return highlightWebCode(code);
+                }
+                if (lang === 'svelte') {
+                    return highlightSvelte(code);
                 }
                 if (lang === 'json') {
                     return highlightJson(code);
@@ -5178,6 +5476,30 @@ function getWebviewContent(renderedHtml: string, existingOutputs: { [blockId: nu
                 return result;
             }
 
+            function highlightSvelte(code) {
+                var result = '';
+                var lastIndex = 0;
+                var embeddedBlock = /(<script\\b[^>]*>)([\\s\\S]*?)(<\\/script\\s*>)|(<style\\b[^>]*>)([\\s\\S]*?)(<\\/style\\s*>)/gi;
+                var match;
+
+                while ((match = embeddedBlock.exec(code)) !== null) {
+                    result += highlightHtml(code.slice(lastIndex, match.index));
+                    if (match[1]) {
+                        result += highlightHtml(match[1]);
+                        result += highlightWebCode(match[2]);
+                        result += highlightHtml(match[3]);
+                    } else {
+                        result += highlightHtml(match[4]);
+                        result += highlightWebCode(match[5]);
+                        result += highlightHtml(match[6]);
+                    }
+                    lastIndex = match.index + match[0].length;
+                }
+
+                result += highlightHtml(code.slice(lastIndex));
+                return result;
+            }
+
             // Apply syntax highlighting
             // NOTE: HTML blocks are NOT highlighted here - they get their own handling later
             // to avoid corrupting the code content before it's used in the iframe srcdoc
@@ -5188,9 +5510,8 @@ function getWebviewContent(renderedHtml: string, existingOutputs: { [blockId: nu
                     langLower === 'js' || langLower === 'typescript' || langLower === 'ts' || langLower === 'svelte' ||
                     langLower === 'json' || langLower === 'zen' || langLower === 'excalidraw') {
                     var code = block.textContent || '';
-                    // Svelte uses JavaScript highlighting, Zen uses Python highlighting
-                    var hlLang = (langLower === 'svelte') ? 'javascript' : 
-                                 (langLower === 'zen') ? 'python' : 
+                    // Zen uses Python highlighting; Svelte handles markup and script regions.
+                    var hlLang = (langLower === 'zen') ? 'python' :
                                  (langLower === 'excalidraw') ? 'json' : langLower;
                     block.innerHTML = highlightCode(code, hlLang);
                 }
@@ -5789,6 +6110,9 @@ function getWebviewContent(renderedHtml: string, existingOutputs: { [blockId: nu
                     var svelteTabsBar = document.createElement('div');
                     svelteTabsBar.className = 'code-block-tabs';
                     
+                    var svelteHeaderActions = document.createElement('div');
+                    svelteHeaderActions.className = 'svelte-header-actions';
+
                     // Check if we have existing rendered HTML for this block
                     var hasRenderedOutput = existingRenderedHtml && existingRenderedHtml[currentBlockId];
                     
@@ -5860,7 +6184,7 @@ function getWebviewContent(renderedHtml: string, existingOutputs: { [blockId: nu
                             }
                         };
                     })(currentBlockId);
-                    svelteTabsBar.appendChild(compileBtn);
+                    svelteHeaderActions.appendChild(compileBtn);
 
                     // Add expand button to open in full panel
                     var svelteExpandBtn = document.createElement('button');
@@ -5880,13 +6204,14 @@ function getWebviewContent(renderedHtml: string, existingOutputs: { [blockId: nu
                             });
                         };
                     })(currentBlockId, svelteContainer);
-                    svelteTabsBar.appendChild(svelteExpandBtn);
+                    svelteHeaderActions.appendChild(svelteExpandBtn);
 
                     // Add language indicator with compile time placeholder
                     var svelteLangIndicator = document.createElement('div');
                     svelteLangIndicator.className = 'code-block-lang';
                     svelteLangIndicator.innerHTML = 'Svelte <span class="compile-time" data-block-id="' + currentBlockId + '"></span>';
-                    svelteTabsBar.appendChild(svelteLangIndicator);
+                    svelteHeaderActions.appendChild(svelteLangIndicator);
+                    svelteTabsBar.appendChild(svelteHeaderActions);
                     
                     // Create "Source Code" content (active if no rendered output)
                     var svelteSourceContent = document.createElement('div');
