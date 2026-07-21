@@ -1482,6 +1482,11 @@ function renderSvelteEmbed(hash: string, source: string | null): string {
         ? `<pre data-lang="svelte" data-zef-svelte-embed-source><code>${escapeSvelteEmbedSource(source)}</code></pre>`
         : '<div class="svelte-error-report">Stored Svelte component was not found.</div>';
     const canCompile = source ? '' : ' disabled';
+    const isLongSource = (source?.split('\n').length || 0) > 25;
+    const heightButton = isLongSource
+        ? '<button class="code-block-expand code-block-expand-height zef-svelte-embed-height" title="Toggle full height">⇕</button>'
+        : '';
+    const sourceClass = `code-block-content svelte-source-code active${isLongSource ? ' height-collapsed' : ''}`;
     return `<div class="code-block-container svelte-container zef-svelte-embed" data-zef-svelte-embed-hash="${hash}">
         <div class="code-block-tabs">
             <button class="code-block-tab" data-zef-svelte-embed-tab="rendered">Rendered</button>
@@ -1489,12 +1494,14 @@ function renderSvelteEmbed(hash: string, source: string | null): string {
             <div class="svelte-header-actions">
                 <button class="code-block-run zef-svelte-embed-compile"${canCompile}>▶ Compile</button>
                 <div class="code-block-lang">Svelte <span class="zef-svelte-embed-compile-time"></span></div>
+                ${heightButton}
+                <button class="code-copy-btn" title="Copy Svelte source" aria-label="Copy Svelte source" onclick="copyCodeBlock(this)"><svg viewBox="0 0 24 24"><rect x="8" y="6" width="12" height="15" rx="1.5" ry="1.5"></rect><path d="M4 18V5a1.5 1.5 0 0 1 1.5-1.5h9"></path></svg></button>
             </div>
         </div>
         <div class="code-block-content svelte-rendered zef-svelte-embed-rendered">
             <div class="svelte-placeholder"><div class="placeholder-text">Not yet compiled</div></div>
         </div>
-        <div class="code-block-content svelte-source-code active">${content}</div>
+        <div class="${sourceClass}">${content}</div>
     </div>`;
 }
 
@@ -2128,7 +2135,7 @@ function getWebviewContent(renderedHtml: string, existingOutputs: { [blockId: nu
             width: 100%;
             height: 700px;
             border: none;
-            background: #1e1e1e;
+            background: var(--code-surface);
         }
 
         /* HTML preview */
@@ -4663,7 +4670,10 @@ function getWebviewContent(renderedHtml: string, existingOutputs: { [blockId: nu
                 if (!content) return;
 
                 var text = '';
-                var codeEl = content.querySelector('pre code');
+                var container = button.closest('.svelte-container');
+                var codeEl = container
+                    ? container.querySelector('.svelte-source-code pre code')
+                    : content.querySelector('pre code');
                 var outputVal = content.querySelector('.output-value');
                 var sideEffectsVal = content.querySelector('[id^="side-effects-value-"]');
                 if (codeEl) {
@@ -5746,6 +5756,7 @@ function getWebviewContent(renderedHtml: string, existingOutputs: { [blockId: nu
                 var compileBtn = container.querySelector('.zef-svelte-embed-compile');
                 var rendered = container.querySelector('.zef-svelte-embed-rendered');
                 var source = container.querySelector('.svelte-source-code');
+                var heightButton = container.querySelector('.zef-svelte-embed-height');
                 var tabs = container.querySelectorAll('[data-zef-svelte-embed-tab]');
                 tabs.forEach(function(tab) {
                     tab.onclick = function() {
@@ -5756,6 +5767,12 @@ function getWebviewContent(renderedHtml: string, existingOutputs: { [blockId: nu
                         source.classList.toggle('active', tabName === 'source');
                     };
                 });
+                if (heightButton && source) {
+                    heightButton.onclick = function() {
+                        source.classList.toggle('height-collapsed');
+                        heightButton.classList.toggle('active');
+                    };
+                }
                 if (compileBtn && hash) {
                     compileBtn.onclick = function() {
                         if (compileBtn.classList.contains('running') || compileBtn.disabled) return;
@@ -6498,16 +6515,37 @@ function getWebviewContent(renderedHtml: string, existingOutputs: { [blockId: nu
                     })(currentBlockId, svelteContainer);
                     svelteHeaderActions.appendChild(svelteExpandBtn);
 
-                    // Add language indicator with compile time placeholder
+                    // Add language indicator with compile time placeholder.
                     var svelteLangIndicator = document.createElement('div');
                     svelteLangIndicator.className = 'code-block-lang';
                     svelteLangIndicator.innerHTML = 'Svelte <span class="compile-time" data-block-id="' + currentBlockId + '"></span>';
                     svelteHeaderActions.appendChild(svelteLangIndicator);
-                    svelteTabsBar.appendChild(svelteHeaderActions);
                     
                     // Create "Source Code" content (active if no rendered output)
                     var svelteSourceContent = document.createElement('div');
-                    svelteSourceContent.className = 'code-block-content svelte-source-code' + (hasRenderedOutput ? '' : ' active');
+                    var svelteLineCount = codeContent.split('\\n').length;
+                    svelteSourceContent.className = 'code-block-content svelte-source-code' + (hasRenderedOutput ? '' : ' active') + (svelteLineCount > 25 ? ' height-collapsed' : '');
+                    if (svelteLineCount > 25) {
+                        var svelteHeightBtn = document.createElement('button');
+                        svelteHeightBtn.className = 'code-block-expand code-block-expand-height';
+                        svelteHeightBtn.textContent = '⇕';
+                        svelteHeightBtn.title = 'Toggle full height';
+                        svelteHeightBtn.onclick = function() {
+                            svelteSourceContent.classList.toggle('height-collapsed');
+                            svelteHeightBtn.classList.toggle('active');
+                        };
+                        svelteHeaderActions.appendChild(svelteHeightBtn);
+                    }
+
+                    // Copy the component source, regardless of the active tab.
+                    var svelteCopyBtn = document.createElement('button');
+                    svelteCopyBtn.className = 'code-copy-btn';
+                    svelteCopyBtn.title = 'Copy Svelte source';
+                    svelteCopyBtn.setAttribute('aria-label', 'Copy Svelte source');
+                    svelteCopyBtn.innerHTML = '<svg viewBox="0 0 24 24"><rect x="8" y="6" width="12" height="15" rx="1.5" ry="1.5"></rect><path d="M4 18V5a1.5 1.5 0 0 1 1.5-1.5h9"></path></svg>';
+                    svelteCopyBtn.onclick = function() { copyCodeBlock(svelteCopyBtn); };
+                    svelteHeaderActions.appendChild(svelteCopyBtn);
+                    svelteTabsBar.appendChild(svelteHeaderActions);
                     var svelteSourcePre = document.createElement('pre');
                     svelteSourcePre.setAttribute('data-lang', 'svelte');
                     var svelteSourceCode = document.createElement('code');
