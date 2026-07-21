@@ -13,7 +13,7 @@
 
   const parsed = $derived(parseDeckValue(deckValue));
   const displayError = $derived(
-    externalError || parsed.error || 'No slide deck loaded. Add an ET.Deck(...) or ET.Slide(...) zef block, then open Zef Slides.'
+    externalError || parsed.error || 'No slide deck loaded. Add an ET.ZefSlides(...) zef block, then open Zef Slides.'
   );
   const activeSlide = $derived(parsed.slides[currentSlideIndex] ?? parsed.slides[0] ?? null);
   const activeStageCount = $derived(activeSlide?.steps_?.length ?? 0);

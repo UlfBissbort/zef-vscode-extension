@@ -157,7 +157,7 @@
             <RenderNode node={child} currentStage={currentStage} steps={slide.steps_ ?? []} />
           {/each}
         {:else}
-          <div class="slide-error">{error || 'Paste an ET.Deck or ET.Slide JSON object.'}</div>
+          <div class="slide-error">{error || 'Paste an ET.ZefSlides JSON object.'}</div>
         {/if}
       </div>
     </section>

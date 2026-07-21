@@ -37,7 +37,7 @@
   const dataTitle = $derived('Zef data view');
   const dataSubtitle = $derived(
     dataView === 'deck'
-      ? `Deck / ${slideCount} slides / ${deck?.__type ?? 'ET.Deck'}`
+      ? `Deck / ${slideCount} slides / ${deck?.__type ?? 'ET.ZefSlides'}`
       : `Slide ${String(currentSlideIndex + 1).padStart(2, '0')} / ${slideTitle(slide, currentSlideIndex)}`
   );
   const dataJson = $derived(dataView === 'deck' ? deckJson : slideJson);

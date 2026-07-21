@@ -2297,7 +2297,7 @@ function getWebviewContent(renderedHtml: string, existingOutputs: { [blockId: nu
         }
 
         .zef-slides-rendered {
-            min-height: 360px;
+            min-height: 396px;
             padding: 0;
             background: #06080e;
         }
@@ -2305,32 +2305,17 @@ function getWebviewContent(renderedHtml: string, existingOutputs: { [blockId: nu
         .zef-slides-frame {
             display: block;
             width: 100%;
-            min-height: 420px;
+            min-height: 462px;
             border: 0;
             background: #06080e;
         }
 
-        .zef-slides-frame:fullscreen {
-            width: 100vw;
-            height: 100vh;
-            min-height: 100vh;
-            background: #06080e;
+        .zef-slides-container.full-width .zef-slides-frame {
+            height: auto;
+            min-height: 0;
+            aspect-ratio: 16 / 9;
         }
 
-        .zef-slides-fullscreen-error {
-            position: absolute;
-            z-index: 20;
-            right: 1rem;
-            bottom: 1rem;
-            max-width: calc(100% - 2rem);
-            padding: 0.55rem 0.75rem;
-            border: 1px solid rgba(251, 113, 133, 0.35);
-            border-radius: 6px;
-            background: rgba(31, 10, 18, 0.94);
-            color: #fecdd3;
-            font-size: 0.75rem;
-        }
-        
         /* Mermaid action buttons */
         .mermaid-export-btn {
             display: inline-flex;
@@ -5844,10 +5829,7 @@ function getWebviewContent(renderedHtml: string, existingOutputs: { [blockId: nu
                 var isJson = (langLower === 'json');
                 var isZen = (langLower === 'zen');
                 var possibleSlidesSource = ((pre.querySelector('code') || {}).textContent || '').trimStart();
-                var isZefSlides = langLower === 'zef' && (
-                    possibleSlidesSource.indexOf('ET.Deck(') === 0 ||
-                    possibleSlidesSource.indexOf('ET.Slide(') === 0
-                );
+                var isZefSlides = langLower === 'zef' && possibleSlidesSource.indexOf('ET.ZefSlides(') === 0;
                 var isHtml = (langLower === 'html');
                 var isExecutable = isPython || isRust || isJs || isTs || isSvelte;
                 
@@ -6098,20 +6080,16 @@ function getWebviewContent(renderedHtml: string, existingOutputs: { [blockId: nu
                     popout.innerHTML = '<svg viewBox="0 0 24 24"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path><polyline points="15 3 21 3 21 9"></polyline><line x1="10" y1="14" x2="21" y2="3"></line></svg>';
                     popout.onclick = function() { vscode.postMessage({ type: 'openSlidesPanel' }); };
                     slidesTabs.appendChild(popout);
-                    var fullscreen = document.createElement('button');
-                    fullscreen.className = 'mermaid-export-btn'; fullscreen.title = 'Present fullscreen';
-                    fullscreen.innerHTML = '<svg viewBox="0 0 24 24"><path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 1 2 2h3"></path></svg>';
-                    fullscreen.onclick = function() {
-                        var frame = slidesContainer.querySelector('iframe');
-                        if (!frame || !frame.requestFullscreen) {
-                            showSlidesFullscreenError(slidesContainer, 'Fullscreen is not available in this VS Code webview.');
-                            return;
-                        }
-                        frame.requestFullscreen().catch(function(error) {
-                            showSlidesFullscreenError(slidesContainer, 'Could not enter fullscreen: ' + error.message);
-                        });
+                    var fullWidth = document.createElement('button');
+                    fullWidth.className = 'excalidraw-expand-btn'; fullWidth.title = 'Full Width';
+                    fullWidth.innerHTML = '<svg viewBox="0 0 24 24"><polyline points="9 6 3 12 9 18"></polyline><polyline points="15 6 21 12 15 18"></polyline><line x1="3" y1="12" x2="21" y2="12"></line></svg>';
+                    fullWidth.onclick = function() {
+                        slidesContainer.classList.toggle('full-width');
+                        var expanded = slidesContainer.classList.contains('full-width');
+                        fullWidth.title = expanded ? 'Restore Width' : 'Full Width';
+                        fullWidth.classList.toggle('active', expanded);
                     };
-                    slidesTabs.appendChild(fullscreen);
+                    slidesTabs.appendChild(fullWidth);
                     var label = document.createElement('div'); label.className = 'code-block-lang'; label.textContent = 'Zef Slides'; slidesTabs.appendChild(label);
                     var rendered = document.createElement('div'); rendered.className = 'code-block-content zef-slides-rendered active'; rendered.textContent = 'Rendering Zef Slides…';
                     var source = document.createElement('div'); source.className = 'code-block-content zef-slides-source';
@@ -6122,16 +6100,6 @@ function getWebviewContent(renderedHtml: string, existingOutputs: { [blockId: nu
                     slidesContainer.setAttribute('data-zef-slides-request', requestId);
                     vscode.postMessage({ type: 'renderSlides', requestId: requestId, source: codeContent });
                     return;
-                }
-
-                function showSlidesFullscreenError(container, message) {
-                    var existing = container.querySelector('.zef-slides-fullscreen-error');
-                    if (existing) existing.remove();
-                    var error = document.createElement('div');
-                    error.className = 'zef-slides-fullscreen-error';
-                    error.textContent = message;
-                    container.appendChild(error);
-                    window.setTimeout(function() { error.remove(); }, 5000);
                 }
 
                 // Handle mermaid blocks specially

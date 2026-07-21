@@ -8,7 +8,7 @@ export type SlideFenceSelection =
     | { ok: true; fence: SlideFence }
     | { ok: false; message: string; line?: number };
 
-const deckRoot = /^\s*ET\.(?:Deck|Slide)\s*\(/;
+const deckRoot = /^\s*ET\.ZefSlides\s*\(/;
 
 export function findSlideFences(markdown: string): SlideFence[] {
     const lines = markdown.split(/\r?\n/);
@@ -38,14 +38,14 @@ export function selectSlideFence(markdown: string): SlideFenceSelection {
     if (fences.length === 0) {
         return {
             ok: false,
-            message: 'Zef Slides could not find a zef block beginning with ET.Deck(...) or ET.Slide(...).'
+            message: 'Zef Slides could not find a zef block beginning with ET.ZefSlides(...).'
         };
     }
     if (fences.length > 1) {
         return {
             ok: false,
             line: fences[1].startLine,
-            message: 'Zef Slides supports one ET.Deck(...) or ET.Slide(...) zef block per document.'
+            message: 'Zef Slides supports one ET.ZefSlides(...) zef block per document.'
         };
     }
     return { ok: true, fence: fences[0] };

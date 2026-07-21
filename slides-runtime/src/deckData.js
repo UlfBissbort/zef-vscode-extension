@@ -2,18 +2,7 @@
 // Plain deck-data transformations. No browser, Svelte, or VS Code dependencies.
 
 export function normalizeDeck(value) {
-  if (value?.__type === 'ET.Deck') return value;
-
-  if (value?.__type === 'ET.Slide') {
-    return {
-      '__type': 'ET.Deck',
-      title: value.title ?? 'Untitled deck',
-      brand: value.brand ?? 'Zef',
-      content_: [value]
-    };
-  }
-
-  return null;
+  return value?.__type === 'ET.ZefSlides' ? value : null;
 }
 
 export function parseDeckValue(value) {
@@ -22,7 +11,7 @@ export function parseDeckValue(value) {
     return {
       deck: null,
       slides: [],
-      error: 'Slide data must have root type "ET.Deck" or "ET.Slide".'
+      error: 'Slide data must have root type "ET.ZefSlides".'
     };
   }
 
@@ -31,7 +20,7 @@ export function parseDeckValue(value) {
     return {
       deck: null,
       slides: [],
-      error: 'ET.Deck must contain at least one ET.Slide in content_.'
+      error: 'ET.ZefSlides must contain at least one ET.Slide in content_.'
     };
   }
 
