@@ -1867,6 +1867,18 @@ function getWebviewContent(renderedHtml: string, existingOutputs: { [blockId: nu
         .json-bracket-0 { color: #ffd700; }
         .json-bracket-1 { color: #da70d6; }
         .json-bracket-2 { color: #179fff; }
+
+        /* Python palette matching the cyan/lime/yellow reference theme. */
+        .python-keyword { color: #69bdce; }
+        .python-function,
+        .python-builtin,
+        .python-decorator { color: #b4e150; }
+        .python-type { color: #7dbbad; }
+        .python-string { color: #a784f9; }
+        .python-number,
+        .python-bracket { color: #e1c540; }
+        .python-literal { color: #689ad2; }
+        .python-comment { color: #69717a; }
         
         /* Mermaid diagrams */
         .mermaid {
@@ -4850,6 +4862,104 @@ function getWebviewContent(renderedHtml: string, existingOutputs: { [blockId: nu
                 makeHandle('right');
             }
 
+            function highlightPython(code) {
+                var pythonTypes = ['str', 'int', 'float', 'bool', 'bytes', 'list', 'dict', 'tuple', 'set', 'frozenset', 'object', 'type'];
+                var pythonBuiltins = ['print', 'len', 'range', 'enumerate', 'zip', 'map', 'filter', 'sum', 'min', 'max', 'abs', 'all', 'any', 'sorted', 'reversed', 'open', 'input', 'isinstance', 'issubclass', 'repr'];
+                var pythonLiterals = ['True', 'False', 'None'];
+                var lines = code.split('\\n');
+
+                return lines.map(function(line) {
+                    var result = '';
+                    var i = 0;
+                    var expectFunctionName = false;
+
+                    while (i < line.length) {
+                        var ch = line[i];
+
+                        if (ch === '#') {
+                            result += '<span class="python-comment">' + escapeHtml(line.slice(i)) + '</span>';
+                            break;
+                        }
+
+                        if (ch === '"' || ch === "'") {
+                            var quote = ch;
+                            var start = i;
+                            i++;
+                            while (i < line.length) {
+                                if (line[i] === '\\\\' && i + 1 < line.length) {
+                                    i += 2;
+                                } else if (line[i] === quote) {
+                                    i++;
+                                    break;
+                                } else {
+                                    i++;
+                                }
+                            }
+                            result += '<span class="python-string">' + escapeHtml(line.slice(start, i)) + '</span>';
+                            continue;
+                        }
+
+                        if (ch === '@' && /[A-Za-z_]/.test(line[i + 1] || '')) {
+                            var decoratorStart = i;
+                            i += 2;
+                            while (i < line.length && /[A-Za-z0-9_.]/.test(line[i])) i++;
+                            result += '<span class="python-decorator">' + escapeHtml(line.slice(decoratorStart, i)) + '</span>';
+                            continue;
+                        }
+
+                        var remaining = line.slice(i);
+                        var numberMatch = remaining.match(/^(?:0[xX][0-9a-fA-F]+|0[bB][01]+|0[oO][0-7]+|(?:\\d+(?:\\.\\d*)?|\\.\\d+)(?:[eE][+-]?\\d+)?)/);
+                        if (numberMatch) {
+                            result += '<span class="python-number">' + numberMatch[0] + '</span>';
+                            i += numberMatch[0].length;
+                            continue;
+                        }
+
+                        if (/[A-Za-z_]/.test(ch)) {
+                            var identifierStart = i;
+                            i++;
+                            while (i < line.length && /[A-Za-z0-9_]/.test(line[i])) i++;
+                            var identifier = line.slice(identifierStart, i);
+                            var lookAhead = i;
+                            while (lookAhead < line.length && /\\s/.test(line[lookAhead])) lookAhead++;
+                            var className = '';
+
+                            if (expectFunctionName) {
+                                className = 'python-function';
+                                expectFunctionName = false;
+                            } else if (pythonLiterals.indexOf(identifier) >= 0) {
+                                className = 'python-literal';
+                            } else if (pyKw.indexOf(identifier) >= 0) {
+                                className = 'python-keyword';
+                                if (identifier === 'def') expectFunctionName = true;
+                            } else if (pythonTypes.indexOf(identifier) >= 0) {
+                                className = 'python-type';
+                            } else if (pythonBuiltins.indexOf(identifier) >= 0) {
+                                className = 'python-builtin';
+                            } else if (line[lookAhead] === '(') {
+                                className = 'python-function';
+                            }
+
+                            result += className
+                                ? '<span class="' + className + '">' + identifier + '</span>'
+                                : identifier;
+                            continue;
+                        }
+
+                        if ('()[]{}'.indexOf(ch) >= 0) {
+                            result += '<span class="python-bracket">' + ch + '</span>';
+                            i++;
+                            continue;
+                        }
+
+                        result += escapeHtml(ch);
+                        i++;
+                    }
+
+                    return result;
+                }).join('\\n');
+            }
+
             function highlightJson(code) {
                 var result = '';
                 var depth = 0;
@@ -4922,6 +5032,9 @@ function getWebviewContent(renderedHtml: string, existingOutputs: { [blockId: nu
             }
 
             function highlightCode(code, lang) {
+                if (lang === 'python' || lang === 'py') {
+                    return highlightPython(code);
+                }
                 if (lang === 'json') {
                     return highlightJson(code);
                 }
