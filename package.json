@@ -101,6 +101,10 @@
         "title": "Zef: Open View"
       },
       {
+        "command": "zef.openSlides",
+        "title": "Zef: Open Slides"
+      },
+      {
         "command": "zef.selectPython",
         "title": "Zef: Select Python Interpreter"
       },

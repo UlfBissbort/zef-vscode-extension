@@ -216,7 +216,15 @@ def check_requirements():
         sys.exit(1)
 
 def compile_typescript():
-    """Compile TypeScript source to JavaScript."""
+    """Compile the vendored slides runtime, then TypeScript source."""
+    step("Compiling vendored slides runtime...")
+    ok, out = run(["zef", "svelte", "compile", "--project", "slides-runtime", "--output", "compiled.html"])
+    if not ok:
+        error("Slides runtime compilation failed:")
+        print(out)
+        return False
+    success("Slides runtime compiled successfully")
+
     step("Compiling TypeScript...")
     explain("Transpiles src/*.ts to out/*.js using the TypeScript compiler")
     

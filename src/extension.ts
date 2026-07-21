@@ -16,6 +16,7 @@ import { ZefSettingsViewProvider } from './settingsViewProvider';
 import { initJsonValidator, disposeJsonValidator } from './jsonValidator';
 import { shouldPersistSvelteOutput, shouldPersistOutput, shouldPersistSideEffects } from './frontmatterParser';
 import { TokoloshService, mimeToZefType, buildZefMarkdownLink } from './tokoloshService';
+import { disposeSlidesPanels, openSlidesPanel, updateSlidesForDocument } from './slidesPanel';
 
 let statusBarItem: vscode.StatusBarItem;
 
@@ -374,6 +375,7 @@ export function activate(context: vscode.ExtensionContext) {
     // Update decorations when document changes
     context.subscriptions.push(
         vscode.workspace.onDidChangeTextDocument(event => {
+            updateSlidesForDocument(context, event.document);
             const editor = vscode.window.activeTextEditor;
             if (editor && event.document === editor.document) {
                 updateDecorations(editor);
@@ -470,6 +472,18 @@ export function activate(context: vscode.ExtensionContext) {
             } else {
                 vscode.window.showWarningMessage('Zef: Cursor is not inside a code block');
             }
+        })
+    );
+
+    // Register command to open the data-driven slide runtime beside the source document.
+    context.subscriptions.push(
+        vscode.commands.registerCommand('zef.openSlides', async () => {
+            const editor = vscode.window.activeTextEditor;
+            if (!editor || !isZefDocument(editor.document)) {
+                vscode.window.showErrorMessage('Zef Slides: open a .zef.md document first.');
+                return;
+            }
+            await openSlidesPanel(context, editor.document);
         })
     );
 
@@ -1327,5 +1341,6 @@ async function writeOutputToFile(blockId: number, result: CellResult, documentUr
 export function deactivate() {
     disposeKernelManager();
     disposeJsonValidator();
+    disposeSlidesPanels();
     TokoloshService.getInstance().dispose();
 }

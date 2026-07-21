@@ -1,5 +1,6 @@
 import * as vscode from 'vscode';
 import * as path from 'path';
+import * as fs from 'fs';
 import { marked } from 'marked';
 import { CellResult } from './kernelManager';
 import { isZefDocument, isZefPythonFile, isZefRustFile } from './zefUtils';
@@ -8,6 +9,8 @@ import { ExcalidrawEditorPanel, generateExcalidrawUid } from './excalidrawEditor
 import { generateNotebook, parseMarkdownCells, parsePythonCells, parsePythonLegacyCells } from './notebookExport';
 import { detectFeatures, inlineKatexFonts, generateStandaloneHtml, embedRenderedBlocks, SvelteBlockExport, HtmlExportInput } from './htmlExport';
 import { TokoloshService, parseZefUri, zefTypeToMime, buildDataUri, buildPlaceholderDataUri, debugLog, extractFigureRefs } from './tokoloshService';
+import { convertZenSlides } from './slidesConverter';
+import { openSlidesPanel } from './slidesPanel';
 
 // Map of document URI string to its panel
 const panels: Map<string, vscode.WebviewPanel> = new Map();
@@ -641,6 +644,17 @@ export function createPreviewPanel(context: vscode.ExtensionContext): vscode.Web
                     vscode.window.showInformationMessage(`Exported HTML to ${path.basename(saveUri.fsPath)}`);
                 }
             }
+        } else if (message.type === 'renderSlides') {
+            const result = await convertZenSlides(String(message.source ?? ''));
+            if (!result.ok) {
+                await panel.webview.postMessage({ type: 'slidesRendered', requestId: message.requestId, error: result.message });
+            } else {
+                const runtimeHtml = await fs.promises.readFile(path.join(context.extensionPath, 'slides-runtime', 'compiled.html'), 'utf8');
+                await panel.webview.postMessage({ type: 'slidesRendered', requestId: message.requestId, deck: result.deck, runtimeHtml });
+            }
+        } else if (message.type === 'openSlidesPanel') {
+            const targetDocument = vscode.workspace.textDocuments.find(item => item.uri.toString() === docKey);
+            if (targetDocument) await openSlidesPanel(context, targetDocument);
         } else if (message.type === 'openMermaidPanel') {
             openMermaidFullPanel(message.svg);
         } else if (message.type === 'openSveltePanel') {
@@ -982,7 +996,34 @@ export async function updatePreview(document: vscode.TextDocument) {
     // Get document settings from frontmatter
     const documentSettings = getDocumentSettings(text);
     
-    panel.webview.html = getWebviewContent(html, existingResults, existingSideEffects, mermaidUri, existingRenderedHtml, documentSettings, katexCssUri, katexJsUri, katexAutoRenderUri, katexFontsUri, excalidrawEditorJsUri, excalidrawEditorCssUri, excalidrawEditorBaseUri, blockSourceLines, existingFigures, existingFigureData);
+    const webviewHtml = getWebviewContent(html, existingResults, existingSideEffects, mermaidUri, existingRenderedHtml, documentSettings, katexCssUri, katexJsUri, katexAutoRenderUri, katexFontsUri, excalidrawEditorJsUri, excalidrawEditorCssUri, excalidrawEditorBaseUri, blockSourceLines, existingFigures, existingFigureData);
+    const scriptError = validateInlineWebviewScripts(webviewHtml);
+    if (scriptError) {
+        console.error('Zef preview generated invalid JavaScript:', scriptError);
+        panel.webview.html = `<!doctype html><html><body style="background:#0a0a0a;color:#fb7185;font:14px system-ui;padding:24px"><h2>Zef preview failed to initialize</h2><pre style="white-space:pre-wrap">${escapeHtmlForError(scriptError)}</pre></body></html>`;
+        return;
+    }
+    panel.webview.html = webviewHtml;
+}
+
+function escapeHtmlForError(value: string): string {
+    return value.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+}
+
+export function validateInlineWebviewScripts(html: string): string | null {
+    const scriptPattern = /<script([^>]*)>([\s\S]*?)<\/script>/gi;
+    let match: RegExpExecArray | null;
+    let inlineIndex = 0;
+    while ((match = scriptPattern.exec(html)) !== null) {
+        if (/\bsrc\s*=/.test(match[1]) || !match[2].trim()) continue;
+        inlineIndex += 1;
+        try {
+            new Function(match[2]);
+        } catch (error: any) {
+            return `Inline script ${inlineIndex} is invalid: ${error?.message ?? String(error)}`;
+        }
+    }
+    return null;
 }
 
 /**
@@ -2253,6 +2294,20 @@ function getWebviewContent(renderedHtml: string, existingOutputs: { [blockId: nu
         /* For mermaid blocks, the first action button has margin-left:auto to push right */
         .mermaid-container .code-block-lang {
             margin-left: 0;
+        }
+
+        .zef-slides-rendered {
+            min-height: 360px;
+            padding: 0;
+            background: #06080e;
+        }
+
+        .zef-slides-frame {
+            display: block;
+            width: 100%;
+            min-height: 420px;
+            border: 0;
+            background: #06080e;
         }
         
         /* Mermaid action buttons */
@@ -5625,6 +5680,7 @@ function getWebviewContent(renderedHtml: string, existingOutputs: { [blockId: nu
             });
             // Transform code blocks to have tabs
             var codeBlockId = 0; // Count Python and Rust blocks to match parser
+            var zefSlidesRequestId = 0;
             var excalidrawBlockId = 0; // Count excalidraw blocks for identification
             var codeBlocks = {}; // Store code content for each block
             var blockLanguages = {}; // Store language for each block
@@ -5766,6 +5822,11 @@ function getWebviewContent(renderedHtml: string, existingOutputs: { [blockId: nu
                 var isSvelte = (langLower === 'svelte');
                 var isJson = (langLower === 'json');
                 var isZen = (langLower === 'zen');
+                var possibleSlidesSource = ((pre.querySelector('code') || {}).textContent || '').trimStart();
+                var isZefSlides = langLower === 'zef' && (
+                    possibleSlidesSource.indexOf('ET.Deck(') === 0 ||
+                    possibleSlidesSource.indexOf('ET.Slide(') === 0
+                );
                 var isHtml = (langLower === 'html');
                 var isExecutable = isPython || isRust || isJs || isTs || isSvelte;
                 
@@ -5990,6 +6051,46 @@ function getWebviewContent(renderedHtml: string, existingOutputs: { [blockId: nu
                     excalidrawSourceContent.appendChild(pre);
 
                     renderExcalidraw(excalidrawRenderedContent, codeContent, widthMode);
+                    return;
+                }
+
+                // Render deck-shaped zef blocks with the same rendered/source model as Mermaid.
+                if (isZefSlides) {
+                    var slidesContainer = document.createElement('div');
+                    slidesContainer.className = 'code-block-container mermaid-container zef-slides-container';
+                    var slidesTabs = document.createElement('div');
+                    slidesTabs.className = 'code-block-tabs';
+                    ['Rendered', 'Source Code'].forEach(function(name, tabIndex) {
+                        var tab = document.createElement('button');
+                        tab.className = 'code-block-tab' + (tabIndex === 0 ? ' active' : '');
+                        tab.textContent = name;
+                        tab.onclick = function() {
+                            slidesContainer.querySelectorAll('.code-block-tab').forEach(function(button) { button.classList.remove('active'); });
+                            tab.classList.add('active');
+                            slidesContainer.querySelector('.zef-slides-rendered').classList.toggle('active', name === 'Rendered');
+                            slidesContainer.querySelector('.zef-slides-source').classList.toggle('active', name !== 'Rendered');
+                        };
+                        slidesTabs.appendChild(tab);
+                    });
+                    var popout = document.createElement('button');
+                    popout.className = 'mermaid-export-btn'; popout.style.marginLeft = 'auto'; popout.title = 'Open in separate slide window';
+                    popout.innerHTML = '<svg viewBox="0 0 24 24"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path><polyline points="15 3 21 3 21 9"></polyline><line x1="10" y1="14" x2="21" y2="3"></line></svg>';
+                    popout.onclick = function() { vscode.postMessage({ type: 'openSlidesPanel' }); };
+                    slidesTabs.appendChild(popout);
+                    var fullscreen = document.createElement('button');
+                    fullscreen.className = 'mermaid-export-btn'; fullscreen.title = 'Present fullscreen';
+                    fullscreen.innerHTML = '<svg viewBox="0 0 24 24"><path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 1 2 2h3"></path></svg>';
+                    fullscreen.onclick = function() { var frame = slidesContainer.querySelector('iframe'); if (frame && frame.contentWindow) frame.contentWindow.postMessage({ type: 'requestFullscreen' }, '*'); };
+                    slidesTabs.appendChild(fullscreen);
+                    var label = document.createElement('div'); label.className = 'code-block-lang'; label.textContent = 'Zef Slides'; slidesTabs.appendChild(label);
+                    var rendered = document.createElement('div'); rendered.className = 'code-block-content zef-slides-rendered active'; rendered.textContent = 'Rendering Zef Slides…';
+                    var source = document.createElement('div'); source.className = 'code-block-content zef-slides-source';
+                    pre.parentNode.insertBefore(slidesContainer, pre);
+                    slidesContainer.appendChild(slidesTabs); slidesContainer.appendChild(rendered); slidesContainer.appendChild(source);
+                    source.appendChild(pre);
+                    var requestId = 'slides-' + (++zefSlidesRequestId);
+                    slidesContainer.setAttribute('data-zef-slides-request', requestId);
+                    vscode.postMessage({ type: 'renderSlides', requestId: requestId, source: codeContent });
                     return;
                 }
 
@@ -6709,7 +6810,20 @@ function getWebviewContent(renderedHtml: string, existingOutputs: { [blockId: nu
             window.addEventListener('message', function(event) {
                 var message = event.data;
                 
-                if (message.type === 'cellResult') {
+                if (message.type === 'slidesRendered') {
+                    var slidesContainer = document.querySelector('[data-zef-slides-request="' + message.requestId + '"]');
+                    if (!slidesContainer) return;
+                    var rendered = slidesContainer.querySelector('.zef-slides-rendered');
+                    if (message.error) {
+                        rendered.textContent = 'Zef Slides: ' + message.error;
+                        rendered.style.cssText = 'padding: 1rem; color: #fb7185;';
+                    } else {
+                        var frame = document.createElement('iframe');
+                        frame.title = 'Rendered Zef Slides'; frame.className = 'zef-slides-frame'; frame.allowFullscreen = true; frame.srcdoc = message.runtimeHtml;
+                        frame.onload = function() { frame.contentWindow.postMessage({ type: 'setDeck', deck: message.deck }, '*'); };
+                        rendered.textContent = ''; rendered.appendChild(frame);
+                    }
+                } else if (message.type === 'cellResult') {
                     var blockId = message.blockId;
                     var result = message.result;
                     
