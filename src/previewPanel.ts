@@ -1654,13 +1654,15 @@ function getWebviewContent(renderedHtml: string, existingOutputs: { [blockId: nu
             align-items: center;
             gap: 0.4rem;
             max-width: 100%;
-            padding: 0.15rem 0.45rem 0.15rem 0.65rem;
-            border: 1px solid #355040;
+            padding: 0.22rem 0.4rem 0.22rem 0.7rem;
+            border: 1px solid #2b2b2b;
             border-radius: 999px;
-            color: #8fc9a3;
-            background: #111a14;
-            font-family: 'SF Mono', 'Fira Code', Consolas, monospace;
-            font-size: 0.74rem;
+            color: #d0d0d0;
+            background: #0b0b0b;
+            box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.025);
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            font-size: 0.76rem;
+            line-height: 1.4;
             white-space: nowrap;
         }
 
@@ -1688,7 +1690,7 @@ function getWebviewContent(renderedHtml: string, existingOutputs: { [blockId: nu
 
         .document-identity-copy:hover,
         .document-identity-copy:focus-visible {
-            background: rgba(143, 201, 163, 0.08);
+            background: rgba(255, 255, 255, 0.06);
             opacity: 0.8;
             outline: none;
         }
@@ -1736,16 +1738,17 @@ function getWebviewContent(renderedHtml: string, existingOutputs: { [blockId: nu
         .frontmatter-chips {
             display: flex;
             flex-wrap: wrap;
-            gap: 0.35rem;
+            gap: 0.28rem;
         }
 
         .frontmatter-chip {
-            padding: 0.05rem 0.55rem;
+            padding: 0 0.45rem;
             border: 1px solid #3b518d;
             border-radius: 999px;
             color: #91b2ff;
             background: #141a2d;
-            line-height: 1.55;
+            font-size: 0.74rem;
+            line-height: 1.45;
         }
 
         .frontmatter-rating {
@@ -1768,35 +1771,36 @@ function getWebviewContent(renderedHtml: string, existingOutputs: { [blockId: nu
             display: inline-flex;
             flex-wrap: wrap;
             align-items: center;
-            gap: 0.55rem;
+            gap: 0.4rem;
         }
 
         .frontmatter-time {
             display: inline-flex;
             align-items: center;
-            gap: 0.4rem;
-            padding: 0.05rem 0.55rem;
+            gap: 0.3rem;
+            padding: 0 0.45rem;
             border: 1px solid #3b518d;
-            border-radius: 6px;
+            border-radius: 5px;
             color: #91b2ff;
             background: #141a2d;
+            font-size: 0.74rem;
             font-variant-numeric: tabular-nums;
-            line-height: 1.55;
+            line-height: 1.45;
         }
 
         .frontmatter-time-icon {
             color: #83a9ff;
-            font-size: 0.9rem;
+            font-size: 0.72rem;
         }
 
         .frontmatter-time-zone {
             color: #687fae;
-            font-size: 0.75rem;
+            font-size: 0.66rem;
         }
 
         .frontmatter-relative-time {
             color: #777;
-            font-size: 0.78rem;
+            font-size: 0.72rem;
             white-space: nowrap;
         }
 
