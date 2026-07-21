@@ -15,7 +15,8 @@ import { isZefDocument, isZefUri } from './zefUtils';
 import { ZefSettingsViewProvider } from './settingsViewProvider';
 import { initJsonValidator, disposeJsonValidator } from './jsonValidator';
 import { shouldPersistSvelteOutput, shouldPersistOutput, shouldPersistSideEffects } from './frontmatterParser';
-import { TokoloshService, mimeToZefType, buildZefMarkdownLink } from './tokoloshService';
+import { TokoloshService, mimeToZefType } from './tokoloshService';
+import { buildZefImageEmbed } from './zefImageEmbed';
 import { disposeSlidesPanels, openSlidesPanel, updateSlidesForDocument } from './slidesPanel';
 
 let statusBarItem: vscode.StatusBarItem;
@@ -62,8 +63,8 @@ class ZefImagePasteProvider implements vscode.DocumentPasteEditProvider {
             const hash = await service.uploadZefValue(zefType, buffer);
 
             if (hash) {
-                // Success — insert zef: content-addressed link
-                const markdownLink = buildZefMarkdownLink(zefType, hash);
+                // Success — insert a content-addressed Zef image embed
+                const markdownLink = buildZefImageEmbed(zefType, hash);
                 const edit = new vscode.DocumentPasteEdit(markdownLink, 'Insert Content-Addressed Image', vscode.DocumentDropOrPasteEditKind.Empty);
                 return [edit];
             }

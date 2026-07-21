@@ -21,14 +21,6 @@ const PORT_MAX = 27040;
 const SCAN_TIMEOUT = 800;
 const REQUEST_TIMEOUT = 5000;
 
-/** Parse a zef: URI into its type and hash components. */
-export function parseZefUri(uri: string): { type: string; hash: string } | null {
-    // zef:PngImage/🗿-<64 hex chars>
-    const match = uri.match(/^zef:(\w+)\/(🗿-[0-9a-fA-F]{64})$/);
-    if (!match) { return null; }
-    return { type: match[1], hash: match[2] };
-}
-
 /** Map Zef type name to MIME type. */
 export function zefTypeToMime(type: string): string {
     const map: Record<string, string> = {
@@ -56,11 +48,6 @@ export function mimeToZefType(mime: string): string {
 /** Build a data: URI from MIME type and base64 data. */
 export function buildDataUri(mime: string, base64Data: string): string {
     return `data:${mime};base64,${base64Data}`;
-}
-
-/** Build the Markdown link syntax for a zef content-addressed image. */
-export function buildZefMarkdownLink(type: string, hash: string, altText?: string): string {
-    return `![${altText || ''}](zef:${type}/${hash})`;
 }
 
 /** Generate a unique ID for WS request correlation. */
@@ -131,20 +118,6 @@ export function buildPlaceholderDataUri(type: string, hash: string, reason: stri
         + `<text x='50%25' y='50%25' fill='%23888' font-size='11' font-family='monospace' text-anchor='middle' dy='0.35em'>`
         + `⚠️ ${label}</text></svg>`;
     return `data:image/svg+xml,${svg}`;
-}
-
-/** Extract all zef: image references from an HTML string. */
-export function extractZefImageRefs(html: string): Array<{ type: string; hash: string; fullUri: string }> {
-    const refs: Array<{ type: string; hash: string; fullUri: string }> = [];
-    const imgRegex = /src=["'](zef:\w+\/🗿-[0-9a-fA-F]{64})["']/gi;
-    let match;
-    while ((match = imgRegex.exec(html)) !== null) {
-        const parsed = parseZefUri(match[1]);
-        if (parsed) {
-            refs.push({ ...parsed, fullUri: match[1] });
-        }
-    }
-    return refs;
 }
 
 /**
@@ -408,12 +381,12 @@ export class TokoloshService {
     }
 
     /**
-     * Resolve a zef: image reference to a data URI.
+     * Resolve a hash-store image value to a data URI.
      * Returns the data URI on success, or null on failure.
      * Results are cached for the session.
      */
     public async resolveImage(type: string, hash: string): Promise<string | null> {
-        const cacheKey = `zef:${type}/${hash}`;
+        const cacheKey = `${type}/${hash}`;
         debugLog('resolveImage: ' + cacheKey);
 
         // Cache hit

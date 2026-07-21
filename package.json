@@ -181,7 +181,7 @@
         "zef.allowImagePasteInAllFiles": {
           "type": "boolean",
           "default": true,
-          "description": "Allow pasting images into zef MD sections in any .md, .py, .rs, .ts, .js file (uploads to hash store and inserts zef: image link)."
+          "description": "Allow pasting images into zef MD sections in any .md, .py, .rs, .ts, .js file (uploads to hash store and inserts a Zef image embed)."
         },
         "zef.wsConnectionEnabled": {
           "type": "boolean",

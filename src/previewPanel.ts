@@ -8,9 +8,12 @@ import { stripFrontmatter, getDocumentSettings, updateDocumentSetting, parseDocu
 import { ExcalidrawEditorPanel, generateExcalidrawUid } from './excalidrawEditorPanel';
 import { generateNotebook, parseMarkdownCells, parsePythonCells, parsePythonLegacyCells } from './notebookExport';
 import { detectFeatures, inlineKatexFonts, generateStandaloneHtml, embedRenderedBlocks, SvelteBlockExport, HtmlExportInput } from './htmlExport';
-import { TokoloshService, parseZefUri, zefTypeToMime, buildDataUri, buildPlaceholderDataUri, debugLog, extractFigureRefs } from './tokoloshService';
+import { TokoloshService, buildPlaceholderDataUri, debugLog, extractFigureRefs } from './tokoloshService';
+import { zefImageEmbedExtension } from './zefImageEmbed';
 import { convertZenSlides } from './slidesConverter';
 import { openSlidesPanel } from './slidesPanel';
+
+marked.use({ extensions: [zefImageEmbedExtension] });
 
 // Map of document URI string to its panel
 const panels: Map<string, vscode.WebviewPanel> = new Map();
@@ -955,12 +958,12 @@ export async function updatePreview(document: vscode.TextDocument) {
     
     let html = renderDocumentFrontmatter(documentFrontmatter) + renderMarkdown(cleanText);
     
-    // Convert relative image paths to webview URIs
+    // Resolve content-addressed Zef image embeds before wrapping all images.
+    html = await resolveZefImageEmbeds(html);
+
+    // Convert relative image paths to webview URIs and add image controls.
     const docDir = path.dirname(document.uri.fsPath);
     html = convertImagePaths(html, docDir, panel.webview);
-    
-    // Resolve zef: content-addressed image URIs to data URIs
-    html = await resolveZefImages(html);
     
     // Get mermaid script URI if extension path is available
     let mermaidUri = '';
@@ -1438,7 +1441,7 @@ function renderMarkdown(markdown: string): string {
     html = preParts.map((part, i) => {
         // Odd indices are <pre> blocks — leave them alone
         if (i % 2 === 1) { return part; }
-        return part.replace(/\[\[([^\]]+)\]\]/g, (_match, target: string) => {
+        return part.replace(/(?<!!)\[\[([^\]]+)\]\]/g, (_match, target: string) => {
             const pipeIndex = target.indexOf('|');
             const pageName = (pipeIndex >= 0 ? target.substring(0, pipeIndex) : target).trim();
             const displayName = (pipeIndex >= 0 ? target.substring(pipeIndex + 1) : target).trim();
@@ -1458,51 +1461,35 @@ function renderMarkdown(markdown: string): string {
  * This is necessary because webviews can't directly access local file:// URLs
  */
 /**
- * Resolve zef: image URIs to data URIs via the local tokolosh service.
+ * Resolve rendered Zef image embeds to data URIs via the local tokolosh service.
  * Falls back to placeholder SVGs if the tokolosh is unavailable or the hash is not found.
  */
-async function resolveZefImages(html: string): Promise<string> {
-    // Quick check: any zef: URIs present?
-    debugLog('resolveZefImages: called, html length=' + html.length + ', has zef:=' + html.includes('zef:'));
-    if (!html.includes('zef:')) { return html; }
-
-    // Match zef: URIs with either literal 🗿 or percent-encoded %F0%9F%97%BF
-    // (marked URL-encodes non-ASCII characters in image src attributes)
-    const zefUriRegex = /zef:(\w+)\/((?:🗿|%F0%9F%97%BF)-[0-9a-fA-F]{64})/g;
-    const matches = new Set<string>();
-    let m;
-    while ((m = zefUriRegex.exec(html)) !== null) {
-        matches.add(m[0]);
+async function resolveZefImageEmbeds(html: string): Promise<string> {
+    const embedTagRegex = /<img data-zef-image-type="([A-Za-z]\w*)" data-zef-image-hash="(🗿-[0-9a-fA-F]{64})" alt="">/g;
+    const embeds = new Map<string, { type: string; hash: string }>();
+    let match: RegExpExecArray | null;
+    while ((match = embedTagRegex.exec(html)) !== null) {
+        embeds.set(`${match[1]}/${match[2]}`, { type: match[1], hash: match[2] });
     }
-    debugLog('resolveZefImages: found ' + matches.size + ' unique zef: URIs: ' + [...matches].join(', '));
-    if (matches.size === 0) { return html; }
+    debugLog(`resolveZefImageEmbeds: found ${embeds.size} unique embeds`);
+    if (embeds.size === 0) { return html; }
 
     const service = TokoloshService.getInstance();
-    const replacements = new Map<string, string>();
-
-    // Resolve all unique zef: URIs in parallel
-    await Promise.all([...matches].map(async (encodedUri) => {
-        // Decode percent-encoded URI for parsing
-        const decodedUri = decodeURIComponent(encodedUri);
-        const parsed = parseZefUri(decodedUri);
-        debugLog('resolveZefImages: parsing ' + encodedUri + ' => ' + JSON.stringify(parsed));
-        if (!parsed) { return; }
-
-        const dataUri = await service.resolveImage(parsed.type, parsed.hash);
-        debugLog('resolveZefImages: resolved ' + encodedUri + ' => ' + (dataUri ? 'dataUri(' + dataUri.length + ' chars)' : 'null'));
-        if (dataUri) {
-            replacements.set(encodedUri, dataUri);
-        } else {
-            replacements.set(encodedUri, buildPlaceholderDataUri(parsed.type, parsed.hash, 'Not found'));
+    const sources = new Map<string, string>();
+    await Promise.all([...embeds.entries()].map(async ([key, image]) => {
+        try {
+            const dataUri = await service.resolveImage(image.type, image.hash);
+            sources.set(key, dataUri || buildPlaceholderDataUri(image.type, image.hash, 'Not found'));
+        } catch (error) {
+            debugLog(`resolveZefImageEmbeds: ${key} failed: ${String(error)}`);
+            sources.set(key, buildPlaceholderDataUri(image.type, image.hash, 'Unavailable'));
         }
     }));
 
-    // Replace all zef: URIs in the HTML
-    let result = html;
-    for (const [uri, replacement] of replacements) {
-        result = result.split(uri).join(replacement);
-    }
-    return result;
+    return html.replace(embedTagRegex, (_tag, type: string, hash: string) => {
+        const src = sources.get(`${type}/${hash}`) || buildPlaceholderDataUri(type, hash, 'Unavailable');
+        return `<img src="${src}" alt="">`;
+    });
 }
 
 function convertImagePaths(html: string, docDir: string, webview: vscode.Webview): string {
@@ -1515,9 +1502,9 @@ function convertImagePaths(html: string, docDir: string, webview: vscode.Webview
     return html.replace(imgRegex, (match, before, src, after) => {
         let imgSrc = src;
         
-        // Convert relative paths to webview URIs (skip absolute URLs, data URIs, and zef: URIs)
+        // Convert relative paths to webview URIs; remote, data, and VS Code URIs stay untouched.
         if (!src.startsWith('http://') && !src.startsWith('https://') && 
-            !src.startsWith('data:') && !src.startsWith('vscode-') && !src.startsWith('zef:')) {
+            !src.startsWith('data:') && !src.startsWith('vscode-')) {
             // Convert relative path to absolute path
             const absolutePath = path.isAbsolute(src) ? src : path.join(docDir, src);
             
