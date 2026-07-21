@@ -2344,7 +2344,7 @@ function getWebviewContent(renderedHtml: string, existingOutputs: { [blockId: nu
 
         .code-block-content pre {
             margin: 0;
-            padding: 14px var(--code-inline-padding) 17px;
+            padding: 14px var(--code-inline-padding) 8px;
             border: none;
             border-radius: 0;
             background: var(--code-surface);
