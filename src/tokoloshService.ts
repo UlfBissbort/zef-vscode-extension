@@ -162,7 +162,8 @@ export class TokoloshService {
     private connected = false;
     private handshakeComplete = false;
     private connectedPort: number | null = null;
-    private cache: Map<string, string> = new Map(); // fullUri → data URI
+    private cache: Map<string, string> = new Map(); // typed hash → data URI
+    private textCache: Map<string, string> = new Map(); // typed hash → decoded UTF-8 text
     private pendingRequests: PendingRequest[] = [];
     private connecting: Promise<boolean> | null = null;
     private statusCallback: (() => void) | null = null;
@@ -380,6 +381,33 @@ export class TokoloshService {
         });
     }
 
+    /** Resolve a typed hash-store value as UTF-8 text. */
+    public async resolveTextValue(type: string, hash: string): Promise<string | null> {
+        const cacheKey = `${type}/${hash}`;
+        const cached = this.textCache.get(cacheKey);
+        if (cached !== undefined) { return cached; }
+
+        if (!await this.ensureConnected()) { return null; }
+
+        try {
+            const response = await this.sendAndWait(buildRetrieveMessage(type, hash, generateUid()));
+            const value = response?.__type === 'ET.HashStoreGetResponse' ? response.value : null;
+            if (value?.__type !== type) { return null; }
+
+            // Entity values, including ET.SvelteComponent, expose their decoded
+            // string payload under content rather than the binary data field.
+            const text = typeof value.content === 'string'
+                ? value.content
+                : typeof value.data === 'string' ? Buffer.from(value.data, 'base64').toString('utf8') : null;
+            if (text === null) { return null; }
+            this.textCache.set(cacheKey, text);
+            return text;
+        } catch (err: any) {
+            console.error('TokoloshService: Failed to resolve text value:', err.message);
+            return null;
+        }
+    }
+
     /**
      * Resolve a hash-store image value to a data URI.
      * Returns the data URI on success, or null on failure.
@@ -450,9 +478,10 @@ export class TokoloshService {
         }
     }
 
-    /** Clear the image cache. */
+    /** Clear resolved hash-store values. */
     public clearCache(): void {
         this.cache.clear();
+        this.textCache.clear();
     }
 
     /** Dispose the service and close the connection. */
@@ -461,6 +490,7 @@ export class TokoloshService {
             this.ws.close();
         }
         this.cache.clear();
+        this.textCache.clear();
         for (const req of this.pendingRequests) {
             clearTimeout(req.timer);
             req.reject(new Error('Disposed'));

@@ -14,7 +14,7 @@ import {
     mimeToZefType,
     TokoloshService,
 } from '../src/tokoloshService';
-import { buildZefImageEmbed, parseZefImageEmbed, zefImageEmbedExtension } from '../src/zefImageEmbed';
+import { buildZefImageEmbed, parseZefEmbed, parseZefImageEmbed, zefImageEmbedExtension } from '../src/zefImageEmbed';
 import { Marked } from 'marked';
 
 const SAMPLE_HASH = '🗿-64d8c91b31c998c991b68b9878d74a474543d1d59b9c984b5cbbb16d69e0df7a';
@@ -34,6 +34,7 @@ function testPureFunctions() {
     check(parseZefImageEmbed(`![](zef:PngImage/${SAMPLE_HASH})`) === null, 'legacy URI must not parse');
     check(parseZefImageEmbed(`![[UnknownImage('${SAMPLE_HASH}')]]`) === null, 'unknown type must not parse');
     check(parseZefImageEmbed("![[PngImage('too-short')]]") === null, 'short hash must not parse');
+    check(parseZefEmbed(`![[ET.SvelteComponent('${SAMPLE_HASH}')]]`)?.type === 'ET.SvelteComponent', 'Svelte component embed should parse');
     check(
         buildZefImageEmbed('PngImage', SAMPLE_HASH) === `![[PngImage('${SAMPLE_HASH}')]]`,
         'formatter must emit canonical syntax'
@@ -44,6 +45,8 @@ function testPureFunctions() {
     const renderedEmbed = markdown.parse(`![[PngImage('${SAMPLE_HASH}')]]`) as string;
     check(renderedEmbed.includes(`data-zef-image-type="PngImage"`), 'embed should render an image token');
     check(renderedEmbed.includes(`data-zef-image-hash="${SAMPLE_HASH}"`), 'rendered token should retain hash');
+    const renderedSvelte = markdown.parse(`![[ET.SvelteComponent('${SAMPLE_HASH}')]]`) as string;
+    check(renderedSvelte.includes(`data-zef-svelte-hash="${SAMPLE_HASH}"`), 'Svelte embed should render a placeholder');
     const renderedInlineCode = markdown.parse(`\`![[PngImage('${SAMPLE_HASH}')]]\``) as string;
     check(renderedInlineCode.includes('<code>![[PngImage('), 'embed in inline code must remain literal');
     const renderedFence = markdown.parse(`\`\`\`\n![[PngImage('${SAMPLE_HASH}')]]\n\`\`\``) as string;

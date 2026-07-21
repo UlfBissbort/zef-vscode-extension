@@ -12,6 +12,7 @@ import { TokoloshService, buildPlaceholderDataUri, debugLog, extractFigureRefs }
 import { zefImageEmbedExtension } from './zefImageEmbed';
 import { convertZenSlides } from './slidesConverter';
 import { openSlidesPanel } from './slidesPanel';
+import { compileSvelteComponent } from './svelteExecutor';
 
 marked.use({ extensions: [zefImageEmbedExtension] });
 
@@ -19,6 +20,7 @@ marked.use({ extensions: [zefImageEmbedExtension] });
 const panels: Map<string, vscode.WebviewPanel> = new Map();
 // Track which documents have an inline Excalidraw editor active (skip updatePreview while editing)
 const inlineEditingDocs: Set<string> = new Set();
+const svelteEmbedSources: Map<string, string> = new Map();
 let onRunCodeCallback: ((code: string, blockId: number, language: string, documentUri: vscode.Uri) => void) | undefined;
 let extensionPath: string | undefined;
 
@@ -469,6 +471,13 @@ export function createPreviewPanel(context: vscode.ExtensionContext): vscode.Web
         if (message.type === 'runCode' && onRunCodeCallback) {
             // Pass the document URI so the callback knows which document initiated the run
             onRunCodeCallback(message.code, message.blockId, message.language || 'python', docUri);
+        } else if (message.type === 'compileZefSvelteEmbed') {
+            const hash = String(message.hash || '');
+            const source = svelteEmbedSources.get(hash);
+            const result = source && extensionPath
+                ? await compileSvelteComponent(source, extensionPath)
+                : { success: false, error: 'Stored Svelte source is unavailable. Refresh the preview and try again.', compileTime: '0' };
+            await panel.webview.postMessage({ type: 'zefSvelteEmbedResult', hash, result });
         } else if (message.type === 'scrollToSource') {
             // Navigate editor to the source line
             const line = message.line;
@@ -958,7 +967,8 @@ export async function updatePreview(document: vscode.TextDocument) {
     
     let html = renderDocumentFrontmatter(documentFrontmatter) + renderMarkdown(cleanText);
     
-    // Resolve content-addressed Zef image embeds before wrapping all images.
+    // Resolve typed Zef embeds before wrapping ordinary images.
+    html = await resolveZefSvelteEmbeds(html);
     html = await resolveZefImageEmbeds(html);
 
     // Convert relative image paths to webview URIs and add image controls.
@@ -1460,6 +1470,57 @@ function renderMarkdown(markdown: string): string {
  * Convert relative image paths in HTML to webview URIs and wrap with copy button
  * This is necessary because webviews can't directly access local file:// URLs
  */
+function escapeSvelteEmbedSource(source: string): string {
+    return source
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;');
+}
+
+function renderSvelteEmbed(hash: string, source: string | null): string {
+    const content = source
+        ? `<pre data-lang="svelte"><code>${escapeSvelteEmbedSource(source)}</code></pre>`
+        : '<div class="svelte-error-report">Stored Svelte component was not found.</div>';
+    const canCompile = source ? '' : ' disabled';
+    return `<div class="code-block-container svelte-container zef-svelte-embed" data-zef-svelte-embed-hash="${hash}">
+        <div class="code-block-tabs">
+            <button class="code-block-tab" data-zef-svelte-embed-tab="rendered">Rendered</button>
+            <button class="code-block-tab active" data-zef-svelte-embed-tab="source">Source Code</button>
+            <div class="svelte-header-actions">
+                <button class="code-block-run zef-svelte-embed-compile"${canCompile}>▶ Compile</button>
+                <div class="code-block-lang">Svelte <span class="zef-svelte-embed-compile-time"></span></div>
+            </div>
+        </div>
+        <div class="code-block-content svelte-rendered zef-svelte-embed-rendered">
+            <div class="svelte-placeholder"><div class="placeholder-text">Not yet compiled</div></div>
+        </div>
+        <div class="code-block-content svelte-source-code active">${content}</div>
+    </div>`;
+}
+
+/** Resolve stored ET.SvelteComponent embeds to source-backed Svelte preview boxes. */
+async function resolveZefSvelteEmbeds(html: string): Promise<string> {
+    const embedTagRegex = /<div class="zef-svelte-embed" data-zef-svelte-hash="(🗿-[0-9a-fA-F]{64})"><\/div>/g;
+    const hashes = new Set<string>();
+    let match: RegExpExecArray | null;
+    while ((match = embedTagRegex.exec(html)) !== null) {
+        hashes.add(match[1]);
+    }
+    if (hashes.size === 0) { return html; }
+
+    const service = TokoloshService.getInstance();
+    const sources = new Map<string, string | null>();
+    await Promise.all([...hashes].map(async hash => {
+        const source = await service.resolveTextValue('ET.SvelteComponent', hash);
+        if (source !== null) {
+            svelteEmbedSources.set(hash, source);
+        }
+        sources.set(hash, source);
+    }));
+
+    return html.replace(embedTagRegex, (_tag, hash: string) => renderSvelteEmbed(hash, sources.get(hash) || null));
+}
+
 /**
  * Resolve rendered Zef image embeds to data URIs via the local tokolosh service.
  * Falls back to placeholder SVGs if the tokolosh is unavailable or the hash is not found.
@@ -5679,6 +5740,32 @@ function getWebviewContent(renderedHtml: string, existingOutputs: { [blockId: nu
             var blockLanguages = {}; // Store language for each block
             window._zefCodeBlocks = codeBlocks; // Expose for export modal
 
+            // Stored Svelte components are source-backed embeds, not document code blocks.
+            document.querySelectorAll('.zef-svelte-embed').forEach(function(container) {
+                var hash = container.getAttribute('data-zef-svelte-embed-hash');
+                var compileBtn = container.querySelector('.zef-svelte-embed-compile');
+                var rendered = container.querySelector('.zef-svelte-embed-rendered');
+                var source = container.querySelector('.svelte-source-code');
+                var tabs = container.querySelectorAll('[data-zef-svelte-embed-tab]');
+                tabs.forEach(function(tab) {
+                    tab.onclick = function() {
+                        var tabName = tab.getAttribute('data-zef-svelte-embed-tab');
+                        tabs.forEach(function(item) { item.classList.remove('active'); });
+                        tab.classList.add('active');
+                        rendered.classList.toggle('active', tabName === 'rendered');
+                        source.classList.toggle('active', tabName === 'source');
+                    };
+                });
+                if (compileBtn && hash) {
+                    compileBtn.onclick = function() {
+                        if (compileBtn.classList.contains('running') || compileBtn.disabled) return;
+                        compileBtn.classList.add('running');
+                        compileBtn.textContent = 'Compiling...';
+                        vscode.postMessage({ type: 'compileZefSvelteEmbed', hash: hash });
+                    };
+                }
+            });
+
             // Compile all Svelte blocks (called from the top-right button)
             window.compileAllSvelte = function() {
                 var containers = document.querySelectorAll('.svelte-container');
@@ -7087,6 +7174,45 @@ function getWebviewContent(renderedHtml: string, existingOutputs: { [blockId: nu
                     }
                 }
                 
+                if (message.type === 'zefSvelteEmbedResult') {
+                    var embed = document.querySelector('.zef-svelte-embed[data-zef-svelte-embed-hash="' + message.hash + '"]');
+                    if (embed) {
+                        var embedResult = message.result;
+                        var embedCompileBtn = embed.querySelector('.zef-svelte-embed-compile');
+                        var embedCompileTime = embed.querySelector('.zef-svelte-embed-compile-time');
+                        var embedRendered = embed.querySelector('.zef-svelte-embed-rendered');
+                        if (embedCompileBtn) {
+                            embedCompileBtn.classList.remove('running');
+                            embedCompileBtn.textContent = '▶ Compile';
+                        }
+                        if (embedCompileTime) {
+                            embedCompileTime.textContent = embedResult.success ? embedResult.compileTime + 'ms' : 'error';
+                            embedCompileTime.style.color = embedResult.success ? '#98c379' : '#e06c75';
+                        }
+                        if (embedRendered) {
+                            embedRendered.innerHTML = '';
+                            if (embedResult.success && embedResult.html) {
+                                var embedIframe = document.createElement('iframe');
+                                embedIframe.className = 'svelte-preview-frame';
+                                embedIframe.setAttribute('sandbox', 'allow-scripts');
+                                embedIframe.srcdoc = embedResult.html;
+                                embedRendered.appendChild(embedIframe);
+                                embedRendered.appendChild(createResizeHandle(embedIframe));
+                            } else {
+                                var embedError = document.createElement('pre');
+                                embedError.className = 'svelte-error-report';
+                                embedError.textContent = embedResult.error || 'Svelte compilation failed';
+                                embedRendered.appendChild(embedError);
+                            }
+                        }
+                        embed.querySelectorAll('[data-zef-svelte-embed-tab]').forEach(function(tab) {
+                            tab.classList.toggle('active', tab.getAttribute('data-zef-svelte-embed-tab') === 'rendered');
+                        });
+                        embed.querySelector('.svelte-source-code').classList.remove('active');
+                        embed.querySelector('.zef-svelte-embed-rendered').classList.add('active');
+                    }
+                }
+
                 if (message.type === 'scrollToLine') {
                     // Find element with closest data-line attribute
                     var targetLine = message.line;
