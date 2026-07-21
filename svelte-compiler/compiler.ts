@@ -115,7 +115,7 @@ function init() {
       margin: 0; 
       padding: 16px; 
       font-family: system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
-      background: #1e1e1e;
+      background: #0a0a0a;
       color: #d4d4d4;
     }
   </style>
