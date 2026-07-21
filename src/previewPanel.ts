@@ -1864,14 +1864,22 @@ function getWebviewContent(renderedHtml: string, existingOutputs: { [blockId: nu
         .web-decorator { color: #b4e150; }
         .web-type { color: #7dbbad; }
         .web-string { color: #a784f9; }
-        .web-number,
-        .web-operator { color: #e1c540; }
+        .web-number { color: #e1c540; }
+        .web-operator { color: #69bdce; }
         .web-literal { color: #689ad2; }
         .web-comment { color: #8995ad; }
         .web-bracket-0 { color: #e1c540; }
         .web-bracket-1 { color: #da70d6; }
         .web-bracket-2 { color: #179fff; }
         .web-bracket-3 { color: #e06c75; }
+
+        /* HTML and Svelte markup use the same saturated semantic palette. */
+        .markup-angle { color: #7e7e7e; }
+        .markup-tag { color: #99e490; }
+        .markup-attribute { color: #aad9fa; }
+        .markup-string { color: #a784f9; }
+        .markup-comment { color: #8995ad; }
+        .markup-doctype { color: #7dbbad; }
 
         /* JSON uses the green-key, purple-value palette and bracket-pair
            colors from the reference editor theme. */
@@ -4909,11 +4917,11 @@ function getWebviewContent(renderedHtml: string, existingOutputs: { [blockId: nu
                 makeHandle('right');
             }
 
-            function highlightWebCode(code) {
+            function highlightWebCode(code, initialDepth) {
                 var webTypes = ['string', 'number', 'boolean', 'bigint', 'symbol', 'object', 'unknown', 'any', 'never', 'void', 'undefined'];
                 var webLiterals = ['true', 'false', 'null', 'undefined'];
                 var result = '';
-                var depth = 0;
+                var depth = initialDepth || 0;
                 var expectFunctionName = false;
                 var expectTypeName = false;
                 var i = 0;
@@ -5435,45 +5443,140 @@ function getWebviewContent(renderedHtml: string, existingOutputs: { [blockId: nu
                 return result.join('\\n');
             }
             
-            // HTML-specific highlighter for proper tag/attribute highlighting
-            function highlightHtml(code) {
-                var result = escapeHtml(code);
-                
-                // Highlight HTML comments
-                result = result.replace(/(&lt;!--[\\s\\S]*?--&gt;)/g, '<span class="hl-cmt">$1</span>');
-                
-                // Highlight DOCTYPE
-                result = result.replace(/(&lt;!DOCTYPE[^&]*&gt;)/gi, '<span class="hl-kw">$1</span>');
-                
-                // Highlight opening tags with attributes
-                result = result.replace(/(&lt;)(\\/?)(\\w+)([^&]*?)(&gt;)/g, function(match, lt, slash, tagName, attrs, gt) {
-                    // Highlight attribute names and values within attrs
-                    var highlightedAttrs = attrs.replace(/(\\s+)(\\w+)(=)(&quot;[^&]*?&quot;|'[^']*')/g, function(m, space, attrName, eq, attrValue) {
-                        return space + '<span class="hl-fn">' + attrName + '</span>' + eq + '<span class="hl-str">' + attrValue + '</span>';
-                    });
-                    // Also handle attributes without quotes
-                    highlightedAttrs = highlightedAttrs.replace(/(\\s+)(\\w+)(=)(\\w+)/g, function(m, space, attrName, eq, attrValue) {
-                        return space + '<span class="hl-fn">' + attrName + '</span>' + eq + '<span class="hl-str">' + attrValue + '</span>';
-                    });
-                    // Handle boolean attributes (no value)
-                    highlightedAttrs = highlightedAttrs.replace(/(\\s+)(\\w+)(?!=)/g, function(m, space, attrName) {
-                        if (attrName && !attrName.includes('span')) {
-                            return space + '<span class="hl-fn">' + attrName + '</span>';
+            function findMarkupExpressionEnd(text, start) {
+                var depth = 0;
+                var quote = '';
+                for (var i = start; i < text.length; i++) {
+                    var ch = text[i];
+                    if (quote) {
+                        if (ch === '\\\\') i++;
+                        else if (ch === quote) quote = '';
+                        continue;
+                    }
+                    if (ch === '"' || ch === "'" || ch.charCodeAt(0) === 96) {
+                        quote = ch;
+                    } else if (ch === '{') {
+                        depth++;
+                    } else if (ch === '}') {
+                        depth--;
+                        if (depth === 0) return i;
+                    }
+                }
+                return text.length - 1;
+            }
+
+            function findMarkupTagEnd(text, start) {
+                var quote = '';
+                var expressionDepth = 0;
+                for (var i = start + 1; i < text.length; i++) {
+                    var ch = text[i];
+                    if (quote) {
+                        if (ch === '\\\\') i++;
+                        else if (ch === quote) quote = '';
+                        continue;
+                    }
+                    if (ch === '"' || ch === "'") quote = ch;
+                    else if (ch === '{') expressionDepth++;
+                    else if (ch === '}') expressionDepth = Math.max(0, expressionDepth - 1);
+                    else if (ch === '>' && expressionDepth === 0) return i;
+                }
+                return text.length - 1;
+            }
+
+            function highlightSvelteExpression(expression) {
+                var isComplex = /[()=><]/.test(expression);
+                var bracketClass = isComplex ? 'web-bracket-3' : 'web-bracket-0';
+                var innerDepth = isComplex ? 1 : 0;
+                return '<span class="' + bracketClass + '">{</span>' +
+                    highlightWebCode(expression, innerDepth) +
+                    '<span class="' + bracketClass + '">}</span>';
+            }
+
+            function highlightMarkupTag(tag, svelteExpressions) {
+                if (/^<!DOCTYPE/i.test(tag)) {
+                    return '<span class="markup-doctype">' + escapeHtml(tag) + '</span>';
+                }
+
+                var result = '';
+                var i = 0;
+                var hasTagName = false;
+                while (i < tag.length) {
+                    var ch = tag[i];
+                    if (tag.slice(i, i + 2) === '</' || tag.slice(i, i + 2) === '/>') {
+                        result += '<span class="markup-angle">' + escapeHtml(tag.slice(i, i + 2)) + '</span>';
+                        i += 2;
+                        continue;
+                    }
+                    if (ch === '<' || ch === '>') {
+                        result += '<span class="markup-angle">' + escapeHtml(ch) + '</span>';
+                        i++;
+                        continue;
+                    }
+                    if (ch === '"' || ch === "'") {
+                        var quote = ch;
+                        var stringStart = i;
+                        i++;
+                        while (i < tag.length && tag[i] !== quote) {
+                            if (tag[i] === '\\\\') i++;
+                            i++;
                         }
-                        return m;
-                    });
-                    return '<span class="hl-ty">' + lt + slash + tagName + '</span>' + highlightedAttrs + '<span class="hl-ty">' + gt + '</span>';
-                });
-                
-                // Highlight self-closing tags
-                result = result.replace(/(&lt;)(\\w+)([^&]*?)(\\/&gt;)/g, function(match, lt, tagName, attrs, close) {
-                    var highlightedAttrs = attrs.replace(/(\\s+)(\\w+)(=)(&quot;[^&]*?&quot;|'[^']*')/g, function(m, space, attrName, eq, attrValue) {
-                        return space + '<span class="hl-fn">' + attrName + '</span>' + eq + '<span class="hl-str">' + attrValue + '</span>';
-                    });
-                    return '<span class="hl-ty">' + lt + tagName + '</span>' + highlightedAttrs + '<span class="hl-ty">' + close + '</span>';
-                });
-                
+                        if (i < tag.length) i++;
+                        result += '<span class="markup-string">' + escapeHtml(tag.slice(stringStart, i)) + '</span>';
+                        continue;
+                    }
+                    if (svelteExpressions && ch === '{') {
+                        var expressionEnd = findMarkupExpressionEnd(tag, i);
+                        result += highlightSvelteExpression(tag.slice(i + 1, expressionEnd));
+                        i = expressionEnd + 1;
+                        continue;
+                    }
+                    if (/[A-Za-z_:@#-]/.test(ch)) {
+                        var nameStart = i;
+                        i++;
+                        while (i < tag.length && /[A-Za-z0-9_:@#.-]/.test(tag[i])) i++;
+                        var className = hasTagName ? 'markup-attribute' : 'markup-tag';
+                        result += '<span class="' + className + '">' + escapeHtml(tag.slice(nameStart, i)) + '</span>';
+                        hasTagName = true;
+                        continue;
+                    }
+                    result += escapeHtml(ch);
+                    i++;
+                }
                 return result;
+            }
+
+            function highlightMarkup(code, svelteExpressions) {
+                var result = '';
+                var i = 0;
+                while (i < code.length) {
+                    if (code.slice(i, i + 4) === '<!--') {
+                        var commentEnd = code.indexOf('-->', i + 4);
+                        if (commentEnd < 0) commentEnd = code.length - 3;
+                        commentEnd += 3;
+                        result += '<span class="markup-comment">' + escapeHtml(code.slice(i, commentEnd)) + '</span>';
+                        i = commentEnd;
+                        continue;
+                    }
+                    if (code[i] === '<') {
+                        var tagEnd = findMarkupTagEnd(code, i);
+                        result += highlightMarkupTag(code.slice(i, tagEnd + 1), svelteExpressions);
+                        i = tagEnd + 1;
+                        continue;
+                    }
+                    if (svelteExpressions && code[i] === '{') {
+                        var expressionEnd = findMarkupExpressionEnd(code, i);
+                        result += highlightSvelteExpression(code.slice(i + 1, expressionEnd));
+                        i = expressionEnd + 1;
+                        continue;
+                    }
+                    result += escapeHtml(code[i]);
+                    i++;
+                }
+                return result;
+            }
+
+            function highlightHtml(code) {
+                return highlightMarkup(code, false);
             }
 
             function highlightSvelte(code) {
@@ -5483,20 +5586,20 @@ function getWebviewContent(renderedHtml: string, existingOutputs: { [blockId: nu
                 var match;
 
                 while ((match = embeddedBlock.exec(code)) !== null) {
-                    result += highlightHtml(code.slice(lastIndex, match.index));
+                    result += highlightMarkup(code.slice(lastIndex, match.index), true);
                     if (match[1]) {
-                        result += highlightHtml(match[1]);
+                        result += highlightMarkup(match[1], true);
                         result += highlightWebCode(match[2]);
-                        result += highlightHtml(match[3]);
+                        result += highlightMarkup(match[3], true);
                     } else {
-                        result += highlightHtml(match[4]);
+                        result += highlightMarkup(match[4], true);
                         result += highlightWebCode(match[5]);
-                        result += highlightHtml(match[6]);
+                        result += highlightMarkup(match[6], true);
                     }
                     lastIndex = match.index + match[0].length;
                 }
 
-                result += highlightHtml(code.slice(lastIndex));
+                result += highlightMarkup(code.slice(lastIndex), true);
                 return result;
             }
 
