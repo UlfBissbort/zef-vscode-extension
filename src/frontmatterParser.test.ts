@@ -139,6 +139,24 @@ tags:
     assertEqual(result?.fields.tags, ['yaml', 'obsidian']);
 });
 
+test('parseDocumentFrontmatter: ignores horizontal rules outside a header', () => {
+    const text = `# A document without frontmatter
+
+Some prose.
+
+---
+
+## A section
+
+More prose.
+
+---
+
+## Another section`;
+    assertEqual(parseDocumentFrontmatter(text), null);
+    assertEqual(stripFrontmatter(text), text);
+});
+
 test('parseDocumentFrontmatter: parses TOML identity and multiary field', () => {
     const result = parseDocumentFrontmatter(`+++
 this = "ET.MarkdownDocument('🍃-example')"

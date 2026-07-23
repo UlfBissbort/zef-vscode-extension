@@ -75,15 +75,23 @@ function extractDocumentFrontmatter(text: string): ExtractedFrontmatter | null {
         return null;
     }
 
-    const match = text.match(/^(---|\+\+\+)[ \t]*\r?\n([\s\S]*?)^\1[ \t]*(?:\r?\n|$)/m);
-    if (!match) {
+    const opening = text.match(/^(---|\+\+\+)[ \t]*\r?\n/);
+    if (!opening) {
+        return null;
+    }
+
+    const delimiter = opening[1] as '---' | '+++';
+    const closing = text.slice(opening[0].length).match(
+        new RegExp(`^([\\s\\S]*?)^${delimiter.replace(/[+]/g, '\\$&')}[ \\t]*(?:\\r?\\n|$)`, 'm')
+    );
+    if (!closing) {
         return null;
     }
 
     return {
-        delimiter: match[1] as '---' | '+++',
-        source: match[2],
-        length: match[0].length
+        delimiter,
+        source: closing[1],
+        length: opening[0].length + closing[0].length
     };
 }
 
