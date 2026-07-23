@@ -236,7 +236,8 @@
     "vscode:prepublish": "npm run compile",
     "compile": "tsc -p ./",
     "watch": "tsc -watch -p ./",
-    "lint": "eslint src --ext ts"
+    "lint": "eslint src --ext ts",
+    "test:math": "npm run compile && node --test test/mathProtection.test.js"
   },
   "dependencies": {
     "@iarna/toml": "^2.2.5",

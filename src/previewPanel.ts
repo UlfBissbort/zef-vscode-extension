@@ -13,6 +13,7 @@ import { zefImageEmbedExtension } from './zefImageEmbed';
 import { convertZenSlides } from './slidesConverter';
 import { openSlidesPanel } from './slidesPanel';
 import { compileSvelteComponent } from './svelteExecutor';
+import { protectMath, restoreProtectedMath } from './mathProtection';
 
 marked.use({ extensions: [zefImageEmbedExtension] });
 
@@ -1359,32 +1360,18 @@ function renderMarkdown(markdown: string): string {
         renderer
     });
 
-    // Protect math blocks from marked's transformations.
-    // marked mangles LaTeX: converts \\ to \, newlines to <br>, interprets _ as
-    // emphasis, * as bold, | as table delimiters, etc. Instead of trying to escape
-    // individual characters, we extract entire math blocks before marked runs and
-    // reinsert them verbatim after.
-    const mathStore: string[] = [];
-    let protectedMarkdown = markdown.replace(/\$\$([\s\S]*?)\$\$/g, (match) => {
-        const id = mathStore.length;
-        mathStore.push(match);
-        return `MATHBLOCK${id}ENDMATH`;
-    });
-    // Also protect inline math $...$  (run after $$ so no false matches).
-    // Content must be non-empty, contain no $, and not span paragraph breaks.
-    protectedMarkdown = protectedMarkdown.replace(/\$((?:(?!\n\n)[^$])+)\$/g, (match) => {
-        const id = mathStore.length;
-        mathStore.push(match);
-        return `MATHBLOCK${id}ENDMATH`;
-    });
+    // Marked mangles LaTex syntax. Protect complete expressions, but leave all
+    // Markdown code untouched: delimiter-looking text in code must never pair
+    // with a later expression and corrupt the remainder of the document.
+    const protectedMath = protectMath(markdown);
 
     // Preserve extra blank lines before parsing
-    const processedMarkdown = preserveBlankLines(protectedMarkdown);
+    const processedMarkdown = preserveBlankLines(protectedMath.markdown);
 
     let html = marked.parse(processedMarkdown) as string;
 
-    // Reinsert original math blocks verbatim
-    html = html.replace(/MATHBLOCK(\d+)ENDMATH/g, (_, id) => mathStore[parseInt(id)]);
+    // Reinsert original math expressions verbatim for KaTeX auto-render.
+    html = restoreProtectedMath(html, protectedMath);
     
     // Remove disabled attribute from checkboxes to make them interactive
     // Marked generates: <input disabled="" type="checkbox"> for unchecked

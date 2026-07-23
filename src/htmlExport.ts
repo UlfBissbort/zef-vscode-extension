@@ -10,6 +10,8 @@
  * All functions are pure: data in, data out. No vscode imports, no file I/O.
  */
 
+import { protectMath } from './mathProtection';
+
 // ---------------------------------------------------------------------------
 // Types
 // ---------------------------------------------------------------------------
@@ -43,11 +45,9 @@ export function detectFeatures(markdown: string): { usesLatex: boolean; usesMerm
     // Mermaid: ```mermaid code fence
     const usesMermaid = /^```mermaid\b/m.test(markdown);
 
-    // LaTeX: $...$ or $$...$$ (but not escaped \$ or inside code)
-    // Simple heuristic: look for unescaped $ that aren't in code fences
-    const stripped = markdown.replace(/```[\s\S]*?```/g, ''); // remove code fences
-    const usesLatex = /(?<![\\])\$\$[\s\S]+?\$\$/.test(stripped) ||
-                      /(?<![\\$])\$(?!\$)[^\n$]+?\$/.test(stripped);
+    // Use the same Markdown-aware parser as preview rendering. In particular,
+    // delimiter-looking text in inline or fenced code must not enable KaTeX.
+    const usesLatex = protectMath(markdown).expressions.length > 0;
 
     return { usesLatex, usesMermaid };
 }
