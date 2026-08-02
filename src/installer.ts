@@ -416,7 +416,7 @@ export function ensureZefVenvDiscoverable(): void {
     }
 
     // Check that the venv actually exists before configuring discovery
-    const venvPython = path.join(venvParent, 'tokolosh_venv', 'bin', 'python');
+    const venvPython = path.join(venvParent, 'zef_venv', 'bin', 'python');
     if (!fs.existsSync(venvPython)) {
         log(`Zef venv not found at ${venvPython}, skipping venv discovery setup`);
         return;

@@ -167,7 +167,7 @@ The venv lives inside the WSL filesystem. The Linux x86_64 wheel is downloaded a
 
 ```typescript
 async function createVenvInWsl(wslVenvPath: string): Promise<boolean> {
-    // Path is a Linux path inside WSL, e.g. /home/user/.local/share/zef/tokolosh_venv
+    // Path is a Linux path inside WSL, e.g. /home/user/.local/share/zef/zef_venv
     await wslExec(`mkdir -p "$(dirname ${wslVenvPath})"`);
     const result = await wslExec(
         `~/.local/bin/uv venv --python 3.14 "${wslVenvPath}"`,
@@ -255,7 +255,7 @@ async function writeDaemonToWsl(wslSupportDir: string, scriptContent: string): P
 |---------|-------------|----------|
 | User home | `C:\Users\Alice` | `/home/alice` |
 | Support dir | N/A (lives in WSL) | `~/.local/share/zef/` |
-| Venv | N/A (lives in WSL) | `~/.local/share/zef/tokolosh_venv` |
+| Venv | N/A (lives in WSL) | `~/.local/share/zef/zef_venv` |
 | Access Windows from WSL | `C:\Users\Alice\file.txt` | `/mnt/c/Users/Alice/file.txt` |
 
 The extension should **never** use Windows paths for WSL operations. All paths passed to `wslExec()` are Linux paths.
@@ -275,7 +275,7 @@ Check: is WSL available? (wsl --list)
   │             │
   ▼             ▼
 Show error:   Check: does venv exist in WSL?
-"Install WSL"   (wsl -- test -f ~/.local/share/zef/tokolosh_venv/bin/python)
+"Install WSL"   (wsl -- test -f ~/.local/share/zef/zef_venv/bin/python)
   │             │
   │       ┌─────┴──────┐
   │       │ YES        │ NO

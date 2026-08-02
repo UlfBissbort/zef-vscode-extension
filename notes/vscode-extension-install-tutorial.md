@@ -96,10 +96,10 @@ function getWheelInfo(): { url: string; filename: string } | null {
 
 function getDefaultVenvPath(): string {
     if (process.platform === 'darwin') {
-        return path.join(os.homedir(), 'Library', 'Application Support', 'Zef', 'tokolosh_venv');
+        return path.join(os.homedir(), 'Library', 'Application Support', 'Zef', 'zef_venv');
     }
     // Linux
-    return path.join(os.homedir(), '.local', 'share', 'zef', 'tokolosh_venv');
+    return path.join(os.homedir(), '.local', 'share', 'zef', 'zef_venv');
 }
 
 function getSupportDir(): string {
@@ -570,7 +570,7 @@ User installs "Zef" from VS Code Marketplace
     activate() runs
             │
             ▼
-    Check: does ~/Library/Application Support/Zef/tokolosh_venv/bin/python exist?
+    Check: does ~/Library/Application Support/Zef/zef_venv/bin/python exist?
             │
     ┌───────┴────────┐
     │ YES            │ NO
