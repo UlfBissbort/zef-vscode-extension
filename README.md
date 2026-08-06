@@ -146,6 +146,27 @@ The build script handles:
 - Version management
 - Installation verification
 
+### Publishing credentials
+
+Marketplace publishing reads its PAT from the local encrypted Zef secret store.
+Add it once using the no-echo prompt:
+
+```bash
+zef secret! add \
+  --label "VS Code Marketplace PAT" \
+  --tag vscode \
+  --tag marketplace \
+  --tag publish \
+  --tag api-token \
+  --protection user_presence \
+  --retain-versions 3
+```
+
+`python3 build.py publish` discovers this secret by label and tags. Before each
+publish, macOS requests Touch ID/password approval; the script captures the PAT
+without printing it and passes it only to the `vsce` child process as
+`VSCE_PAT`.
+
 ### Manual Build
 
 ```bash

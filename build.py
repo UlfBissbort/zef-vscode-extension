@@ -88,11 +88,16 @@ def explain(msg: str):
 # Command Execution
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-def run(cmd: list, cwd: Path = ROOT, capture: bool = True) -> Tuple[bool, str]:
+def run(
+    cmd: list,
+    cwd: Path = ROOT,
+    capture: bool = True,
+    env: Optional[dict] = None,
+) -> Tuple[bool, str]:
     """Run a command and return (success, output)."""
     try:
         result = subprocess.run(
-            cmd, cwd=cwd,
+            cmd, cwd=cwd, env=env,
             capture_output=capture, text=True, timeout=300
         )
         output = (result.stdout or '') + (result.stderr or '')
@@ -335,38 +340,120 @@ def install_local(vsix_path: Path) -> bool:
         print(out)
         return False
 
+MARKETPLACE_SECRET_LABEL = "VS Code Marketplace PAT"
+MARKETPLACE_SECRET_TAGS = ["vscode", "marketplace", "publish", "api-token"]
+
+
+def select_marketplace_secret(payload: dict) -> Optional[dict]:
+    """Select one active, exactly-labelled secret from redacted CLI output."""
+    candidates = [
+        secret for secret in payload.get("secrets", [])
+        if secret.get("label") == MARKETPLACE_SECRET_LABEL
+        and secret.get("status") == "active"
+        and all(tag in secret.get("tags", []) for tag in MARKETPLACE_SECRET_TAGS)
+    ]
+    return candidates[0] if len(candidates) == 1 else None
+
+
+def marketplace_publish_env() -> Tuple[Optional[dict], Optional[str]]:
+    """Build a child environment containing VSCE_PAT without logging the PAT."""
+    find_cmd = ["zef", "secret", "find"]
+    for tag in MARKETPLACE_SECRET_TAGS:
+        find_cmd.extend(["--tag", tag])
+    find_cmd.append("--json")
+
+    ok, output = run(find_cmd)
+    if not ok:
+        return None, "Could not inspect the Zef secret store: " + output.strip()
+
+    try:
+        secret = select_marketplace_secret(json.loads(output))
+    except json.JSONDecodeError:
+        return None, "Zef secret discovery returned invalid JSON."
+
+    if not secret:
+        return None, (
+            f'Expected exactly one active secret labelled "{MARKETPLACE_SECRET_LABEL}" '
+            f'with tags: {", ".join(MARKETPLACE_SECRET_TAGS)}.'
+        )
+
+    uid = secret.get("uid")
+    if not uid:
+        return None, "The matching Zef secret has no UID."
+
+    info(f"Using Zef Secret {uid} ({MARKETPLACE_SECRET_LABEL})")
+    explain("macOS will request Touch ID/password before the PAT is revealed to vsce")
+
+    # Capture stdout directly and never include it in normal command output. The
+    # plaintext exists only in this process and the vsce child environment.
+    try:
+        reveal = subprocess.run(
+            ["zef", "secret!", "reveal", uid, "--stdout", "--quiet"],
+            cwd=ROOT,
+            capture_output=True,
+            text=True,
+            timeout=300,
+        )
+    except (subprocess.TimeoutExpired, FileNotFoundError) as exc:
+        return None, f"Could not reveal the Marketplace PAT: {exc}"
+
+    if reveal.returncode != 0:
+        return None, "Zef secret reveal failed: " + (reveal.stderr or "unknown error").strip()
+
+    pat = reveal.stdout.strip()
+    if not pat:
+        return None, "Zef secret reveal returned no PAT."
+
+    child_env = os.environ.copy()
+    child_env["VSCE_PAT"] = pat
+    return child_env, None
+
+
 def publish_marketplace() -> bool:
     """Publish extension to VS Code Marketplace."""
     step("Publishing to VS Code Marketplace...")
     explain("Uploads the extension to marketplace.visualstudio.com")
-    explain("Requires a Personal Access Token (PAT) - see: https://code.visualstudio.com/api/working-with-extensions/publishing-extension")
-    
-    # Verify PAT first
-    ok, out = run(["npx", "vsce", "verify-pat", "UlfBissbort"])
-    if not ok:
-        error("Personal Access Token verification failed")
-        print(out)
-        info("Run: npx vsce login UlfBissbort")
+
+    publish_env, credential_error = marketplace_publish_env()
+    if credential_error:
+        error(credential_error)
+        info("Add the PAT with the command documented in README.md under Publishing")
         return False
-    success("PAT verified")
-    
-    # Publish
-    ok, out = run(["npx", "vsce", "publish", "--allow-missing-repository"])
-    
-    if ok and "DONE" in out:
-        success("Published to marketplace!")
-        version = get_version()
-        info(f"URL: https://marketplace.visualstudio.com/items?itemName=UlfBissbort.zef")
-        info(f"Note: May take 5-10 minutes to appear with version {version}")
-        return True
-    elif "already exists" in out:
-        warn(f"Version {get_version()} already exists on marketplace")
-        info("Bump version with: python build.py publish --bump patch")
-        return False
-    else:
-        error("Publishing failed:")
-        print(out)
-        return False
+
+    try:
+        # Verify PAT first. vsce reads it from VSCE_PAT in the child environment.
+        ok, out = run(
+            ["npx", "vsce", "verify-pat", "UlfBissbort"],
+            env=publish_env,
+        )
+        if not ok:
+            error("Personal Access Token verification failed")
+            print(out)
+            return False
+        success("PAT verified")
+
+        ok, out = run(
+            ["npx", "vsce", "publish", "--allow-missing-repository"],
+            env=publish_env,
+        )
+
+        if ok and "DONE" in out:
+            success("Published to marketplace!")
+            version = get_version()
+            info("URL: https://marketplace.visualstudio.com/items?itemName=UlfBissbort.zef")
+            info(f"Note: May take 5-10 minutes to appear with version {version}")
+            return True
+        elif "already exists" in out:
+            warn(f"Version {get_version()} already exists on marketplace")
+            info("Bump version with: python build.py publish --bump patch")
+            return False
+        else:
+            error("Publishing failed:")
+            print(out)
+            return False
+    finally:
+        if publish_env:
+            publish_env.pop("VSCE_PAT", None)
 
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 # High-Level Workflows
