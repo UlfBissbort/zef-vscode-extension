@@ -9,13 +9,14 @@ import { ExcalidrawEditorPanel, generateExcalidrawUid } from './excalidrawEditor
 import { generateNotebook, parseMarkdownCells, parsePythonCells, parsePythonLegacyCells } from './notebookExport';
 import { detectFeatures, inlineKatexFonts, generateStandaloneHtml, embedRenderedBlocks, SvelteBlockExport, HtmlExportInput } from './htmlExport';
 import { TokoloshService, buildPlaceholderDataUri, debugLog, extractFigureRefs } from './tokoloshService';
-import { zefImageEmbedExtension } from './zefImageEmbed';
+import { imageDimensionAttributes as zefImageDimensionAttributes, zefImageEmbedExtension } from './zefImageEmbed';
+import { decodeObsidianImageData, obsidianImageEmbedExtension, renderMissingObsidianImageEmbed, resolveObsidianImagePath } from './obsidianImageEmbed';
 import { convertZenSlides } from './slidesConverter';
 import { openSlidesPanel } from './slidesPanel';
 import { compileSvelteComponent } from './svelteExecutor';
 import { protectMath, restoreProtectedMath } from './mathProtection';
 
-marked.use({ extensions: [zefImageEmbedExtension] });
+marked.use({ extensions: [zefImageEmbedExtension, obsidianImageEmbedExtension] });
 
 // Map of document URI string to its panel
 const panels: Map<string, vscode.WebviewPanel> = new Map();
@@ -1520,7 +1521,7 @@ async function resolveZefSvelteEmbeds(html: string): Promise<string> {
  * Falls back to placeholder SVGs if the tokolosh is unavailable or the hash is not found.
  */
 async function resolveZefImageEmbeds(html: string): Promise<string> {
-    const embedTagRegex = /<img data-zef-image-type="([A-Za-z]\w*)" data-zef-image-hash="(🗿-[0-9a-fA-F]{64})" alt="">/g;
+    const embedTagRegex = /<img data-zef-image-type="([A-Za-z]\w*)" data-zef-image-hash="(🗿-[0-9a-fA-F]{64})"(?: data-zef-image-dimensions="(\d+(?:x\d+)?)")? alt="">/g;
     const embeds = new Map<string, { type: string; hash: string }>();
     let match: RegExpExecArray | null;
     while ((match = embedTagRegex.exec(html)) !== null) {
@@ -1541,10 +1542,27 @@ async function resolveZefImageEmbeds(html: string): Promise<string> {
         }
     }));
 
-    return html.replace(embedTagRegex, (_tag, type: string, hash: string) => {
+    return html.replace(embedTagRegex, (_tag, type: string, hash: string, dimensions: string | undefined) => {
         const src = sources.get(`${type}/${hash}`) || buildPlaceholderDataUri(type, hash, 'Unavailable');
-        return `<img src="${src}" alt="">`;
+        return `<img src="${src}" alt=""${imageDimensionAttributes(dimensions)}>`;
     });
+}
+
+function htmlDataAttribute(tag: string, name: string): string | undefined {
+    const escapedName = name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    return new RegExp(`\\b${escapedName}="([^"]*)"`, 'i').exec(tag)?.[1];
+}
+
+function imageDimensionAttributes(encodedDimensions: string | undefined): string {
+    return zefImageDimensionAttributes(decodeObsidianImageData(encodedDimensions) || undefined);
+}
+
+function isExistingFile(filePath: string): boolean {
+    try {
+        return fs.statSync(filePath).isFile();
+    } catch {
+        return false;
+    }
 }
 
 function convertImagePaths(html: string, docDir: string, webview: vscode.Webview): string {
@@ -1555,17 +1573,39 @@ function convertImagePaths(html: string, docDir: string, webview: vscode.Webview
     const copyButtonSvg = `<svg viewBox="0 0 24 24"><rect x="8" y="6" width="12" height="15" rx="1.5" ry="1.5"></rect><path d="M4 18V5a1.5 1.5 0 0 1 1.5-1.5h9"></path></svg>`;
     
     return html.replace(imgRegex, (match, before, src, after) => {
+        const isObsidianImage = /\bdata-obsidian-image-embed(?:\s|$)/i.test(match);
+        const obsidianSource = isObsidianImage
+            ? decodeObsidianImageData(htmlDataAttribute(match, 'data-obsidian-source'))
+            : null;
+        const obsidianRaw = isObsidianImage
+            ? decodeObsidianImageData(htmlDataAttribute(match, 'data-obsidian-raw'))
+            : null;
+
+        // An Obsidian embed is only rendered as an image when its local file is present.
+        // Otherwise retain the author's link syntax and show a quiet missing-file hint.
+        if (isObsidianImage) {
+            const absolutePath = obsidianSource ? resolveObsidianImagePath(docDir, obsidianSource) : null;
+            if (!absolutePath || !isExistingFile(absolutePath)) {
+                return renderMissingObsidianImageEmbed(obsidianRaw || `![[${obsidianSource || src}]]`);
+            }
+            const imgSrc = webview.asWebviewUri(vscode.Uri.file(absolutePath)).toString();
+            const dimensions = imageDimensionAttributes(htmlDataAttribute(match, 'data-obsidian-dimensions'));
+            return `<span class="image-container">
+                <img ${before}src="${imgSrc}"${after}${dimensions}>
+                <button class="image-copy-btn" onclick="copyImage(this, '${imgSrc}')" title="Copy image to clipboard">
+                    ${copyButtonSvg}
+                </button>
+            </span>`;
+        }
+
         let imgSrc = src;
         
         // Convert relative paths to webview URIs; remote, data, and VS Code URIs stay untouched.
         if (!src.startsWith('http://') && !src.startsWith('https://') && 
             !src.startsWith('data:') && !src.startsWith('vscode-')) {
-            // Convert relative path to absolute path
+            // Convert relative paths to webview URIs.
             const absolutePath = path.isAbsolute(src) ? src : path.join(docDir, src);
-            
-            // Convert to webview URI
-            const fileUri = vscode.Uri.file(absolutePath);
-            imgSrc = webview.asWebviewUri(fileUri).toString();
+            imgSrc = webview.asWebviewUri(vscode.Uri.file(absolutePath)).toString();
         }
         
         // Wrap image in container with copy button
@@ -3083,6 +3123,30 @@ function getWebviewContent(renderedHtml: string, existingOutputs: { [blockId: nu
         .image-container {
             position: relative;
             display: inline-block;
+        }
+
+        .obsidian-image-missing {
+            display: inline-flex;
+            align-items: center;
+            gap: 7px;
+            max-width: 100%;
+            padding: 5px 8px;
+            border: 1px solid rgba(245, 158, 11, 0.22);
+            border-radius: 6px;
+            background: rgba(245, 158, 11, 0.06);
+            color: var(--text-muted);
+            font-size: 0.84em;
+        }
+
+        .obsidian-image-missing code {
+            overflow-wrap: anywhere;
+            color: inherit;
+        }
+
+        .obsidian-image-missing-indicator {
+            color: rgba(245, 158, 11, 0.78);
+            font-size: 0.78em;
+            white-space: nowrap;
         }
 
         .image-copy-btn {

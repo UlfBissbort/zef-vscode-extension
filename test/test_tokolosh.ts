@@ -14,7 +14,7 @@ import {
     mimeToZefType,
     TokoloshService,
 } from '../src/tokoloshService';
-import { buildZefImageEmbed, parseZefEmbed, parseZefImageEmbed, zefImageEmbedExtension } from '../src/zefImageEmbed';
+import { buildZefImageEmbed, imageDimensionAttributes, parseZefEmbed, parseZefImageEmbed, zefImageEmbedExtension } from '../src/zefImageEmbed';
 import { Marked } from 'marked';
 
 const SAMPLE_HASH = '🗿-64d8c91b31c998c991b68b9878d74a474543d1d59b9c984b5cbbb16d69e0df7a';
@@ -31,6 +31,13 @@ function testPureFunctions() {
     const valid = parseZefImageEmbed(`![[PngImage('${SAMPLE_HASH}')]]`);
     check(valid?.type === 'PngImage', 'canonical embed type should parse');
     check(valid.hash === SAMPLE_HASH, 'canonical embed hash should parse');
+    const sized = parseZefImageEmbed(`![[PngImage('${SAMPLE_HASH}')|400x300]]`);
+    check(sized?.dimensions === '400x300', 'image embed dimensions should parse');
+    check(parseZefImageEmbed(`![[PngImage('${SAMPLE_HASH}')|0]]`)?.dimensions === '0', 'numeric dimensions remain parser-safe');
+    check(parseZefImageEmbed(`![[PngImage('${SAMPLE_HASH}')|wide]]`) === null, 'non-numeric dimensions must not parse');
+    check(imageDimensionAttributes('400x300') === ' width="400" height="300"', 'dimensions become safe image attributes');
+    check(imageDimensionAttributes('400" onerror="alert(1)') === '', 'unsafe dimensions never become HTML attributes');
+    check(parseZefEmbed(`![[ET.SvelteComponent('${SAMPLE_HASH}')|400]]`) === null, 'dimensions apply only to image embeds');
     check(parseZefImageEmbed(`![](zef:PngImage/${SAMPLE_HASH})`) === null, 'legacy URI must not parse');
     check(parseZefImageEmbed(`![[UnknownImage('${SAMPLE_HASH}')]]`) === null, 'unknown type must not parse');
     check(parseZefImageEmbed("![[PngImage('too-short')]]") === null, 'short hash must not parse');
@@ -45,6 +52,8 @@ function testPureFunctions() {
     const renderedEmbed = markdown.parse(`![[PngImage('${SAMPLE_HASH}')]]`) as string;
     check(renderedEmbed.includes(`data-zef-image-type="PngImage"`), 'embed should render an image token');
     check(renderedEmbed.includes(`data-zef-image-hash="${SAMPLE_HASH}"`), 'rendered token should retain hash');
+    const renderedSizedEmbed = markdown.parse(`![[PngImage('${SAMPLE_HASH}')|400]]`) as string;
+    check(renderedSizedEmbed.includes('data-zef-image-dimensions="400"'), 'rendered image should retain safe dimensions for resolution');
     const renderedSvelte = markdown.parse(`![[ET.SvelteComponent('${SAMPLE_HASH}')]]`) as string;
     check(renderedSvelte.includes(`data-zef-svelte-hash="${SAMPLE_HASH}"`), 'Svelte embed should render a placeholder');
     const renderedInlineCode = markdown.parse(`\`![[PngImage('${SAMPLE_HASH}')]]\``) as string;

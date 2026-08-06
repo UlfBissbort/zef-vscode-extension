@@ -3,6 +3,8 @@ import type { TokenizerAndRendererExtension, Tokens } from 'marked';
 export interface ZefEmbedReference {
     type: string;
     hash: string;
+    /** Optional Obsidian-compatible width or width-by-height hint. */
+    dimensions?: string;
 }
 
 export type ZefImageReference = ZefEmbedReference;
@@ -16,7 +18,7 @@ const IMAGE_TYPES = new Set([
 ]);
 
 const SVELTE_COMPONENT_TYPE = 'ET.SvelteComponent';
-const ZEF_EMBED = /^!\[\[([A-Za-z]\w*(?:\.[A-Za-z]\w*)*)\('(🗿-[0-9a-fA-F]{64})'\)\]\]/;
+const ZEF_EMBED = /^!\[\[([A-Za-z]\w*(?:\.[A-Za-z]\w*)*)\('(🗿-[0-9a-fA-F]{64})'\)(?:\|(\d+(?:x\d+)?))?\]\]/;
 
 function isSupportedEmbedType(type: string): boolean {
     return IMAGE_TYPES.has(type) || type === SVELTE_COMPONENT_TYPE;
@@ -28,7 +30,12 @@ export function parseZefEmbed(embed: string): ZefEmbedReference | null {
     if (!match || match[0] !== embed || !isSupportedEmbedType(match[1])) {
         return null;
     }
-    return { type: match[1], hash: match[2] };
+    // Svelte embeds have their own rendered box, so image dimensions apply only
+    // to the content-addressed image types.
+    if (match[3] && !IMAGE_TYPES.has(match[1])) {
+        return null;
+    }
+    return { type: match[1], hash: match[2], dimensions: match[3] || undefined };
 }
 
 /** Parse one complete, canonical Zef image embed. */
@@ -43,6 +50,15 @@ export function buildZefImageEmbed(type: string, hash: string): string {
         throw new Error(`Cannot build Zef image embed for ${type}/${hash}`);
     }
     return `![[${type}('${hash}')]]`;
+}
+
+/** Convert strictly parsed dimensions into safe HTML image attributes. */
+export function imageDimensionAttributes(dimensions: string | undefined): string {
+    if (!dimensions || !/^\d+(?:x\d+)?$/.test(dimensions)) {
+        return '';
+    }
+    const [width, height] = dimensions.split('x');
+    return ` width="${width}"${height ? ` height="${height}"` : ''}`;
 }
 
 type ZefEmbedToken = Tokens.Generic & {
@@ -81,6 +97,7 @@ export const zefImageEmbedExtension: TokenizerAndRendererExtension = {
         if (reference.type === SVELTE_COMPONENT_TYPE) {
             return `<div class="zef-svelte-embed" data-zef-svelte-hash="${reference.hash}"></div>`;
         }
-        return `<img data-zef-image-type="${reference.type}" data-zef-image-hash="${reference.hash}" alt="">`;
+        const dimensions = reference.dimensions ? ` data-zef-image-dimensions="${reference.dimensions}"` : '';
+        return `<img data-zef-image-type="${reference.type}" data-zef-image-hash="${reference.hash}"${dimensions} alt="">`;
     },
 };
