@@ -493,7 +493,7 @@ export class ZefSettingsViewProvider implements vscode.WebviewViewProvider {
         const tokoloshPort = this._tokoloshService.port;
         const tokoloshStatusClass = tokoloshConnected ? 'connected' : 'disconnected';
         const tokoloshStatusText = tokoloshConnected ? 'Connected' : 'Not running';
-        const tokoloshUrl = tokoloshConnected ? `ws://127.0.0.1:${tokoloshPort}/ws` : 'Scans ports 27021–27040';
+        const tokoloshUrl = tokoloshConnected ? `ws://127.0.0.1:${tokoloshPort}/zef-messaging` : 'Scans ports 27021–27040 for Zef Messaging';
 
         return `
             <h2>Connection</h2>
