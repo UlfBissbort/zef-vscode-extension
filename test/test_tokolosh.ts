@@ -69,11 +69,17 @@ function testPureFunctions() {
     check(buildDataUri('image/png', 'aGVsbG8=') === 'data:image/png;base64,aGVsbG8=', 'data URI');
     check(buildPlaceholderDataUri('PngImage', SAMPLE_HASH, 'Not found').startsWith('data:image/svg+xml,'), 'placeholder');
     check(generateUid().startsWith('🍃-'), 'request UID');
-    check((buildRetrieveMessage('PngImage', SAMPLE_HASH, '🍃-test') as any).hash.data_type === 'PngImage', 'retrieve message');
-    check((buildSaveMessage('PngImage', 'aGVsbG8=', '🍃-test') as any).value.__type === 'PngImage', 'save message');
+    const retrieve = buildRetrieveMessage('PngImage', SAMPLE_HASH, '🍃-test') as any;
+    check(retrieve.__type === 'ET.ZefServiceRequest', 'retrieve uses a Zef Service request');
+    check(retrieve.command.__type === 'FX.HashStoreGet', 'retrieve uses the new Hash Store command');
+    check(retrieve.command.hash === `PngImage('${SAMPLE_HASH}')`, 'retrieve preserves the DictDatabase hash token');
+    const save = buildSaveMessage('PngImage', 'aGVsbG8=', '🍃-test') as any;
+    check(save.__type === 'ET.ZefServiceRequest', 'save uses a Zef Service request');
+    check(save.command.__type === 'FX.HashStorePut', 'save uses the new Hash Store command');
+    check(save.command.value.__type === 'PngImage', 'save carries a typed JSON-like value');
     check(parseRetrieveResponse({ __type: 'ET.HashStoreNotFound' }).status === 'not-found', 'not-found response');
-    check(parseSaveResponse({ __type: 'ET.HashStoreResponse', hash: SAMPLE_HASH }).status === 'saved', 'save response');
-    console.log('✓ hash-store protocol remains unchanged');
+    check(parseSaveResponse({ __type: 'ET.HashStoreResponse', hash: `PngImage('${SAMPLE_HASH}')` }).status === 'saved', 'save response');
+    console.log('✓ ZefNet Hash Store request shapes');
 }
 
 async function testTokoloshRoundTrip() {

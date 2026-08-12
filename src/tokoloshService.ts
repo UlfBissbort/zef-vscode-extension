@@ -4,36 +4,30 @@ import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
 
-// Debug log file
 const DEBUG_LOG = path.join(os.tmpdir(), 'zef-tokolosh-debug.log');
+const PORT_MIN = 27021;
+const PORT_MAX = 27040;
+const MESSAGING_PATH = '/zef-messaging';
+const CONNECT_TIMEOUT = 1200;
+const REQUEST_TIMEOUT = 5000;
+const PREAMBLE = 'zef-messaging;version=0.1.0;encoding=json_like';
 
 export function debugLog(msg: string): void {
     const line = `[${new Date().toISOString()}] ${msg}\n`;
     try { fs.appendFileSync(DEBUG_LOG, line); } catch {}
 }
 
-// ────────────────────────────────────────────────────────────────────
-// Pure functions — no side effects, fully testable
-// ────────────────────────────────────────────────────────────────────
-
-const PORT_MIN = 27021;
-const PORT_MAX = 27040;
-const SCAN_TIMEOUT = 800;
-const REQUEST_TIMEOUT = 5000;
-
-/** Map Zef type name to MIME type. */
 export function zefTypeToMime(type: string): string {
     const map: Record<string, string> = {
-        'PngImage': 'image/png',
-        'JpgImage': 'image/jpeg',
-        'GifImage': 'image/gif',
-        'WebpImage': 'image/webp',
-        'SvgImage': 'image/svg+xml',
+        PngImage: 'image/png',
+        JpgImage: 'image/jpeg',
+        GifImage: 'image/gif',
+        WebpImage: 'image/webp',
+        SvgImage: 'image/svg+xml',
     };
     return map[type] || 'application/octet-stream';
 }
 
-/** Map MIME type to Zef type name. */
 export function mimeToZefType(mime: string): string {
     const map: Record<string, string> = {
         'image/png': 'PngImage',
@@ -45,71 +39,55 @@ export function mimeToZefType(mime: string): string {
     return map[mime] || 'PngImage';
 }
 
-/** Build a data: URI from MIME type and base64 data. */
 export function buildDataUri(mime: string, base64Data: string): string {
     return `data:${mime};base64,${base64Data}`;
 }
 
-/** Generate a unique ID for WS request correlation. */
 export function generateUid(): string {
-    const bytes = crypto.randomBytes(10);
-    return '🍃-' + bytes.toString('hex');
+    return '🍃-' + crypto.randomBytes(10).toString('hex');
 }
 
-/** Build the FX.RetrieveFromHashStore WS message. */
 export function buildRetrieveMessage(type: string, hash: string, uid: string): object {
     return {
-        __type: 'FX.RetrieveFromHashStore',
+        __type: 'ET.ZefServiceRequest',
         __uid: uid,
-        hash: {
-            __type: 'ZefValueHash',
-            data_type: type,
-            hash: hash,
+        command: {
+            __type: 'FX.HashStoreGet',
+            hash: `${type}('${hash}')`,
         },
     };
 }
 
-/** Build the FX.SaveToHashStore WS message. */
 export function buildSaveMessage(type: string, base64Data: string, uid: string): object {
     return {
-        __type: 'FX.SaveToHashStore',
+        __type: 'ET.ZefServiceRequest',
         __uid: uid,
-        value: {
-            __type: type,
-            data: base64Data,
+        command: {
+            __type: 'FX.HashStorePut',
+            value: { __type: type, data: base64Data },
         },
     };
 }
 
-/** Parse a hash store retrieve response. */
 export function parseRetrieveResponse(msg: any): { status: 'found'; type: string; data: string } | { status: 'not-found' } | { status: 'error'; message: string } {
     if (msg?.__type === 'ET.HashStoreGetResponse' && msg.value) {
         const val = msg.value;
-        if (val.__type && val.data) {
-            return { status: 'found', type: val.__type, data: val.data };
-        }
+        if (val.__type && val.data) { return { status: 'found', type: val.__type, data: val.data }; }
         return { status: 'error', message: 'Response value missing type or data' };
     }
-    if (msg?.__type === 'ET.HashStoreNotFound') {
-        return { status: 'not-found' };
-    }
+    if (msg?.__type === 'ET.HashStoreNotFound') { return { status: 'not-found' }; }
     return { status: 'error', message: `Unexpected response type: ${msg?.__type}` };
 }
 
-/** Parse a hash store save response (ET.HashStoreResponse). */
 export function parseSaveResponse(msg: any): { status: 'saved'; hash: string } | { status: 'error'; message: string } {
-    if (msg?.__type === 'ET.HashStoreResponse' && msg.hash) {
-        // hash can be a ZefValueHash object {__type: 'ZefValueHash', data_type: '...', hash: '🗿-...'} or a string
-        const hashObj = msg.hash;
-        const hashStr = typeof hashObj === 'string' ? hashObj : hashObj?.hash;
-        if (hashStr) {
-            return { status: 'saved', hash: hashStr };
-        }
+    if (msg?.__type === 'ET.HashStoreResponse' && typeof msg.hash === 'string') {
+        const match = msg.hash.match(/^[^(]+\('(🗿-[0-9a-fA-F]{64})'\)$/);
+        if (match) { return { status: 'saved', hash: match[1] }; }
+        if (msg.hash.startsWith('🗿-')) { return { status: 'saved', hash: msg.hash }; }
     }
     return { status: 'error', message: `Could not extract hash from save response: ${JSON.stringify(msg)}` };
 }
 
-/** Build a placeholder SVG data URI for an unresolvable zef image. */
 export function buildPlaceholderDataUri(type: string, hash: string, reason: string): string {
     const shortHash = hash.length > 16 ? hash.slice(0, 12) + '…' + hash.slice(-8) : hash;
     const label = `${reason}: ${type}/${shortHash}`;
@@ -120,14 +98,8 @@ export function buildPlaceholderDataUri(type: string, hash: string, reason: stri
     return `data:image/svg+xml,${svg}`;
 }
 
-/**
- * Extract matplotlib figure hashes from a persisted side effects text block.
- * Looks for patterns like: what='matplotlib_figure', content=PngImage('🗿-<hash>')
- * Returns the type and full hash string for each figure.
- */
 export function extractFigureRefs(sideEffectsText: string): Array<{ type: string; hash: string }> {
     const refs: Array<{ type: string; hash: string }> = [];
-    // Match both new format ET.MatplotlibFigurePrinted(PngImage('hash')) and legacy ET.UnmanagedEffect(what='matplotlib_figure'...)
     const figRegex = /(?:ET\.MatplotlibFigurePrinted\(|what='matplotlib_figure'[\s\S]*?content=)(\w+)\('(🗿-[0-9a-fA-F]{64})'\)/g;
     let match;
     while ((match = figRegex.exec(sideEffectsText)) !== null) {
@@ -136,23 +108,22 @@ export function extractFigureRefs(sideEffectsText: string): Array<{ type: string
     return refs;
 }
 
-// ────────────────────────────────────────────────────────────────────
-// TokoloshService — singleton managing WS connection + caching
-// ────────────────────────────────────────────────────────────────────
-
-/** Response types that indicate a hash store reply. */
-const HASH_STORE_RESPONSE_TYPES = new Set([
-    'ET.HashStoreGetResponse',
-    'ET.HashStoreNotFound',
-    'ET.HashStoreResponse',
-]);
+interface ZefEntity {
+    __type: string;
+    __uid?: string;
+    [field: string]: any;
+}
 
 interface PendingRequest {
-    resolve: (msg: any) => void;
-    reject: (reason: any) => void;
+    resolve: (result: any) => void;
+    reject: (reason: Error) => void;
     timer: NodeJS.Timeout;
-    /** The uid used when sending (for cleanup). */
-    uid: string;
+}
+
+interface ConnectedSocket {
+    ws: WebSocket;
+    port: number;
+    server: ZefEntity;
 }
 
 export class TokoloshService {
@@ -160,341 +131,271 @@ export class TokoloshService {
 
     private ws: WebSocket | null = null;
     private connected = false;
-    private handshakeComplete = false;
     private connectedPort: number | null = null;
-    private cache: Map<string, string> = new Map(); // typed hash → data URI
-    private textCache: Map<string, string> = new Map(); // typed hash → decoded UTF-8 text
-    private pendingRequests: PendingRequest[] = [];
+    private serverIdentity: ZefEntity | null = null;
+    private readonly clientIdentity: ZefEntity = {
+        __type: 'ET.ZefProcess',
+        __uid: generateUid(),
+        pid: process.pid,
+        role: 'zef-vscode-extension',
+        kind: 'typescript',
+    };
+    private cache: Map<string, string> = new Map();
+    private textCache: Map<string, string> = new Map();
+    private pendingRequests: Map<string, PendingRequest> = new Map();
     private connecting: Promise<boolean> | null = null;
     private statusCallback: (() => void) | null = null;
 
     private constructor() {}
 
     public static getInstance(): TokoloshService {
-        if (!TokoloshService._instance) {
-            TokoloshService._instance = new TokoloshService();
-        }
+        if (!TokoloshService._instance) { TokoloshService._instance = new TokoloshService(); }
         return TokoloshService._instance;
     }
 
-    public get isConnected(): boolean {
-        return this.connected && this.handshakeComplete;
-    }
+    public get isConnected(): boolean { return this.connected && this.ws?.readyState === WebSocket.OPEN; }
+    public get port(): number | null { return this.connectedPort; }
 
-    /** Get the port the tokolosh is connected on, or null. */
-    public get port(): number | null {
-        return this.connectedPort;
-    }
+    public setStatusCallback(callback: () => void): void { this.statusCallback = callback; }
+    private notifyStatusChange(): void { this.statusCallback?.(); }
 
-    /** Set a callback to be notified when connection status changes. */
-    public setStatusCallback(callback: () => void): void {
-        this.statusCallback = callback;
-    }
-
-    private notifyStatusChange(): void {
-        if (this.statusCallback) { this.statusCallback(); }
-    }
-
-    /** Try to connect to the tokolosh. Returns true if connected. */
     public async ensureConnected(): Promise<boolean> {
         if (this.isConnected) { return true; }
         if (this.connecting) { return this.connecting; }
         this.connecting = this.connect();
-        const result = await this.connecting;
-        this.connecting = null;
-        return result;
+        try { return await this.connecting; }
+        finally { this.connecting = null; }
+    }
+
+    private candidateUrls(): Array<{ url: string; port: number }> {
+        const override = process.env.ZEFNET_TOKOLOSH_URL;
+        if (override) {
+            const parsed = new URL(override);
+            return [{ url: override, port: Number(parsed.port) || (parsed.protocol === 'wss:' ? 443 : 80) }];
+        }
+        return Array.from({ length: PORT_MAX - PORT_MIN + 1 }, (_, index) => {
+            const port = PORT_MIN + index;
+            return { url: `ws://127.0.0.1:${port}${MESSAGING_PATH}`, port };
+        });
     }
 
     private async connect(): Promise<boolean> {
-        const port = await this.scanPorts();
-        if (port === null) {
-            debugLog('No tokolosh found on ports ' + PORT_MIN + '-' + PORT_MAX);
-            return false;
+        for (const candidate of this.candidateUrls()) {
+            try {
+                const connected = await this.openAndRegister(candidate.url, candidate.port);
+                this.installConnectedSocket(connected);
+                return true;
+            } catch (error: any) {
+                debugLog(`Zef Messaging connection failed at ${candidate.url}: ${error.message}`);
+            }
         }
-        debugLog('Found tokolosh on port ' + port);
+        return false;
+    }
 
-        return new Promise<boolean>((resolve) => {
-            const url = `ws://127.0.0.1:${port}/ws`;
-            console.log('TokoloshService: Connecting to', url);
-
+    private openAndRegister(url: string, port: number): Promise<ConnectedSocket> {
+        return new Promise((resolve, reject) => {
             const ws = new WebSocket(url);
-            let handshakeDone = false;
+            let phase: 'opening' | 'welcome' | 'registration' = 'opening';
+            let server: ZefEntity | null = null;
+            const registrationUid = generateUid();
+            let settled = false;
 
-            const timeout = setTimeout(() => {
-                if (!handshakeDone) {
-                    ws.close();
-                    resolve(false);
-                }
-            }, 5000);
+            const fail = (error: Error): void => {
+                if (settled) { return; }
+                settled = true;
+                clearTimeout(timer);
+                try { ws.close(); } catch {}
+                reject(error);
+            };
+            const timer = setTimeout(() => fail(new Error(`registration timed out after ${CONNECT_TIMEOUT}ms`)), CONNECT_TIMEOUT);
 
             ws.on('open', () => {
-                console.log('TokoloshService: WebSocket open on port', port);
-                this.ws = ws;
-                this.connectedPort = port;
-                this.connected = true;
+                phase = 'welcome';
+                ws.send(PREAMBLE);
             });
+            ws.on('message', data => {
+                let message: ZefEntity;
+                try { message = JSON.parse(data.toString()); }
+                catch { fail(new Error('received invalid JSON-like record')); return; }
 
-            ws.on('message', (data: WebSocket.Data) => {
-                let msg: any;
-                try {
-                    msg = JSON.parse(data.toString());
-                } catch {
+                if (phase === 'welcome') {
+                    if (message.__type !== 'ET.Welcome'
+                        || message.protocol_version !== '0.1.0'
+                        || message.msg_encoding !== 'json_like'
+                        || !message.server?.__uid
+                        || !message.server?.__type) {
+                        fail(new Error(`invalid ET.Welcome: ${JSON.stringify(message)}`));
+                        return;
+                    }
+                    server = message.server;
+                    phase = 'registration';
+                    ws.send(JSON.stringify({
+                        __type: 'ET.Registration',
+                        __uid: registrationUid,
+                        client: this.clientIdentity,
+                    }));
                     return;
                 }
 
-                // Handshake
-                if (!handshakeDone && msg.__type === 'ET.Welcome') {
-                    const hello = {
-                        __type: 'ET.ClientHello',
-                        client_type: 'zef-vscode-extension',
-                        pid: process.pid,
-                        wire_format: 'json_like',
-                    };
-                    ws.send(JSON.stringify(hello));
-                    handshakeDone = true;
-                    this.handshakeComplete = true;
-                    clearTimeout(timeout);
-                    debugLog('Handshake complete, tokolosh v' + (msg.version || '?'));
-                    resolve(true);
-                    this.notifyStatusChange();
-                    return;
+                if (phase === 'registration') {
+                    if (message.__type !== 'ET.RegistrationAccepted'
+                        || message.registration?.__type !== 'ET.Registration'
+                        || message.registration?.__uid !== registrationUid
+                        || !server) {
+                        fail(new Error(`invalid registration response: ${JSON.stringify(message)}`));
+                        return;
+                    }
+                    settled = true;
+                    clearTimeout(timer);
+                    ws.removeAllListeners();
+                    resolve({ ws, port, server });
                 }
-
-                // Route responses to pending requests
-                this.handleResponse(msg);
             });
-
-            ws.on('close', () => {
-                console.log('TokoloshService: Connection closed');
-                this.connected = false;
-                this.handshakeComplete = false;
-                this.ws = null;
-                this.connectedPort = null;
-                // Reject all pending requests
-                for (const req of this.pendingRequests) {
-                    clearTimeout(req.timer);
-                    req.reject(new Error('Connection closed'));
-                }
-                this.pendingRequests = [];
-                this.notifyStatusChange();
-            });
-
-            ws.on('error', (err) => {
-                console.error('TokoloshService: WebSocket error', err.message);
-            });
+            ws.on('error', error => fail(error));
+            ws.on('close', () => fail(new Error('connection closed during registration')));
         });
     }
 
-    private async scanPorts(): Promise<number | null> {
-        for (let port = PORT_MIN; port <= PORT_MAX; port++) {
-            const found = await this.tryPort(port);
-            if (found) { return port; }
-        }
-        return null;
+    private installConnectedSocket(connection: ConnectedSocket): void {
+        this.ws = connection.ws;
+        this.connectedPort = connection.port;
+        this.serverIdentity = connection.server;
+        this.connected = true;
+        connection.ws.on('message', data => this.handleWireMessage(data));
+        connection.ws.on('error', error => debugLog(`Zef Messaging WebSocket error: ${error.message}`));
+        connection.ws.on('close', () => this.handleDisconnect('connection closed'));
+        debugLog(`Registered json_like Zef Messaging session on port ${connection.port}`);
+        this.notifyStatusChange();
     }
 
-    private tryPort(port: number): Promise<boolean> {
-        return new Promise((resolve) => {
-            let settled = false;
-            const timer = setTimeout(() => {
-                if (!settled) {
-                    settled = true;
-                    try { testWs.close(); } catch {}
-                    resolve(false);
-                }
-            }, SCAN_TIMEOUT);
+    private handleWireMessage(data: WebSocket.Data): void {
+        let envelope: ZefEntity;
+        try { envelope = JSON.parse(data.toString()); }
+        catch { this.handleDisconnect('received invalid JSON-like record'); return; }
 
-            let testWs: WebSocket;
-            try {
-                testWs = new WebSocket(`ws://127.0.0.1:${port}/ws`);
-            } catch {
-                clearTimeout(timer);
-                resolve(false);
-                return;
-            }
+        if (envelope.__type !== 'ET.ZefNetMessage') { return; }
+        if (envelope.target?.__type !== this.clientIdentity.__type
+            || envelope.target?.__uid !== this.clientIdentity.__uid) { return; }
+        const response = envelope.content;
+        if (response?.__type !== 'ET.ZefServiceResponse') { return; }
+        const requestUid = response.request?.__uid;
+        if (!requestUid) { return; }
+        const pending = this.pendingRequests.get(requestUid);
+        if (!pending) { return; }
 
-            testWs.on('open', () => {
-                if (!settled) {
-                    settled = true;
-                    clearTimeout(timer);
-                    testWs.close();
-                    resolve(true);
-                }
-            });
-
-            testWs.on('error', () => {
-                if (!settled) {
-                    settled = true;
-                    clearTimeout(timer);
-                    resolve(false);
-                }
-            });
-        });
+        this.pendingRequests.delete(requestUid);
+        clearTimeout(pending.timer);
+        const result = response.result;
+        if (typeof result?.__type === 'string' && result.__type.startsWith('Error.')) {
+            pending.reject(new Error(JSON.stringify(result)));
+        } else {
+            pending.resolve(result);
+        }
     }
 
-    private handleResponse(msg: any): void {
-        const type = msg?.__type;
-        debugLog('handleResponse: received msg type=' + type + ' __uid=' + (msg?.__uid || 'none') + ' pending=' + this.pendingRequests.length);
-        if (!type) { return; }
-
-        // First try to match by __uid if the tokolosh echoes it back
-        const uid = msg?.__uid;
-        if (uid) {
-            const idx = this.pendingRequests.findIndex(r => r.uid === uid);
-            if (idx !== -1) {
-                const pending = this.pendingRequests[idx];
-                this.pendingRequests.splice(idx, 1);
-                clearTimeout(pending.timer);
-                pending.resolve(msg);
-                return;
-            }
-        }
-
-        // Fallback: match by response type to the oldest pending request (FIFO)
-        if (HASH_STORE_RESPONSE_TYPES.has(type) && this.pendingRequests.length > 0) {
-            const pending = this.pendingRequests.shift()!;
+    private handleDisconnect(reason: string): void {
+        const wasConnected = this.connected || this.ws !== null;
+        this.ws = null;
+        this.connected = false;
+        this.connectedPort = null;
+        this.serverIdentity = null;
+        for (const pending of this.pendingRequests.values()) {
             clearTimeout(pending.timer);
-            pending.resolve(msg);
+            pending.reject(new Error(`Tokolosh ${reason}`));
         }
+        this.pendingRequests.clear();
+        if (wasConnected) { this.notifyStatusChange(); }
     }
 
-    /** Send a WS message and wait for a correlated response. */
-    private sendAndWait(message: any, timeoutMs: number = REQUEST_TIMEOUT): Promise<any> {
-        return new Promise((resolve, reject) => {
-            if (!this.ws || !this.isConnected) {
-                reject(new Error('Not connected'));
-                return;
-            }
+    private async sendAndWait(request: any, timeoutMs: number = REQUEST_TIMEOUT): Promise<any> {
+        if (!await this.ensureConnected() || !this.ws || !this.serverIdentity) {
+            throw new Error('Could not establish a json_like Zef Messaging session with Tokolosh');
+        }
+        const requestUid = request.__uid;
+        const envelope = {
+            __type: 'ET.ZefNetMessage',
+            origin: this.clientIdentity,
+            target: this.serverIdentity,
+            content: request,
+            hops: 0,
+        };
 
-            const uid = message.__uid;
+        return new Promise((resolve, reject) => {
             const pending: PendingRequest = {
-                resolve, reject, uid,
+                resolve,
+                reject,
                 timer: setTimeout(() => {
-                    const idx = this.pendingRequests.indexOf(pending);
-                    if (idx !== -1) { this.pendingRequests.splice(idx, 1); }
-                    reject(new Error(`Request timed out after ${timeoutMs}ms`));
+                    this.pendingRequests.delete(requestUid);
+                    reject(new Error(`Tokolosh request timed out after ${timeoutMs}ms`));
                 }, timeoutMs),
             };
-
-            this.pendingRequests.push(pending);
-            this.ws.send(JSON.stringify(message));
+            this.pendingRequests.set(requestUid, pending);
+            this.ws!.send(JSON.stringify(envelope), error => {
+                if (!error) { return; }
+                this.pendingRequests.delete(requestUid);
+                clearTimeout(pending.timer);
+                reject(error);
+            });
         });
     }
 
-    /** Resolve a typed hash-store value as UTF-8 text. */
     public async resolveTextValue(type: string, hash: string): Promise<string | null> {
         const cacheKey = `${type}/${hash}`;
         const cached = this.textCache.get(cacheKey);
         if (cached !== undefined) { return cached; }
-
-        if (!await this.ensureConnected()) { return null; }
-
         try {
-            const response = await this.sendAndWait(buildRetrieveMessage(type, hash, generateUid()));
-            const value = response?.__type === 'ET.HashStoreGetResponse' ? response.value : null;
+            const result = await this.sendAndWait(buildRetrieveMessage(type, hash, generateUid()));
+            const value = result?.__type === 'ET.HashStoreGetResponse' ? result.value : null;
             if (value?.__type !== type) { return null; }
-
-            // Entity values, including ET.SvelteComponent, expose their decoded
-            // string payload under content rather than the binary data field.
             const text = typeof value.content === 'string'
                 ? value.content
                 : typeof value.data === 'string' ? Buffer.from(value.data, 'base64').toString('utf8') : null;
             if (text === null) { return null; }
             this.textCache.set(cacheKey, text);
             return text;
-        } catch (err: any) {
-            console.error('TokoloshService: Failed to resolve text value:', err.message);
+        } catch (error: any) {
+            debugLog(`Failed to resolve text value: ${error.message}`);
             return null;
         }
     }
 
-    /**
-     * Resolve a hash-store image value to a data URI.
-     * Returns the data URI on success, or null on failure.
-     * Results are cached for the session.
-     */
     public async resolveImage(type: string, hash: string): Promise<string | null> {
         const cacheKey = `${type}/${hash}`;
-        debugLog('resolveImage: ' + cacheKey);
-
-        // Cache hit
         const cached = this.cache.get(cacheKey);
-        if (cached) { debugLog('resolveImage: cache hit'); return cached; }
-
-        // Ensure connected
-        const ok = await this.ensureConnected();
-        if (!ok) { return null; }
-
-        const uid = generateUid();
-        const msg = buildRetrieveMessage(type, hash, uid);
-
+        if (cached) { return cached; }
         try {
-            debugLog('resolveImage: sending retrieve request uid=' + uid);
-            const response = await this.sendAndWait(msg);
-            debugLog('resolveImage: got response type=' + response?.__type);
-            const parsed = parseRetrieveResponse(response);
-
-            if (parsed.status === 'found') {
-                const mime = zefTypeToMime(parsed.type);
-                const dataUri = buildDataUri(mime, parsed.data);
-                debugLog('resolveImage: FOUND, dataUri length=' + dataUri.length);
-                this.cache.set(cacheKey, dataUri);
-                return dataUri;
-            }
-
-            debugLog('resolveImage: not found, hash=' + hash);
-            return null;
-        } catch (err: any) {
-            console.error('TokoloshService: Failed to resolve image:', err.message);
+            const result = await this.sendAndWait(buildRetrieveMessage(type, hash, generateUid()));
+            const parsed = parseRetrieveResponse(result);
+            if (parsed.status !== 'found') { return null; }
+            const dataUri = buildDataUri(zefTypeToMime(parsed.type), parsed.data);
+            this.cache.set(cacheKey, dataUri);
+            return dataUri;
+        } catch (error: any) {
+            debugLog(`Failed to resolve image: ${error.message}`);
             return null;
         }
     }
 
-    /**
-     * Upload an image to the hash store.
-     * Returns the hash string on success, or null on failure.
-     */
     public async uploadZefValue(type: string, buffer: Buffer): Promise<string | null> {
-        const ok = await this.ensureConnected();
-        if (!ok) { return null; }
-
-        const base64Data = buffer.toString('base64');
-        const uid = generateUid();
-        const msg = buildSaveMessage(type, base64Data, uid);
-
         try {
-            const response = await this.sendAndWait(msg);
-            const parsed = parseSaveResponse(response);
-
-            if (parsed.status === 'saved') {
-                return parsed.hash;
-            }
-
-            console.error('TokoloshService: Save failed:', parsed.message);
-            return null;
-        } catch (err: any) {
-            console.error('TokoloshService: Failed to upload image:', err.message);
+            const result = await this.sendAndWait(buildSaveMessage(type, buffer.toString('base64'), generateUid()));
+            const parsed = parseSaveResponse(result);
+            return parsed.status === 'saved' ? parsed.hash : null;
+        } catch (error: any) {
+            debugLog(`Failed to upload value: ${error.message}`);
             return null;
         }
     }
 
-    /** Clear resolved hash-store values. */
     public clearCache(): void {
         this.cache.clear();
         this.textCache.clear();
     }
 
-    /** Dispose the service and close the connection. */
     public dispose(): void {
-        if (this.ws) {
-            this.ws.close();
-        }
-        this.cache.clear();
-        this.textCache.clear();
-        for (const req of this.pendingRequests) {
-            clearTimeout(req.timer);
-            req.reject(new Error('Disposed'));
-        }
-        this.pendingRequests = [];
+        const ws = this.ws;
+        this.handleDisconnect('service disposed');
+        try { ws?.close(); } catch {}
+        this.clearCache();
     }
 }
