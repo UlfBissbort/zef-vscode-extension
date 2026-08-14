@@ -384,7 +384,7 @@ function installCliWsl(src: string): boolean {
 // ── Zef Venv Discovery ───────────────────────────────────────────────────
 
 /**
- * Returns the platform-specific parent directory of the tokolosh venv.
+ * Returns the platform-specific parent directory of the Zef virtualenv.
  * macOS:  ~/Library/Application Support/Zef
  * Linux:  ~/.local/share/zef
  */
@@ -403,7 +403,7 @@ function getZefVenvParentDir(): string | null {
 }
 
 /**
- * Ensure the Zef tokolosh venv is discoverable by VSCode's Python extension.
+ * Ensure the Zef Zef virtualenv is discoverable by VSCode's Python extension.
  *
  * Sets `python.venvPath` (user-level) to the Zef venv parent directory,
  * but only if the setting is currently empty. Never overwrites a user's
