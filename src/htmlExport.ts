@@ -440,24 +440,40 @@ export function getExportCss(maxWidth: number): string {
             display: block;
         }
 
-        /* Tables */
+        /* Tables — matches the live preview. */
+        .table-wrapper {
+            margin: 1.5em 0;
+            width: fit-content;
+            min-width: 100%;
+            max-width: 100vw;
+            margin-left: auto;
+            margin-right: auto;
+            position: relative;
+            left: 50%;
+            transform: translateX(-50%);
+        }
+        .table-wrapper table {
+            margin: 0 auto;
+            width: auto;
+            min-width: 50%;
+        }
         table {
             border-collapse: collapse;
-            margin: 1.5rem 0;
             width: 100%;
+            margin: 1.5em 0;
         }
         th, td {
             border: 1px solid var(--border-color);
-            padding: 0.6rem 1rem;
+            padding: 10px 14px;
             text-align: left;
             color: var(--text-dim);
         }
         th {
             background-color: var(--code-bg);
+            font-weight: 400;
             color: var(--text-muted);
-            font-weight: 500;
+            letter-spacing: 0.05em;
         }
-        tr:nth-child(even) { background-color: rgba(255, 255, 255, 0.02); }
 
         /* Lists */
         ul, ol {
