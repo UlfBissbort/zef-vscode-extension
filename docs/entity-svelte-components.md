@@ -33,6 +33,7 @@ The current bundled component roots are:
 | `ET.TerminalAnimation` | `ET.TerminalComment`, `ET.TerminalCommand`, `ET.TerminalOutput`, `ET.Typing`, `ET.Loop` |
 | `ET.WorkflowTimeline` | `ET.WorkflowStep`, `ET.WorkflowPlayback` |
 | `ET.FAQSection` | `ET.FAQItem` |
+| `ET.GanttChart` | `ET.DateRange`, `ET.ProjectPhase`, `ET.GanttTask` |
 
 ### Authoring data
 

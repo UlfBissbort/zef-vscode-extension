@@ -15,6 +15,13 @@ export const registeredZefSvelteComponents: readonly RegisteredZefSvelteComponen
         "relativePath": "zef-svelte-components/faq-section.svelte"
     },
     {
+        "componentId": "ET.SvelteComponent('🍃-f47a9d0c63be2185a704')",
+        "dispatchedOn": [
+            "ET.GanttChart"
+        ],
+        "relativePath": "zef-svelte-components/gantt-chart.svelte"
+    },
+    {
         "componentId": "ET.SvelteComponent('🍃-4c18401133a57639bd89')",
         "dispatchedOn": [
             "ET.LinePlot"

@@ -70,9 +70,9 @@ created = "Time('2026-08-15 15:05:00 +0800')"
   .faq-list { border-top: 1px solid #252525; }
   .faq-item { border-bottom: 1px solid #252525; overflow: hidden; }
   h3 { font-size: inherit; font-weight: inherit; margin: 0; }
-  button { align-items: center; background: transparent; border: 0; color: #c3c3ca; cursor: pointer; display: flex; font: 600 16px/1.3 Inter, ui-sans-serif, system-ui, sans-serif; gap: 16px; justify-content: space-between; padding: 16px; text-align: left; transition: color 0.3s cubic-bezier(0.4, 0, 0.2, 1); width: 100%; }
-  button:hover, button:focus-visible { color: #d4d4d8; outline: none; } button:focus-visible { box-shadow: inset 0 0 0 1px #2dd4bf; }
-  button i { color: #3ecf8e; flex: 0 0 auto; font-family: inherit; font-size: 1.5rem; font-style: normal; font-weight: 400; line-height: 1; transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1); }
+  button { align-items: center; background: transparent; border: 0; color: #a1a1aa; cursor: pointer; display: flex; font: 600 16px/1.3 Inter, ui-sans-serif, system-ui, sans-serif; gap: 16px; justify-content: space-between; padding: 16px; text-align: left; transition: color 0.3s cubic-bezier(0.4, 0, 0.2, 1); width: 100%; }
+  button:hover, button:focus-visible { color: #c3c3ca; outline: none; } button:focus-visible { box-shadow: inset 0 0 0 1px #2dd4bf; }
+  button i { color: #a1a1aa; flex: 0 0 auto; font-family: inherit; font-size: 1.5rem; font-style: normal; font-weight: 400; line-height: 1; transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1); }
   .answer-wrap { max-height: 0; overflow: hidden; transition: max-height 0.5s cubic-bezier(0.4, 0, 0.2, 1); } .answer p { color: #7a7a7a; font-size: 14px; line-height: 1.6; margin: 0; padding: 0 16px 16px; }
   .faq-item.open button i { transform: rotate(45deg); } .faq-item.open .answer-wrap { max-height: 300px; }
   .error { color: #fda4af; font-family: system-ui, sans-serif; }

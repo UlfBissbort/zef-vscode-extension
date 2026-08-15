@@ -1569,7 +1569,7 @@ async function renderEntityComponent(entity: Record<string, unknown>): Promise<s
     }
 
     const encodedHtml = Buffer.from(renderedHtml, 'utf8').toString('base64');
-    return `<div class="zef-entity-render" data-zef-entity-html="${encodedHtml}"></div>`;
+    return `<div class="zef-entity-render" data-zef-entity-type="${escapeHtmlForError(entityType)}" data-zef-entity-html="${encodedHtml}"></div>`;
 }
 
 /** Resolve JSON entity fences and constructor-only Zen entity fences through the component catalogue. */
@@ -2153,8 +2153,9 @@ function getWebviewContent(renderedHtml: string, existingOutputs: { [blockId: nu
             height: auto;
         }
 
-        /* Full-width breakout for diagrams */
-        .code-block-container.full-width {
+        /* Full-width breakout for diagrams and wide entity components */
+        .code-block-container.full-width,
+        .zef-entity-render.full-width {
             width: 100vw;
             max-width: 100vw;
             margin-left: calc(-50vw + 50%);
@@ -2162,6 +2163,7 @@ function getWebviewContent(renderedHtml: string, existingOutputs: { [blockId: nu
             border-left: none;
             border-right: none;
         }
+
 
         /* Excalidraw diagrams */
         .excalidraw-container {
@@ -7143,7 +7145,12 @@ function getWebviewContent(renderedHtml: string, existingOutputs: { [blockId: nu
             window.addEventListener('message', function(event) {
                 var message = event.data;
                 
-                if (message.type === 'slidesRendered') {
+                if (message.type === 'zefEntityToggleFullWidth') {
+                    var entityFrames = Array.from(document.querySelectorAll('.zef-entity-render iframe.svelte-preview-frame'));
+                    var entityFrame = entityFrames.find(function(frame) { return frame.contentWindow === event.source; });
+                    var entityContainer = entityFrame && entityFrame.closest('.zef-entity-render');
+                    if (entityContainer) entityContainer.classList.toggle('full-width');
+                } else if (message.type === 'slidesRendered') {
                     var slidesContainer = document.querySelector('[data-zef-slides-request="' + message.requestId + '"]');
                     if (!slidesContainer) return;
                     var rendered = slidesContainer.querySelector('.zef-slides-rendered');

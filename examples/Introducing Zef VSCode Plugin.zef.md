@@ -1096,7 +1096,7 @@ ET.FAQSection(
   subtitle='A concise guide to how Zef keeps executable Markdown portable.',
   content_=[
     ET.FAQItem(
-      question='What is stored in a .zef.md file?',
+      question='What is stored in a .md file?',
       answer='The Markdown source, executable code, and any captured results live together in one reviewable text file.',
       open=true
     ),
@@ -1113,3 +1113,91 @@ ET.FAQSection(
 ```
 
 Click a question to toggle its answer. Multiple answers may be open at once.
+
+---
+
+## Gantt chart
+
+A basic project schedule is expressed as phases containing explicitly dated tasks. The component derives calendar ticks, bar geometry, phase colors, progress overlays, durations, hover details, and scrolling. Use the expand control in the chart header when the schedule benefits from the full Markdown-view width.
+
+```zef
+ET.GanttChart(
+  title='Developer portal release',
+  subtitle='A compact schedule from discovery to production',
+  today='2026-09-10',
+  range=ET.DateRange(start='2026-09-01', end='2026-10-02'),
+  content_=[
+    ET.ProjectPhase(
+      id='discovery',
+      title='Discovery',
+      accent='violet',
+      content_=[
+        ET.GanttTask(
+          id='requirements',
+          title='Confirm requirements',
+          start='2026-09-01',
+          end='2026-09-04',
+          progress=1.0,
+          description='Agree on the first-release workflows, API surface, and success criteria.'
+        ),
+        ET.GanttTask(
+          id='prototype',
+          title='Validate prototype',
+          start='2026-09-03',
+          end='2026-09-08',
+          progress=0.8,
+          description='Test the navigation and API explorer with internal developers.'
+        )
+      ]
+    ),
+    ET.ProjectPhase(
+      id='build',
+      title='Build',
+      accent='blue',
+      content_=[
+        ET.GanttTask(
+          id='api',
+          title='Implement API',
+          start='2026-09-07',
+          end='2026-09-18',
+          progress=0.55,
+          description='Ship authenticated project, deployment, and observability endpoints.'
+        ),
+        ET.GanttTask(
+          id='frontend',
+          title='Build portal interface',
+          start='2026-09-10',
+          end='2026-09-23',
+          progress=0.35,
+          description='Implement onboarding, API reference, and deployment status views.'
+        )
+      ]
+    ),
+    ET.ProjectPhase(
+      id='release',
+      title='Release',
+      accent='emerald',
+      content_=[
+        ET.GanttTask(
+          id='acceptance',
+          title='Acceptance testing',
+          start='2026-09-21',
+          end='2026-09-25',
+          progress=0.1,
+          description='Run the complete developer journey against the staging environment.'
+        ),
+        ET.GanttTask(
+          id='production',
+          title='Production rollout',
+          start='2026-09-28',
+          end='2026-10-02',
+          progress=0.0,
+          description='Roll out progressively and monitor onboarding and deployment health.'
+        )
+      ]
+    )
+  ]
+)
+```
+
+Hover or focus a task bar for schedule details. Narrow views retain the sticky task labels and expose a thin horizontal scrollbar for the calendar.
