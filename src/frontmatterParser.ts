@@ -160,7 +160,7 @@ export function renderDocumentFrontmatter(frontmatter: DocumentFrontmatter | nul
             const label = `${Number(day)} ${monthName} ${year} · ${hour}:${minute}:${second}`;
             const zone = `UTC${sign}${zoneHour}:${zoneMinute}`;
             const datetime = `${year}-${month}-${day}T${hour}:${minute}:${second}${sign}${zoneHour}:${zoneMinute}`;
-            return `<span class="frontmatter-time-group"><time class="frontmatter-time" datetime="${escapeHtml(datetime)}"><span class="frontmatter-time-icon">◷</span><span>${escapeHtml(label)}</span><span class="frontmatter-time-zone">${escapeHtml(zone)}</span></time><span class="frontmatter-relative-time" data-timestamp="${escapeHtml(datetime)}"></span></span>`;
+            return `<span class="frontmatter-time-group"><time class="frontmatter-time" datetime="${escapeHtml(datetime)}"><span class="frontmatter-time-icon">◷</span><span class="frontmatter-time-label">${escapeHtml(label)}</span><span class="frontmatter-time-zone">${escapeHtml(zone)}</span></time><span class="frontmatter-relative-time" data-timestamp="${escapeHtml(datetime)}"></span></span>`;
         }
 
         return null;

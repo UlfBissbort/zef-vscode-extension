@@ -16,6 +16,8 @@ test('export includes styled TOML frontmatter and its interactive metadata helpe
     assert.match(html, /frontmatter-chip/);
     assert.match(html, /frontmatter-relative-time/);
     assert.match(html, /function copyEntityDescriptor/);
+    assert.match(html, /function updateLocalizedTimes/);
+    assert.match(html, /Intl\.DateTimeFormat\(\)\.resolvedOptions\(\)\.timeZone/);
     assert.match(html, /function updateRelativeTimes/);
 });
 

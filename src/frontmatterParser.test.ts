@@ -222,7 +222,7 @@ created = "Time('2026-07-21 01:18:16 +0800')"
     if (!html.includes('>tag</span>') || html.includes('>tag_</span>')) {
         throw new Error('multiary field label was not normalized');
     }
-    if (!html.includes('frontmatter-time') || !html.includes('21 Jul 2026 · 01:18:16') || !html.includes('UTC+08:00')) {
+    if (!html.includes('frontmatter-time') || !html.includes('frontmatter-time-label') || !html.includes('21 Jul 2026 · 01:18:16') || !html.includes('UTC+08:00')) {
         throw new Error('typed Time value was not rendered');
     }
 });

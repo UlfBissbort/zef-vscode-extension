@@ -766,6 +766,36 @@ function copyEntityDescriptor(button) {
         window.setTimeout(function() { button.classList.remove('copied'); }, 900);
     });
 }
+function formatLocalTime(timestamp) {
+    var date = new Date(timestamp);
+    if (!Number.isFinite(date.getTime()) || !Intl || !Intl.DateTimeFormat) return null;
+    try {
+        var timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+        var parts = new Intl.DateTimeFormat(undefined, {
+            day: 'numeric', month: 'short', year: 'numeric',
+            hour: '2-digit', minute: '2-digit', second: '2-digit', hourCycle: 'h23', timeZone: timeZone
+        }).formatToParts(date).reduce(function(result, part) { result[part.type] = part.value; return result; }, {});
+        var zonePart = new Intl.DateTimeFormat(undefined, { timeZone: timeZone, timeZoneName: 'short' })
+            .formatToParts(date).find(function(part) { return part.type === 'timeZoneName'; });
+        return {
+            label: parts.day + ' ' + parts.month + ' ' + parts.year + ' · ' + parts.hour + ':' + parts.minute + ':' + parts.second,
+            zone: zonePart ? zonePart.value : timeZone,
+            zoneTitle: timeZone
+        };
+    } catch (error) {
+        return null;
+    }
+}
+function updateLocalizedTimes() {
+    document.querySelectorAll('.frontmatter-time').forEach(function(element) {
+        var formatted = formatLocalTime(element.dateTime);
+        if (!formatted) return;
+        var label = element.querySelector('.frontmatter-time-label');
+        var zone = element.querySelector('.frontmatter-time-zone');
+        if (label) label.textContent = formatted.label;
+        if (zone) { zone.textContent = formatted.zone; zone.title = formatted.zoneTitle; }
+    });
+}
 function formatRelativeTime(timestamp) {
     var target = new Date(timestamp).getTime();
     if (!Number.isFinite(target)) return '';
@@ -786,8 +816,12 @@ function updateRelativeTimes() {
         element.textContent = formatRelativeTime(element.dataset.timestamp || '');
     });
 }
+updateLocalizedTimes();
 updateRelativeTimes();
-setInterval(updateRelativeTimes, 60000);
+setInterval(function() {
+    updateLocalizedTimes();
+    updateRelativeTimes();
+}, 60000);
 </script>`
         : '';
 
