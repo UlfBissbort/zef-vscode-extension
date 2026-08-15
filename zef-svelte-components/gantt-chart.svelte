@@ -47,9 +47,13 @@ created = "Time('2026-08-15 16:10:00 +0800')"
     return (chart?.content_ ?? []).filter(group => group?.__type === 'ET.ProjectPhase' || group?.__type === 'ET.MachineType');
   }
 
+  function taskKey(task, fallback) {
+    return task?.__local_name ?? task?.id ?? fallback;
+  }
+
   function validTasks(items) {
     return (items ?? [])
-      .filter(task => task?.__type === 'ET.GanttTask')
+      .filter(task => task?.__type === 'ET.Task')
       .map(task => ({ task, startDate: parseDate(task.start), endDate: parseDate(task.end) }))
       .filter(entry => entry.startDate && entry.endDate && entry.endDate >= entry.startDate);
   }
@@ -67,7 +71,7 @@ created = "Time('2026-08-15 16:10:00 +0800')"
         })).filter(row => row.tasks.length > 0);
       }
       return validTasks(group.content_).map((entry, taskIndex) => ({
-        id: entry.task.id ?? `${group.id}:${taskIndex}`,
+        id: taskKey(entry.task, `${group.id}:${taskIndex}`),
         phase: group,
         phaseIndex: groupIndex,
         label: entry.task.title,
@@ -201,7 +205,7 @@ created = "Time('2026-08-15 16:10:00 +0800')"
             </div>
             <div class:first-in-phase={row.firstInPhase && rowIndex > 0} class="chart-row" style={`top: ${40 + rowIndex * 54}px;`}>
               <div class="day-grid" style={`background-size: ${dayWidth}px 100%;`}></div>
-              {#each row.tasks as entry (entry.task.id ?? entry.task.title)}
+              {#each row.tasks as entry (taskKey(entry.task, entry.task.title))}
                 <button
                   class="task-bar"
                   style={`left: ${dayDifference(bounds.start, entry.startDate) * dayWidth + 4}px; width: ${Math.max(dayWidth - 8, (dayDifference(entry.startDate, entry.endDate) + 1) * dayWidth - 8)}px; background: ${accentFor(row)};`}

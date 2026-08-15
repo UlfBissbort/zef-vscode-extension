@@ -1132,16 +1132,14 @@ ET.GanttChart(
       title='Discovery',
       accent='violet',
       content_=[
-        ET.GanttTask(
-          id='requirements',
+        ET.Task('requirements',
           title='Confirm requirements',
           start='2026-09-01',
           end='2026-09-04',
           progress=1.0,
           description='Agree on the first-release workflows, API surface, and success criteria.'
         ),
-        ET.GanttTask(
-          id='prototype',
+        ET.Task('prototype',
           title='Validate prototype',
           start='2026-09-03',
           end='2026-09-08',
@@ -1155,16 +1153,14 @@ ET.GanttChart(
       title='Build',
       accent='blue',
       content_=[
-        ET.GanttTask(
-          id='api',
+        ET.Task('api',
           title='Implement API',
           start='2026-09-07',
           end='2026-09-18',
           progress=0.55,
           description='Ship authenticated project, deployment, and observability endpoints.'
         ),
-        ET.GanttTask(
-          id='frontend',
+        ET.Task('frontend',
           title='Build portal interface',
           start='2026-09-10',
           end='2026-09-23',
@@ -1178,16 +1174,14 @@ ET.GanttChart(
       title='Release',
       accent='emerald',
       content_=[
-        ET.GanttTask(
-          id='acceptance',
+        ET.Task('acceptance',
           title='Acceptance testing',
           start='2026-09-21',
           end='2026-09-25',
           progress=0.1,
           description='Run the complete developer journey against the staging environment.'
         ),
-        ET.GanttTask(
-          id='production',
+        ET.Task('production',
           title='Production rollout',
           start='2026-09-28',
           end='2026-10-02',
@@ -1222,17 +1216,17 @@ ET.GanttChart(
           id='mill-01',
           title='Mill 01',
           content_=[
-            ET.GanttTask(id='housing-a', title='Housing batch A', start='2026-11-03', end='2026-11-05', progress=1.0),
-            ET.GanttTask(id='housing-b', title='Housing batch B', start='2026-11-06', end='2026-11-09', progress=0.75),
-            ET.GanttTask(id='housing-c', title='Housing batch C', start='2026-11-10', end='2026-11-12', progress=0.15)
+            ET.Task('housing_a', title='Housing batch A', start='2026-11-03', end='2026-11-05', progress=1.0),
+            ET.Task('housing_b', title='Housing batch B', start='2026-11-06', end='2026-11-09', progress=0.75),
+            ET.Task('housing_c', title='Housing batch C', start='2026-11-10', end='2026-11-12', progress=0.15)
           ]
         ),
         ET.Machine(
           id='mill-02',
           title='Mill 02',
           content_=[
-            ET.GanttTask(id='bracket-a', title='Bracket batch A', start='2026-11-04', end='2026-11-07', progress=1.0),
-            ET.GanttTask(id='bracket-b', title='Bracket batch B', start='2026-11-10', end='2026-11-13', progress=0.2)
+            ET.Task('bracket_a', title='Bracket batch A', start='2026-11-04', end='2026-11-07', progress=1.0),
+            ET.Task('bracket_b', title='Bracket batch B', start='2026-11-10', end='2026-11-13', progress=0.2)
           ]
         )
       ]
@@ -1246,9 +1240,9 @@ ET.GanttChart(
           id='coat-01',
           title='Coating line 01',
           content_=[
-            ET.GanttTask(id='coat-a', title='Coat housing A', start='2026-11-06', end='2026-11-07', progress=1.0),
-            ET.GanttTask(id='coat-b', title='Coat bracket A', start='2026-11-08', end='2026-11-09', progress=0.9),
-            ET.GanttTask(id='coat-c', title='Coat housing B', start='2026-11-10', end='2026-11-11', progress=0.3)
+            ET.Task('coat_a', title='Coat housing A', start='2026-11-06', end='2026-11-07', progress=1.0),
+            ET.Task('coat_b', title='Coat bracket A', start='2026-11-08', end='2026-11-09', progress=0.9),
+            ET.Task('coat_c', title='Coat housing B', start='2026-11-10', end='2026-11-11', progress=0.3)
           ]
         )
       ]
@@ -1262,9 +1256,9 @@ ET.GanttChart(
           id='cmm-01',
           title='CMM 01',
           content_=[
-            ET.GanttTask(id='inspect-a', title='Inspect housing A', start='2026-11-08', end='2026-11-09', progress=1.0),
-            ET.GanttTask(id='inspect-b', title='Inspect bracket A', start='2026-11-10', end='2026-11-10', progress=0.5),
-            ET.GanttTask(id='inspect-c', title='Inspect housing B', start='2026-11-12', end='2026-11-13', progress=0.0)
+            ET.Task('inspect_a', title='Inspect housing A', start='2026-11-08', end='2026-11-09', progress=1.0),
+            ET.Task('inspect_b', title='Inspect bracket A', start='2026-11-10', end='2026-11-10', progress=0.5),
+            ET.Task('inspect_c', title='Inspect housing B', start='2026-11-12', end='2026-11-13', progress=0.0)
           ]
         )
       ]
