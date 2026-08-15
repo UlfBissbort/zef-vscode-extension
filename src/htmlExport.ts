@@ -477,24 +477,66 @@ export function getExportCss(maxWidth: number): string {
             border-radius: 0 8px 8px 0;
         }
 
-        /* Callouts (Obsidian-style) */
+        /* Obsidian-style callouts — matches the live preview. */
         .callout {
-            border: 1px solid var(--border-color);
             border-radius: 8px;
-            margin: 1.5rem 0;
-            overflow: hidden;
+            border-left: 3px solid;
+            margin: 1.5em 0;
+            padding: 1em 1.2em;
+            background: transparent;
+        }
+        .callout-header {
+            display: flex;
+            align-items: center;
+            gap: 0.5em;
+            margin-bottom: 0.6em;
+        }
+        .callout-icon {
+            flex-shrink: 0;
+            opacity: 0.7;
+            display: flex;
+            align-items: center;
+        }
+        .callout-icon svg {
+            display: block;
         }
         .callout-title {
-            padding: 0.6rem 1rem;
             font-weight: 600;
-            font-size: 0.85rem;
-            text-transform: uppercase;
-            letter-spacing: 0.08em;
+            font-size: 0.95em;
         }
         .callout-body {
-            padding: 0.8rem 1rem;
             color: var(--text-dim);
+            font-size: 0.92em;
+            line-height: 1.6;
         }
+        .callout-body code {
+            background: rgba(255,255,255,0.06);
+            padding: 0.15em 0.4em;
+            border-radius: 3px;
+            font-size: 0.9em;
+        }
+        .callout-tip,
+        .callout-info {
+            border-color: #4a9eff;
+            background: rgba(74, 158, 255, 0.06);
+        }
+        .callout-tip .callout-header,
+        .callout-info .callout-header { color: #4a9eff; }
+        .callout-warning {
+            border-color: #e8a838;
+            background: rgba(232, 168, 56, 0.06);
+        }
+        .callout-warning .callout-header { color: #e8a838; }
+        .callout-danger {
+            border-color: #e85454;
+            background: rgba(232, 84, 84, 0.06);
+        }
+        .callout-danger .callout-header { color: #e85454; }
+        .callout-success {
+            border-color: #4eca8b;
+            background: rgba(78, 202, 139, 0.06);
+        }
+        .callout-success .callout-header { color: #4eca8b; }
 
         /* Horizontal rule */
         hr {
