@@ -22,6 +22,9 @@ created = "Time('2026-08-15 13:20:00 +0800')"
   // All authored durations are SI seconds; timers convert them at the DOM boundary.
   const defaultTyping = { charDelay: 0.042, variation: 0.15 };
   const defaultOutputDelay = 0.28;
+  const lineHeight = 19.8;
+  const verticalPadding = 34;
+  const minimumRows = 6;
 
   function number(value, fallback, minimum = 0) {
     return typeof value === 'number' && Number.isFinite(value) ? Math.max(minimum, value) : fallback;
@@ -50,6 +53,10 @@ created = "Time('2026-08-15 13:20:00 +0800')"
       if (entry?.__type === 'ET.TerminalComment' || entry?.__type === 'ET.TerminalOutput') return [lineFrom(entry)];
       return [];
     });
+  }
+
+  function visualLineCount(lines) {
+    return lines.reduce((count, line) => count + Math.max(1, string(line.content).split('\n').length), 0);
   }
 
   function prefersReducedMotion() {
@@ -141,6 +148,12 @@ created = "Time('2026-08-15 13:20:00 +0800')"
     if (animation?.__type === 'ET.TerminalAnimation') void play(animation, token);
   }
 
+  $: finalTranscript = completedTranscript(data);
+  $: maxRows = Math.floor(number(data?.maxRows, 12, minimumRows));
+  $: terminalHeight = Math.min(
+    verticalPadding + maxRows * lineHeight,
+    verticalPadding + Math.max(minimumRows, visualLineCount(finalTranscript)) * lineHeight
+  );
   $: if (data?.__type === 'ET.TerminalAnimation') start(data);
 
   onDestroy(() => {
@@ -158,7 +171,7 @@ created = "Time('2026-08-15 13:20:00 +0800')"
           <button class="replay" type="button" onclick={() => start(data)}>Replay</button>
         {/if}
       </header>
-      <div class="terminal-body" bind:this={terminalBody} aria-live="polite" aria-atomic="false">
+      <div class="terminal-body" bind:this={terminalBody} style={`--terminal-body-height: ${terminalHeight}px`} aria-live="polite" aria-atomic="false">
         {#each completedLines as line, index (index)}
           <div class:command={line.kind === 'command'} class:comment={line.kind === 'comment'} class={`terminal-line tone-${line.tone ?? 'muted'}`}>
             {#if line.kind === 'command'}<span class="prompt">{line.prompt}</span>{/if}
@@ -186,7 +199,11 @@ created = "Time('2026-08-15 13:20:00 +0800')"
   .terminal-header { position: relative; }
   .replay { background: transparent; border: 0; color: #71717a; cursor: pointer; font: 11px ui-monospace, SFMono-Regular, Menlo, monospace; margin-left: auto; padding: 4px 0 4px 10px; }
   .replay:hover { color: #d4d4d8; }
-  .terminal-body { box-sizing: border-box; color: #d4d4d8; font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; font-size: 12px; line-height: 1.65; max-height: 310px; min-height: 150px; overflow: auto; padding: 17px 19px; }
+  .terminal-body { box-sizing: border-box; color: #d4d4d8; font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; font-size: 12px; height: var(--terminal-body-height); line-height: 1.65; overflow: auto; padding: 17px 19px; scrollbar-color: #3f3f46 transparent; scrollbar-width: thin; }
+  .terminal-body::-webkit-scrollbar { height: 6px; width: 6px; }
+  .terminal-body::-webkit-scrollbar-track { background: transparent; }
+  .terminal-body::-webkit-scrollbar-thumb { background: #3f3f46; border: 2px solid #09090b; border-radius: 999px; }
+  .terminal-body::-webkit-scrollbar-thumb:hover { background: #52525b; }
   .terminal-line { min-height: 1.65em; overflow-wrap: anywhere; white-space: pre-wrap; }
   .terminal-line.command { color: #e4e4e7; }
   .prompt { color: #60a5fa; font-weight: 600; margin-right: 9px; }

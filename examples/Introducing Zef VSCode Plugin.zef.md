@@ -953,13 +953,14 @@ Hover a line to read its workflow-level annotation, or hover an annotated point 
 
 ## Terminal animation
 
-A terminal animation is also entity-directed data. Commands type into the terminal, then reveal their structured output. The component owns the cursor, pacing, scrolling, replay, loop, and reduced-motion behavior. All duration fields use SI seconds and accept integers or floats.
+A terminal animation is also entity-directed data. Commands type into the terminal, then reveal their structured output. The component owns the cursor, pacing, scrolling, replay, loop, and reduced-motion behavior. It reserves its final transcript height at the start, capped by `maxRows`; if the transcript exceeds that cap, an unobtrusive internal scrollbar appears. All duration fields use SI seconds and accept integers or floats.
 
 ```zef
 ET.TerminalAnimation(
   title='Release preview',
   prompt='$',
-  typing=ET.Typing(charDelay=0.082, variation=0.65),
+  maxRows=10,
+  typing=ET.Typing(charDelay=0.182, variation=1.0),
   loop=ET.Loop(restartAfter=9),
   content_=[
     ET.TerminalComment(
