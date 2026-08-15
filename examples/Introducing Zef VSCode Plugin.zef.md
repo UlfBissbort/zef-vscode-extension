@@ -1367,3 +1367,70 @@ ET.Surface3dPlot(
 )
 ```
 
+---
+
+## Weekly calendar
+
+A calendar is one plain collection of time-based events. The weekly grid and the upcoming-event rail are both derived from `ET.CalendarEvent` values; `referenceTime` makes the static document's upcoming ordering deterministic. Each event uses a native Zef `Time` instant and an SI-second duration.
+
+```zef
+ET.Calendar(
+  title='Engineering week',
+  subtitle='Design, release, and operational coordination',
+  timeZone='Europe/Berlin',
+  weekOf=Time('2026-08-17 00:00:00 +0200'),
+  referenceTime=Time('2026-08-17 08:00:00 +0200'),
+  upcomingCount=6,
+  content_=[
+    ET.CalendarEvent(
+      'architecture_review',
+      title='Architecture review',
+      start=Time('2026-08-17 16:30:00 +0200'),
+      duration=5400,
+      location='Studio',
+      accent='violet'
+    ),
+    ET.CalendarEvent(
+      'production_sync',
+      title='Production sync',
+      start=Time('2026-08-17 14:00:00 +0200'),
+      duration=3600,
+      location='Factory floor',
+      accent='orange'
+    ),
+    ET.CalendarEvent(
+      'pairing',
+      title='API pairing',
+      start=Time('2026-08-18 10:00:00 +0200'),
+      duration=7200,
+      location='Room 2',
+      accent='cyan'
+    ),
+    ET.CalendarEvent(
+      'release_readiness',
+      title='Release readiness',
+      start=Time('2026-08-19 13:00:00 +0200'),
+      duration=5400,
+      location='Online',
+      accent='green'
+    ),
+    ET.CalendarEvent(
+      'customer_demo',
+      title='Customer demonstration',
+      start=Time('2026-08-20 11:00:00 +0200'),
+      duration=3600,
+      location='Demo lab',
+      accent='pink'
+    ),
+    ET.CalendarEvent(
+      'deployment_window',
+      title='Deployment window',
+      start=Time('2026-08-21 16:00:00 +0200'),
+      duration=7200,
+      location='Operations',
+      accent='orange'
+    )
+  ]
+)
+```
+

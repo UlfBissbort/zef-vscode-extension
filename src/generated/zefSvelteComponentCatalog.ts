@@ -8,6 +8,13 @@ export interface RegisteredZefSvelteComponent {
 
 export const registeredZefSvelteComponents: readonly RegisteredZefSvelteComponent[] = [
     {
+        "componentId": "ET.SvelteComponent('🍃-b9c7263c390c4b6fb6a6')",
+        "dispatchedOn": [
+            "ET.Calendar"
+        ],
+        "relativePath": "zef-svelte-components/calendar.svelte"
+    },
+    {
         "componentId": "ET.SvelteComponent('🍃-e81c503bd7a9462f9c16')",
         "dispatchedOn": [
             "ET.FAQSection"
