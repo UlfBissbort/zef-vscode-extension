@@ -11,7 +11,8 @@ Zef brings the power of Jupyter notebooks to Markdown files:
 - **Embeddable results** — Output is stored inline, share files with results included
 - **Beautiful rendering** — Dark theme preview with LaTeX math, Mermaid diagrams, and Excalidraw sketches
 - **Inline editing** — Edit Excalidraw diagrams directly in VS Code with a visual editor
-- **Svelte components** — Define and render interactive components inline
+- **Entity-directed Svelte components** — Render trusted reusable components from typed Zef data
+- **Zef Slides** — Present typed entity decks in a dedicated slide runtime
 
 ## Features
 
@@ -77,13 +78,29 @@ $$
 $$
 ```
 
-### Svelte Components
+### Entity-directed Svelte Components
 
-Define Svelte components directly in code blocks:
+Reusable components in `zef-svelte-components/` are discovered at extension compile time. A `zef` fence whose JSON or converted Zen value has a registered root `__type` is rendered by the matching trusted Svelte component with `{ data }`.
 
-- Components are compiled and rendered inline
-- Interactive UI elements in your documents
-- Compiled output can be embedded for sharing
+```zef
+ET.WorkflowTimeline(
+  title='Release pipeline',
+  activeStep='build',
+  content_=[
+    ET.WorkflowStep(id='build', title='Build', description='Compile the release bundle')
+  ]
+)
+```
+
+Nested entities stay data owned by the selected component. This keeps rendering safe and makes document values portable. Current roots include `ET.ScatterPlot`, `ET.LinePlot`, `ET.TerminalAnimation`, and `ET.WorkflowTimeline`. All authored animation durations use SI seconds, such as `advanceEvery=1.5` or `charDelay=0.05`.
+
+To add a component, create a `.svelte` file with a TOML `dispatched_on` header, run `npm run compile`, then build and reinstall the extension. See [`docs/entity-svelte-components.md`](docs/entity-svelte-components.md) for the component model and examples.
+
+### Zef Slides
+
+Zef Slides renders one `ET.ZefSlides(...)` deck per document in the bundled slide runtime. A deck owns ordered `ET.Slide` entities, and slides own structured presentation entities such as `ET.VStack`, `ET.Title`, and `ET.Paragraph`.
+
+Use **Zef: Open Slides** to open the deck in its own panel. Slides use the same safe data-and-trusted-renderer model as entity-directed components, but have a dedicated runtime for navigation and progressive stages.
 
 ## Usage
 

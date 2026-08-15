@@ -1054,3 +1054,32 @@ ET.WorkflowTimeline(
 ```
 
 Each `ET.WorkflowStep` is a real stage in the process, rather than a visual card. The component keeps the numbered marker, fades future stages, and lights each completed-or-current stage in sequence; playback timing is expressed through `ET.WorkflowPlayback`, with an optional per-step `activeFor` override.
+
+---
+
+## Zef Slides
+
+A slide deck is a separate typed runtime. It owns ordered slides, and each slide owns a structured tree of layout and content entities. Use **Zef: Open Slides** to open this deck in the presentation panel.
+
+```zef
+ET.ZefSlides(
+  brand='Zef',
+  content_=[
+    ET.Slide(
+      frame='plain-readable',
+      content_=[
+        ET.VStack(
+          role='readable-layout',
+          content_=[
+            ET.Eyebrow(value='Zef Slides'),
+            ET.Title(value='One entity tree, one slide', level=2),
+            ET.Paragraph(value='The trusted runtime turns typed data into a navigable presentation.')
+          ]
+        )
+      ]
+    )
+  ]
+)
+```
+
+Use arrow keys, space, or click navigation in the slide panel.

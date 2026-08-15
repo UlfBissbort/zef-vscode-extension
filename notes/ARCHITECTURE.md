@@ -63,7 +63,17 @@ The webview uses:
 - `marked` for markdown parsing
 - Custom inline syntax highlighter (not highlight.js) supporting keywords, strings, numbers, comments, functions, types
 
-### 3. Code Block Parser (`codeBlockParser.ts`)
+### 3. Entity-directed Svelte components and Zef Slides
+
+The extension has two typed rendering systems alongside ordinary Markdown and ad hoc `svelte` fences.
+
+- **Entity-directed Svelte components** are trusted `.svelte` sources under `zef-svelte-components/`. The compile-time catalogue generator reads their TOML `dispatched_on` headers and writes `src/generated/zefSvelteComponentCatalog.ts`. At preview time, JSON-shaped or converted `ET.*(...)` data dispatches only by its root `__type`; the selected component receives `{ data }` and owns its nested entities as plain data. This permits reusable interactive renderers without allowing document data to import code.
+- **Zef Slides** recognises a `zef` fence beginning with `ET.ZefSlides(`. `slidesConverter.ts` converts its Zen source through the local `zef` CLI, and the bundled `slides-runtime` renders the root deck in an iframe. The deck contains ordered `ET.Slide` values, which contain a closed hierarchy of layout and content entities. The runtime owns presentation navigation and progressive `steps_` state.
+- In both systems, DOM behavior belongs to bundled code. Entity data expresses content, structure, visual intent, and timing; for component animations, durations are SI seconds and conversion to browser milliseconds occurs at the component boundary.
+
+See [`../docs/entity-svelte-components.md`](../docs/entity-svelte-components.md) for authoring and extension instructions.
+
+### 4. Code Block Parser (`codeBlockParser.ts`)
 
 Parses markdown to find:
 - Code blocks: ` ```python `, ` ```rust `, ` ```javascript `, ` ```typescript `
@@ -72,7 +82,7 @@ Parses markdown to find:
 
 Each block is tracked by `blockId` for associating results with their source code.
 
-### 4. Kernel Manager (`kernelManager.ts`)
+### 5. Kernel Manager (`kernelManager.ts`)
 
 Manages a persistent Python subprocess:
 - Starts `kernel/zef_kernel.py` with the selected Python interpreter
@@ -81,7 +91,7 @@ Manages a persistent Python subprocess:
 - Maintains namespace across executions (like Jupyter)
 - Provides output channel for debugging
 
-### 5. Python Kernel (`kernel/zef_kernel.py`)
+### 6. Python Kernel (`kernel/zef_kernel.py`)
 
 A subprocess that:
 - Maintains a persistent Python namespace (`InteractiveInterpreter`)
@@ -91,7 +101,7 @@ A subprocess that:
   - **Errors**: Type, message, and traceback
 - Uses `SideEffectCapture` to track individual print() calls
 
-### 6. Other Executors
+### 7. Other Executors
 
 - **Rust Executor**: Uses Bun to run Rust code via wasm
 - **JS/TS Executor**: Uses Bun for JavaScript/TypeScript execution

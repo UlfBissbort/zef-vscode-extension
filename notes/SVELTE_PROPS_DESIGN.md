@@ -1,14 +1,16 @@
 # Svelte Component Props Design
 
-**Goal**: Allow static JSON-like data to be passed as props to Svelte components in `.zef.md` files, enabling data-driven component specialization.
+> **Status: historical proposal.** This note describes an unimplemented `props`-fence design for ad hoc `svelte` fences. The current reusable component system instead dispatches typed `zef` entity data to trusted components in `zef-svelte-components/`, mounting the selected component with `{ data }`. See [`../docs/entity-svelte-components.md`](../docs/entity-svelte-components.md) and [`ARCHITECTURE.md`](ARCHITECTURE.md) for the active design. Zef Slides is a separate typed deck runtime.
+
+**Original goal**: Allow static JSON-like data to be passed as props to Svelte components in `.zef.md` files, enabling data-driven component specialization.
 
 ---
 
 ## Background
 
-### Current Architecture
+### Historical Architecture
 
-Svelte components in `.zef.md` files are currently self-contained:
+Svelte components in `.zef.md` files were originally self-contained:
 
 ```markdown
 ```svelte
@@ -27,7 +29,7 @@ The compilation flow:
 4. Compiler generates entry code: `mount(Component, { target })`
 5. Result HTML embedded in iframe
 
-**Key insight**: The `mount()` call passes no props. This is where external data would be injected.
+**Historical constraint**: The original `mount()` call passed no props. The compiler now accepts props, and entity-directed components receive `{ data }`; the dedicated `props` fence proposed below remains unimplemented.
 
 ### Desired Capability
 
