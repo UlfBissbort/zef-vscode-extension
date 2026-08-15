@@ -8,6 +8,13 @@ export interface RegisteredZefSvelteComponent {
 
 export const registeredZefSvelteComponents: readonly RegisteredZefSvelteComponent[] = [
     {
+        "componentId": "ET.SvelteComponent('🍃-e81c503bd7a9462f9c16')",
+        "dispatchedOn": [
+            "ET.FAQSection"
+        ],
+        "relativePath": "zef-svelte-components/faq-section.svelte"
+    },
+    {
         "componentId": "ET.SvelteComponent('🍃-4c18401133a57639bd89')",
         "dispatchedOn": [
             "ET.LinePlot"

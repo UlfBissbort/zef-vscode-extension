@@ -32,6 +32,7 @@ The current bundled component roots are:
 | `ET.LinePlot` | `ET.Axis`, `ET.LineSeries`, `ET.DataPoint`, `ET.HoverAnnotation` |
 | `ET.TerminalAnimation` | `ET.TerminalComment`, `ET.TerminalCommand`, `ET.TerminalOutput`, `ET.Typing`, `ET.Loop` |
 | `ET.WorkflowTimeline` | `ET.WorkflowStep`, `ET.WorkflowPlayback` |
+| `ET.FAQSection` | `ET.FAQItem` |
 
 ### Authoring data
 

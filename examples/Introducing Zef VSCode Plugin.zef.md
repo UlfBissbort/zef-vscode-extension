@@ -1083,3 +1083,33 @@ ET.ZefSlides(
 ```
 
 Use arrow keys, space, or click navigation in the slide panel.
+
+---
+
+## FAQ section
+
+An FAQ section is data-driven too. Each `ET.FAQItem` owns its question and answer; `open=true` is optional and defaults to a closed answer.
+
+```zef
+ET.FAQSection(
+  title='Questions about reproducible documents',
+  subtitle='A concise guide to how Zef keeps executable Markdown portable.',
+  content_=[
+    ET.FAQItem(
+      question='What is stored in a .zef.md file?',
+      answer='The Markdown source, executable code, and any captured results live together in one reviewable text file.',
+      open=true
+    ),
+    ET.FAQItem(
+      question='Can another developer reproduce a result?',
+      answer='Yes. The document preserves the code and its context, while Zef records side effects alongside evaluated results.'
+    ),
+    ET.FAQItem(
+      question='How do reusable visual components stay safe?',
+      answer='A document selects only from Svelte components bundled into the extension at compile time; entity data cannot import arbitrary code.'
+    )
+  ]
+)
+```
+
+Click a question to toggle its answer. Multiple answers may be open at once.
