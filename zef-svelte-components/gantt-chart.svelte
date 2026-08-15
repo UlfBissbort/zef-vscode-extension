@@ -8,10 +8,14 @@ created = "Time('2026-08-15 16:10:00 +0800')"
 +++ -->
 
 <script>
+  import { onMount, tick } from 'svelte';
+
   /** A data-in, DOM-out renderer for an ET.GanttChart value. */
   export let data;
 
   let hovered = null;
+  let isFullWidth = false;
+  let chartFigure;
 
   const dayMilliseconds = 86_400_000;
   const dayWidth = 40;
@@ -123,8 +127,24 @@ created = "Time('2026-08-15 16:10:00 +0800')"
   }
 
   function toggleFullWidth() {
+    isFullWidth = !isFullWidth;
     window.parent.postMessage({ type: 'zefEntityToggleFullWidth', entityType: 'ET.GanttChart' }, '*');
   }
+
+  function reportHeight() {
+    if (!chartFigure) return;
+    window.parent.postMessage({ type: 'zefEntityResize', height: Math.ceil(chartFigure.getBoundingClientRect().height) }, '*');
+  }
+
+  onMount(() => {
+    const observer = new ResizeObserver(() => {
+      void tick().then(reportHeight);
+    });
+    observer.observe(chartFigure);
+    reportHeight();
+    window.setTimeout(reportHeight, 0);
+    return () => observer.disconnect();
+  });
 
   $: rows = rowsFor(data);
   $: labelWidth = labelWidthFor(rows);
@@ -136,7 +156,7 @@ created = "Time('2026-08-15 16:10:00 +0800')"
 </script>
 
 {#if data?.__type === 'ET.GanttChart'}
-  <figure class="gantt" style={`--gantt-required-width: ${labelWidth + timelineWidth}px;`} aria-labelledby="gantt-title">
+  <figure bind:this={chartFigure} class:full-width={isFullWidth} class="gantt" style={`--gantt-required-width: ${labelWidth + timelineWidth}px;`} aria-labelledby="gantt-title">
     <figcaption class="chart-header">
       <div>
         <h2 id="gantt-title">{data.title}</h2>
@@ -211,7 +231,9 @@ created = "Time('2026-08-15 16:10:00 +0800')"
 {/if}
 
 <style>
-  .gantt { color: #e4e4e7; font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; margin: 0 auto; max-width: 100%; width: var(--gantt-required-width); }
+  :global(body) { padding: 0 !important; }
+  .gantt { color: #e4e4e7; font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; margin: 0; max-width: 100%; width: var(--gantt-required-width); }
+  .gantt.full-width { margin-left: auto; margin-right: auto; }
   .chart-header { align-items: flex-start; display: flex; justify-content: space-between; margin-bottom: 16px; }
   h2 { color: #e4e4e7; font-size: 18px; font-weight: 600; letter-spacing: -0.02em; line-height: 1.25; margin: 0; }
   .subtitle { color: #8a8a94; font-size: 13px; line-height: 1.5; margin: 7px 0 0; }

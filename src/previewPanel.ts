@@ -7145,7 +7145,14 @@ function getWebviewContent(renderedHtml: string, existingOutputs: { [blockId: nu
             window.addEventListener('message', function(event) {
                 var message = event.data;
                 
-                if (message.type === 'zefEntityToggleFullWidth') {
+                if (message.type === 'zefEntityResize') {
+                    var resizedEntityFrames = Array.from(document.querySelectorAll('.zef-entity-render iframe.svelte-preview-frame'));
+                    var resizedEntityFrame = resizedEntityFrames.find(function(frame) { return frame.contentWindow === event.source; });
+                    var requestedHeight = Number(message.height);
+                    if (resizedEntityFrame && Number.isFinite(requestedHeight)) {
+                        resizedEntityFrame.style.height = Math.max(120, Math.min(1600, Math.ceil(requestedHeight))) + 'px';
+                    }
+                } else if (message.type === 'zefEntityToggleFullWidth') {
                     var entityFrames = Array.from(document.querySelectorAll('.zef-entity-render iframe.svelte-preview-frame'));
                     var entityFrame = entityFrames.find(function(frame) { return frame.contentWindow === event.source; });
                     var entityContainer = entityFrame && entityFrame.closest('.zef-entity-render');
