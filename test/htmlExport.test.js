@@ -1,6 +1,23 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const { generateStandaloneHtml, getExportCss, prepareMermaidForExport } = require('../out/htmlExport.js');
+const { parseDocumentFrontmatter, renderDocumentFrontmatter } = require('../out/frontmatterParser.js');
+
+test('export includes styled TOML frontmatter and its interactive metadata helpers', () => {
+    const frontmatter = parseDocumentFrontmatter(`+++\nthis = "ET.MarkdownDocument('🍃-123')"\nimportance = 2\ntag_ = ["aging"]\ncreated = "Time('2026-08-15 08:00:16 +0800')"\n+++`);
+    const html = generateStandaloneHtml({
+        renderedHtml: renderDocumentFrontmatter(frontmatter) + '<h1>Document</h1>',
+        title: 'Document',
+        maxWidth: 680,
+        usesLatex: false,
+        usesMermaid: false,
+    });
+    assert.match(html, /document-identity/);
+    assert.match(html, /frontmatter-chip/);
+    assert.match(html, /frontmatter-relative-time/);
+    assert.match(html, /function copyEntityDescriptor/);
+    assert.match(html, /function updateRelativeTimes/);
+});
 
 test('export table CSS matches the preview without zebra striping', () => {
     const css = getExportCss(680);

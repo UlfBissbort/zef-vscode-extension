@@ -575,6 +575,9 @@ export function createPreviewPanel(context: vscode.ExtensionContext): vscode.Web
             if (document) {
                 const text = document.getText();
                 const isPy = isZefPythonFile(document);
+                const documentFrontmatter = isPy || isZefRustFile(document)
+                    ? null
+                    : parseDocumentFrontmatter(text);
                 
                 // Build svelte export selections from webview data
                 const svelteExports: Record<number, SvelteBlockExport> = {};
@@ -600,7 +603,7 @@ export function createPreviewPanel(context: vscode.ExtensionContext): vscode.Web
                 let renderedHtml = renderMarkdown(cleanMarkdown);
                 
                 // Post-process: embed Svelte outputs and HTML blocks as iframes
-                renderedHtml = embedRenderedBlocks(renderedHtml, svelteExports);
+                renderedHtml = renderDocumentFrontmatter(documentFrontmatter) + embedRenderedBlocks(renderedHtml, svelteExports);
                 
                 // Detect which libraries are needed
                 const features = detectFeatures(cleanMarkdown);

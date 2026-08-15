@@ -440,6 +440,108 @@ export function getExportCss(maxWidth: number): string {
             display: block;
         }
 
+        /* Document frontmatter — matches the live preview. */
+        .document-identity {
+            display: flex;
+            align-items: center;
+            gap: 0.65rem;
+            margin: 0 0 1.5rem;
+            color: var(--text-muted);
+        }
+        .document-identity-type {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.4rem;
+            max-width: 100%;
+            padding: 0.22rem 0.4rem 0.22rem 0.7rem;
+            border: 1px solid #2b2b2b;
+            border-radius: 999px;
+            color: #d0d0d0;
+            background: #0b0b0b;
+            box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.025);
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            font-size: 0.76rem;
+            line-height: 1.4;
+            white-space: nowrap;
+        }
+        .document-identity-text { overflow: hidden; text-overflow: ellipsis; }
+        .document-identity-copy {
+            display: inline-flex;
+            flex: 0 0 auto;
+            align-items: center;
+            justify-content: center;
+            width: 1.25rem;
+            height: 1.25rem;
+            padding: 0;
+            border: 0;
+            border-radius: 50%;
+            color: currentColor;
+            background: transparent;
+            cursor: pointer;
+            opacity: 0.3;
+        }
+        .document-identity-copy:hover,
+        .document-identity-copy:focus-visible { background: rgba(255, 255, 255, 0.06); opacity: 0.8; outline: none; }
+        .document-identity-copy.copied { opacity: 1; }
+        .document-identity-copy svg { width: 0.75rem; height: 0.75rem; }
+        .frontmatter-properties { margin: 0 0 2rem; }
+        .frontmatter-property {
+            display: grid;
+            grid-template-columns: 1.25rem minmax(6rem, 8rem) minmax(0, 1fr);
+            align-items: start;
+            min-height: 1.9rem;
+            color: var(--text-dim);
+        }
+        .frontmatter-property-icon { color: #666; font-size: 0.8rem; }
+        .frontmatter-property-name {
+            overflow: hidden;
+            padding-right: 0.75rem;
+            color: #858585;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+        .frontmatter-property-value { min-width: 0; overflow-wrap: anywhere; color: #ccc; }
+        .frontmatter-chips { display: flex; flex-wrap: wrap; gap: 0.28rem; }
+        .frontmatter-chip {
+            padding: 0 0.45rem;
+            border: 1px solid #3b518d;
+            border-radius: 999px;
+            color: #91b2ff;
+            background: #141a2d;
+            font-size: 0.74rem;
+            line-height: 1.45;
+        }
+        .frontmatter-rating { display: inline-flex; gap: 0.12rem; font-size: 0.9rem; line-height: 1.55; letter-spacing: 0.02rem; }
+        .frontmatter-star.filled { color: #f0b84b; }
+        .frontmatter-star.empty { color: #51462f; }
+        .frontmatter-time-group { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 0.4rem; }
+        .frontmatter-time {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.3rem;
+            padding: 0 0.45rem;
+            border: 1px solid #3b518d;
+            border-radius: 5px;
+            color: #91b2ff;
+            background: #141a2d;
+            font-size: 0.74rem;
+            font-variant-numeric: tabular-nums;
+            line-height: 1.45;
+        }
+        .frontmatter-time-icon { color: #83a9ff; font-size: 0.72rem; }
+        .frontmatter-time-zone { color: #687fae; font-size: 0.66rem; }
+        .frontmatter-relative-time { color: #777; font-size: 0.72rem; white-space: nowrap; }
+        .frontmatter-empty { color: #555; }
+        .frontmatter-error {
+            margin: 0 0 1.5rem;
+            padding: 0.65rem 0.8rem;
+            border: 1px solid #4b302b;
+            border-radius: 6px;
+            color: #d99a8f;
+            background: #1b1211;
+            font-size: 0.8rem;
+        }
+
         /* Tables — matches the live preview. */
         .table-wrapper {
             margin: 1.5em 0;
@@ -654,8 +756,43 @@ document.addEventListener("DOMContentLoaded", function() {
 </script>`
         : '';
 
+    const frontmatterScript = exportHtml.includes('frontmatter-') || exportHtml.includes('document-identity')
+        ? `<script>
+function copyEntityDescriptor(button) {
+    var value = button.dataset.identity || '';
+    if (!value || !navigator.clipboard) return;
+    navigator.clipboard.writeText(value).then(function() {
+        button.classList.add('copied');
+        window.setTimeout(function() { button.classList.remove('copied'); }, 900);
+    });
+}
+function formatRelativeTime(timestamp) {
+    var target = new Date(timestamp).getTime();
+    if (!Number.isFinite(target)) return '';
+    var seconds = Math.round((Date.now() - target) / 1000);
+    var future = seconds < 0;
+    var elapsed = Math.abs(seconds);
+    if (elapsed < 45) return future ? 'in a moment' : 'just now';
+    var value, unit;
+    if (elapsed < 3600) { value = Math.max(1, Math.round(elapsed / 60)); unit = 'min'; }
+    else if (elapsed < 86400) { value = Math.round(elapsed / 3600); unit = value === 1 ? 'hour' : 'hours'; }
+    else if (elapsed < 2592000) { value = Math.round(elapsed / 86400); unit = value === 1 ? 'day' : 'days'; }
+    else if (elapsed < 31536000) { value = Math.round(elapsed / 2629800); unit = value === 1 ? 'month' : 'months'; }
+    else { value = Math.round(elapsed / 31557600); unit = value === 1 ? 'year' : 'years'; }
+    return future ? 'in ' + value + ' ' + unit : value + ' ' + unit + ' ago';
+}
+function updateRelativeTimes() {
+    document.querySelectorAll('.frontmatter-relative-time').forEach(function(element) {
+        element.textContent = formatRelativeTime(element.dataset.timestamp || '');
+    });
+}
+updateRelativeTimes();
+setInterval(updateRelativeTimes, 60000);
+</script>`
+        : '';
+
     // Resize handle JS (only if rendered components exist)
-    const hasRenderedComponents = renderedHtml.includes('preview-resize-handle');
+    const hasRenderedComponents = exportHtml.includes('preview-resize-handle');
     const resizeScript = hasRenderedComponents
         ? `<script>
 // Height resize handles
@@ -758,6 +895,7 @@ document.querySelectorAll('.export-tabs').forEach(function(tabBar) {
     ${exportHtml}
     ${mermaidBlock}
     ${katexBlock}
+    ${frontmatterScript}
     ${resizeScript}
 </body>
 </html>`;
