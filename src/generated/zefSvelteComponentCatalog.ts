@@ -20,5 +20,12 @@ export const registeredZefSvelteComponents: readonly RegisteredZefSvelteComponen
             "ET.ScatterPlot"
         ],
         "relativePath": "zef-svelte-components/scatter-plot.svelte"
+    },
+    {
+        "componentId": "ET.SvelteComponent('🍃-c31f8c72a6e94bd095d1')",
+        "dispatchedOn": [
+            "ET.TerminalAnimation"
+        ],
+        "relativePath": "zef-svelte-components/terminal-animation.svelte"
     }
 ];

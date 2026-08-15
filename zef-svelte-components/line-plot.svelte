@@ -146,8 +146,9 @@ created = "Time('2026-08-15 11:18:00 +0800')"
                   onmousemove={(event) => showHover(event, point.hover, point.label ?? lineSeries.label)}
                   onmouseleave={clearHover}
                 />
-                {#if point.label}
-                  <text class="point-label" x={x(point.x) + 10} y={y(point.y) - 10}>{point.label}</text>
+                {#if point.label && point.emphasis === 'highlight'}
+                  <line class="point-leader" x1={x(point.x) + 4} y1={y(point.y) - 4} x2={x(point.x) + 8} y2={y(point.y) - 8} />
+                  <text class="point-label" x={x(point.x) + 11} y={y(point.y) - 11}>{point.label}</text>
                 {/if}
               </g>
             {/each}
@@ -203,7 +204,8 @@ created = "Time('2026-08-15 11:18:00 +0800')"
   .point-halo { opacity: 0; transition: opacity 150ms ease; }
   .highlight .point-halo { opacity: 0.15; }
   .highlight circle:not(.point-halo) { filter: drop-shadow(0 0 5px currentColor); stroke-width: 2.5; }
-  .point-label { fill: #d4d4d8; font-size: 11.5px; font-weight: 550; paint-order: stroke; pointer-events: none; stroke: #09090b; stroke-linejoin: round; stroke-width: 4px; }
+  .point-leader { stroke: #3f3f46; stroke-width: 0.8; }
+  .point-label { fill: #a1a1aa; font-family: ui-sans-serif, system-ui, sans-serif; font-size: 10.5px; font-weight: 500; paint-order: stroke; pointer-events: none; stroke: #09090b; stroke-linejoin: round; stroke-width: 3px; }
   .hover-annotation { background: #18181b; border: 1px solid #3f3f46; border-radius: 7px; box-shadow: 0 8px 24px rgb(0 0 0 / 0.45); color: #d4d4d8; display: grid; font-size: 12px; gap: 4px; max-width: 210px; padding: 10px 12px; pointer-events: none; position: absolute; transform: translate(12px, -50%); z-index: 2; }
   .hover-annotation strong { color: #fafafa; font-size: 12px; font-weight: 600; }
   .hover-annotation span { color: #a1a1aa; line-height: 1.4; }

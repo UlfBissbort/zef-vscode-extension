@@ -948,3 +948,60 @@ ET.LinePlot(
 ```
 
 Hover a line to read its workflow-level annotation, or hover an annotated point for a more specific observation.
+
+---
+
+## Terminal animation
+
+A terminal animation is also entity-directed data. Commands type into the terminal, then reveal their structured output. The component owns the cursor, pacing, scrolling, replay, loop, and reduced-motion behavior.
+
+```zef
+ET.TerminalAnimation(
+  title='Release preview',
+  prompt='$',
+  typing=ET.Typing(charDelay=82, variation=0.65),
+  loop=ET.Loop(restartAfter=9000),
+  content_=[
+    ET.TerminalComment(
+      content='# Verify the release candidate',
+      hold=700
+    ),
+    ET.TerminalCommand(
+      content='zef release verify --candidate v0.1.27',
+      holdBeforeOutput=450,
+      content_=[
+        ET.TerminalOutput(
+          content='Checking component catalogue…',
+          tone='muted',
+          delay=300
+        ),
+        ET.TerminalOutput(
+          content='✓ 3 entity components compiled',
+          tone='success',
+          delay=650
+        ),
+        ET.TerminalOutput(
+          content='✓ Release candidate is ready',
+          tone='success',
+          delay=500
+        )
+      ],
+      holdAfter=1800
+    ),
+    ET.TerminalCommand(
+      content='code --install-extension zef-0.1.27.vsix',
+      holdBeforeOutput=350,
+      content_=[
+        ET.TerminalOutput(
+          content='Extension installed. Reload VS Code to activate it.',
+          tone='info',
+          delay=450
+        )
+      ],
+      holdAfter=800
+    )
+  ]
+)
+```
+
+The transcript is structured around command transactions: each `ET.TerminalCommand` owns its output lines, while comments remain standalone narrative beats.
