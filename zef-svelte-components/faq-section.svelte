@@ -65,18 +65,16 @@ created = "Time('2026-08-15 15:05:00 +0800')"
 {/if}
 
 <style>
-  .faq-section { background: #050505; color: #f4f4f5; font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "Helvetica Neue", sans-serif; margin: 0; overflow: hidden; }
-  .faq-header { margin: 0 auto 6rem; max-width: 750px; position: relative; text-align: center; }
-  h2 { color: #ffffff; font-size: 2.5rem; font-weight: 600; letter-spacing: -0.03em; line-height: 1.2; margin: 0 0 1rem; } .faq-header p { color: rgb(255 255 255 / 0.75); font-size: 1.125rem; font-weight: 400; line-height: 1.6; margin: 0; }
-  .faq-list { margin: 4rem auto 0; max-width: 800px; }
-  .faq-item { border-bottom: 1px solid rgb(45 212 191 / 0.18); overflow: hidden; }
+  .faq-section { color: #e4e4e7; font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; margin: 0; max-width: 720px; }
+  .faq-header { margin: 0 0 24px; } h2 { color: #ffffff; font-size: 24px; font-weight: 600; letter-spacing: 0; line-height: 1.2; margin: 0; } .faq-header p { color: #9a9a9a; font-size: 14px; line-height: 1.6; margin: 8px 0 0; }
+  .faq-list { border-top: 1px solid #252525; }
+  .faq-item { border-bottom: 1px solid #252525; overflow: hidden; }
   h3 { font-size: inherit; font-weight: inherit; margin: 0; }
-  button { align-items: center; background: transparent; border: 0; color: #ffffff; cursor: pointer; display: flex; font: 500 1.125rem/1.5 -apple-system, BlinkMacSystemFont, "SF Pro Display", "Helvetica Neue", sans-serif; justify-content: space-between; padding: 1.5rem 0; text-align: left; transition: color 0.3s cubic-bezier(0.4, 0, 0.2, 1); width: 100%; }
-  button:hover, button:focus-visible { color: #5eead4; outline: none; } button:focus-visible { outline: 1px solid #2dd4bf; outline-offset: -4px; }
-  button i { color: #2dd4bf; flex: 0 0 auto; font-family: inherit; font-size: 1.5rem; font-style: normal; font-weight: 400; line-height: 1; transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1); }
-  .answer-wrap { max-height: 0; overflow: hidden; transition: max-height 0.5s cubic-bezier(0.4, 0, 0.2, 1); } .answer p { color: rgb(255 255 255 / 0.75); font-size: 1.125rem; font-weight: 400; line-height: 1.6; margin: 0; padding: 0 0 1.5rem; }
+  button { align-items: center; background: transparent; border: 0; color: #c3c3ca; cursor: pointer; display: flex; font: 600 16px/1.3 Inter, ui-sans-serif, system-ui, sans-serif; gap: 16px; justify-content: space-between; padding: 16px; text-align: left; transition: color 0.3s cubic-bezier(0.4, 0, 0.2, 1); width: 100%; }
+  button:hover, button:focus-visible { color: #d4d4d8; outline: none; } button:focus-visible { box-shadow: inset 0 0 0 1px #2dd4bf; }
+  button i { color: #3ecf8e; flex: 0 0 auto; font-family: inherit; font-size: 1.5rem; font-style: normal; font-weight: 400; line-height: 1; transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1); }
+  .answer-wrap { max-height: 0; overflow: hidden; transition: max-height 0.5s cubic-bezier(0.4, 0, 0.2, 1); } .answer p { color: #7a7a7a; font-size: 14px; line-height: 1.6; margin: 0; padding: 0 16px 16px; }
   .faq-item.open button i { transform: rotate(45deg); } .faq-item.open .answer-wrap { max-height: 300px; }
   .error { color: #fda4af; font-family: system-ui, sans-serif; }
-  @media (max-width: 640px) { .faq-header { margin-bottom: 3rem; } h2 { font-size: 2rem; } .faq-list { margin-top: 2rem; } }
-  @media (prefers-reduced-motion: reduce) { .answer-wrap, button, button i { transition: none; } }
+  @media (prefers-reduced-motion: reduce) { .faq-item, .answer-wrap, button, button i { transition: none; } }
 </style>
