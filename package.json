@@ -238,7 +238,8 @@
     "watch": "tsc -watch -p ./",
     "lint": "eslint src --ext ts",
     "test:math": "npm run compile && node --test test/mathProtection.test.js",
-    "test:obsidian-images": "npx tsx --test test/obsidianImageEmbed.test.ts"
+    "test:obsidian-images": "npx tsx --test test/obsidianImageEmbed.test.ts",
+    "test:html-export": "npm run compile && node --test test/htmlExport.test.js"
   },
   "dependencies": {
     "@iarna/toml": "^2.2.5",

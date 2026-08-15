@@ -569,6 +569,18 @@ export function getExportCss(maxWidth: number): string {
 // ---------------------------------------------------------------------------
 
 /**
+ * Replace Marked's Mermaid code fences with the elements consumed by Mermaid.
+ * The live preview does this in the webview DOM; exported HTML must do it before
+ * Mermaid runs because it does not include the preview's code-block UI.
+ */
+export function prepareMermaidForExport(renderedHtml: string): string {
+    return renderedHtml.replace(
+        /<pre\b[^>]*>\s*<code\b(?=[^>]*\bclass="[^"]*\blanguage-mermaid\b[^"]*")[^>]*>([\s\S]*?)<\/code>\s*<\/pre>/gi,
+        '<div class="mermaid">$1</div>'
+    );
+}
+
+/**
  * Generate a complete, self-contained HTML file from the rendered preview content.
  * Libraries (mermaid, KaTeX) are embedded inline based on feature flags.
  */
@@ -586,6 +598,7 @@ export function generateStandaloneHtml(input: HtmlExportInput): string {
     } = input;
 
     const css = getExportCss(maxWidth);
+    const exportHtml = usesMermaid ? prepareMermaidForExport(renderedHtml) : renderedHtml;
 
     // Build <head> section
     const katexStyleBlock = usesLatex && katexCss
@@ -726,7 +739,7 @@ document.querySelectorAll('.export-tabs').forEach(function(tabBar) {
     <style>${css}</style>
 </head>
 <body>
-    ${renderedHtml}
+    ${exportHtml}
     ${mermaidBlock}
     ${katexBlock}
     ${resizeScript}
