@@ -1363,6 +1363,11 @@ function renderMarkdown(markdown: string): string {
         const widthMatch = meta.match(/\bwidth\s*=\s*([^\s]+)/i);
         const widthValue = widthMatch?.[1];
         if (lang === 'zef') {
+            if (/^Graph\(\s*\[\s*\]\s*\)$/.test(code.trim())) {
+                const graph = JSON.stringify({ __type: 'ET.Graph' });
+                const encodedData = Buffer.from(graph, 'utf8').toString('base64');
+                return `<div class="zef-entity-render" data-zef-entity-type="ET.Graph" data-zef-entity-data="${encodedData}"></div>\n`;
+            }
             try {
                 const data = JSON.parse(code) as { __type?: unknown };
                 const entityType = data?.__type;

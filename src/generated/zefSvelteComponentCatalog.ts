@@ -22,6 +22,13 @@ export const registeredZefSvelteComponents: readonly RegisteredZefSvelteComponen
         "relativePath": "zef-svelte-components/gantt-chart.svelte"
     },
     {
+        "componentId": "ET.SvelteComponent('🍃-9f3d4e8a7c6210b5d943')",
+        "dispatchedOn": [
+            "ET.Graph"
+        ],
+        "relativePath": "zef-svelte-components/graph.svelte"
+    },
+    {
         "componentId": "ET.SvelteComponent('🍃-4c18401133a57639bd89')",
         "dispatchedOn": [
             "ET.LinePlot"

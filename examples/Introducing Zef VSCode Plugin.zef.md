@@ -1305,3 +1305,15 @@ ET.PipelineAnimation(
 )
 ```
 
+The initial icon vocabulary includes `edit_note`, `bolt`, `language`, `account_tree`, `cloud_upload`, and `check_circle`.
+
+---
+
+## Graph view
+
+`Graph([])` currently renders a fixed example graph: entity squares, shared literal value nodes, and relation labels. Hover a node to isolate its connected facts, or use the expansion control for a wider view.
+
+```zef
+Graph([])
+```
+
