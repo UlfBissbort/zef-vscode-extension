@@ -19,8 +19,9 @@ created = "Time('2026-08-15 13:20:00 +0800')"
   let runToken = 0;
   let isComplete = false;
 
-  const defaultTyping = { charDelay: 42, variation: 0.15 };
-  const defaultOutputDelay = 280;
+  // All authored durations are SI seconds; timers convert them at the DOM boundary.
+  const defaultTyping = { charDelay: 0.042, variation: 0.15 };
+  const defaultOutputDelay = 0.28;
 
   function number(value, fallback, minimum = 0) {
     return typeof value === 'number' && Number.isFinite(value) ? Math.max(minimum, value) : fallback;
@@ -55,8 +56,8 @@ created = "Time('2026-08-15 13:20:00 +0800')"
     return typeof window !== 'undefined' && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
   }
 
-  function delay(milliseconds) {
-    return new Promise(resolve => window.setTimeout(resolve, milliseconds));
+  function delay(seconds) {
+    return new Promise(resolve => window.setTimeout(resolve, seconds * 1000));
   }
 
   async function scrollToBottom() {
@@ -73,7 +74,7 @@ created = "Time('2026-08-15 13:20:00 +0800')"
 
   async function typeCommand(command, animation, token) {
     const typing = { ...defaultTyping, ...(animation?.typing ?? {}), ...(command?.typing ?? {}) };
-    const baseDelay = number(typing.charDelay, defaultTyping.charDelay, 1);
+    const baseDelay = number(typing.charDelay, defaultTyping.charDelay, 0.001);
     const variation = number(typing.variation, defaultTyping.variation, 0);
     const prompt = string(command.prompt, string(animation?.prompt, '$'));
     const content = string(command.content);
@@ -107,19 +108,19 @@ created = "Time('2026-08-15 13:20:00 +0800')"
       if (token !== runToken) return;
       if (entry?.__type === 'ET.TerminalComment' || entry?.__type === 'ET.TerminalOutput') {
         if (!await appendLine(lineFrom(entry), token)) return;
-        await delay(number(entry.hold, 500));
+        await delay(number(entry.hold, 0.5));
         continue;
       }
       if (entry?.__type !== 'ET.TerminalCommand') continue;
 
       if (!await typeCommand(entry, animation, token)) return;
-      await delay(number(entry.holdBeforeOutput, 350));
+      await delay(number(entry.holdBeforeOutput, 0.35));
       for (const output of entry.content_ ?? []) {
         if (output?.__type !== 'ET.TerminalOutput') continue;
         await delay(number(output.delay, defaultOutputDelay));
         if (!await appendLine(lineFrom(output), token)) return;
       }
-      await delay(number(entry.holdAfter, 600));
+      await delay(number(entry.holdAfter, 0.6));
     }
 
     if (token !== runToken) return;

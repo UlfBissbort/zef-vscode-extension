@@ -27,5 +27,12 @@ export const registeredZefSvelteComponents: readonly RegisteredZefSvelteComponen
             "ET.TerminalAnimation"
         ],
         "relativePath": "zef-svelte-components/terminal-animation.svelte"
+    },
+    {
+        "componentId": "ET.SvelteComponent('🍃-d59e4f8b1a206c73d941')",
+        "dispatchedOn": [
+            "ET.WorkflowTimeline"
+        ],
+        "relativePath": "zef-svelte-components/workflow-timeline.svelte"
     }
 ];

@@ -953,55 +953,103 @@ Hover a line to read its workflow-level annotation, or hover an annotated point 
 
 ## Terminal animation
 
-A terminal animation is also entity-directed data. Commands type into the terminal, then reveal their structured output. The component owns the cursor, pacing, scrolling, replay, loop, and reduced-motion behavior.
+A terminal animation is also entity-directed data. Commands type into the terminal, then reveal their structured output. The component owns the cursor, pacing, scrolling, replay, loop, and reduced-motion behavior. All duration fields use SI seconds and accept integers or floats.
 
 ```zef
 ET.TerminalAnimation(
   title='Release preview',
   prompt='$',
-  typing=ET.Typing(charDelay=82, variation=0.65),
-  loop=ET.Loop(restartAfter=9000),
+  typing=ET.Typing(charDelay=0.082, variation=0.65),
+  loop=ET.Loop(restartAfter=9),
   content_=[
     ET.TerminalComment(
       content='# Verify the release candidate',
-      hold=700
+      hold=0.7
     ),
     ET.TerminalCommand(
       content='zef release verify --candidate v0.1.27',
-      holdBeforeOutput=450,
+      holdBeforeOutput=0.45,
       content_=[
         ET.TerminalOutput(
           content='Checking component catalogue…',
           tone='muted',
-          delay=300
+          delay=0.3
         ),
         ET.TerminalOutput(
           content='✓ 3 entity components compiled',
           tone='success',
-          delay=650
+          delay=0.65
         ),
         ET.TerminalOutput(
           content='✓ Release candidate is ready',
           tone='success',
-          delay=500
+          delay=0.5
         )
       ],
-      holdAfter=1800
+      holdAfter=1.8
     ),
     ET.TerminalCommand(
       content='code --install-extension zef-0.1.27.vsix',
-      holdBeforeOutput=350,
+      holdBeforeOutput=0.35,
       content_=[
         ET.TerminalOutput(
           content='Extension installed. Reload VS Code to activate it.',
           tone='info',
-          delay=450
+          delay=0.45
         )
       ],
-      holdAfter=800
+      holdAfter=0.8
     )
   ]
 )
 ```
 
 The transcript is structured around command transactions: each `ET.TerminalCommand` owns its output lines, while comments remain standalone narrative beats.
+
+---
+
+## Workflow timeline
+
+A workflow timeline presents a staged process as domain data. In a live system, `activeStep` can be updated from real workflow state; `ET.WorkflowPlayback` makes the explanatory demo advance through stages with data-defined timing. All duration fields use SI seconds and accept integers or floats.
+
+```zef
+ET.WorkflowTimeline(
+  title='Real-time deployment',
+  activeStep='change-detected',
+  playback=ET.WorkflowPlayback(
+    startAt='change-detected',
+    advanceEvery=1.5,
+    finalHold=4,
+    loop=true
+  ),
+  content_=[
+    ET.WorkflowStep(
+      id='change-detected',
+      title='File Change Detected',
+      description='Zef monitors your Obsidian vault',
+      duration='0.1s'
+    ),
+    ET.WorkflowStep(
+      id='transform',
+      title='Parse & Transform',
+      description='Rust core processes markdown lightning fast',
+      duration='0.2s',
+      activeFor=1.1
+    ),
+    ET.WorkflowStep(
+      id='deploy',
+      title='Build & Deploy',
+      description='Generate HTML and push to live site',
+      duration='0.4s'
+    ),
+    ET.WorkflowStep(
+      id='connected',
+      title='Live & Connected',
+      description='Your post is live with all links preserved',
+      duration='< 1s total'
+    ),
+  ]
+)
+```
+
+Each `ET.WorkflowStep` is a real stage in the process, rather than a visual card. The component keeps the numbered marker, fades future stages, and lights each completed-or-current stage in sequence; playback timing is expressed through `ET.WorkflowPlayback`, with an optional per-step `activeFor` override.
