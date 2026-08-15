@@ -1201,3 +1201,76 @@ ET.GanttChart(
 ```
 
 Hover or focus a task bar for schedule details. Narrow views retain the sticky task labels and expose a thin horizontal scrollbar for the calendar.
+
+### Factory machine schedule
+
+The same chart also supports resource lanes. A machine type groups concrete machines; each machine is one row, and its non-overlapping tasks share that lane.
+
+```zef
+ET.GanttChart(
+  title='Factory cell schedule',
+  subtitle='A two-week production plan across machining, finishing, and inspection',
+  today='2026-11-10',
+  range=ET.DateRange(start='2026-11-03', end='2026-11-16'),
+  content_=[
+    ET.MachineType(
+      id='milling',
+      title='CNC milling',
+      accent='blue',
+      content_=[
+        ET.Machine(
+          id='mill-01',
+          title='Mill 01',
+          content_=[
+            ET.GanttTask(id='housing-a', title='Housing batch A', start='2026-11-03', end='2026-11-05', progress=1.0),
+            ET.GanttTask(id='housing-b', title='Housing batch B', start='2026-11-06', end='2026-11-09', progress=0.75),
+            ET.GanttTask(id='housing-c', title='Housing batch C', start='2026-11-10', end='2026-11-12', progress=0.15)
+          ]
+        ),
+        ET.Machine(
+          id='mill-02',
+          title='Mill 02',
+          content_=[
+            ET.GanttTask(id='bracket-a', title='Bracket batch A', start='2026-11-04', end='2026-11-07', progress=1.0),
+            ET.GanttTask(id='bracket-b', title='Bracket batch B', start='2026-11-10', end='2026-11-13', progress=0.2)
+          ]
+        )
+      ]
+    ),
+    ET.MachineType(
+      id='finishing',
+      title='Surface finishing',
+      accent='violet',
+      content_=[
+        ET.Machine(
+          id='coat-01',
+          title='Coating line 01',
+          content_=[
+            ET.GanttTask(id='coat-a', title='Coat housing A', start='2026-11-06', end='2026-11-07', progress=1.0),
+            ET.GanttTask(id='coat-b', title='Coat bracket A', start='2026-11-08', end='2026-11-09', progress=0.9),
+            ET.GanttTask(id='coat-c', title='Coat housing B', start='2026-11-10', end='2026-11-11', progress=0.3)
+          ]
+        )
+      ]
+    ),
+    ET.MachineType(
+      id='inspection',
+      title='Quality inspection',
+      accent='emerald',
+      content_=[
+        ET.Machine(
+          id='cmm-01',
+          title='CMM 01',
+          content_=[
+            ET.GanttTask(id='inspect-a', title='Inspect housing A', start='2026-11-08', end='2026-11-09', progress=1.0),
+            ET.GanttTask(id='inspect-b', title='Inspect bracket A', start='2026-11-10', end='2026-11-10', progress=0.5),
+            ET.GanttTask(id='inspect-c', title='Inspect housing B', start='2026-11-12', end='2026-11-13', progress=0.0)
+          ]
+        )
+      ]
+    )
+  ]
+)
+```
+
+`ET.Machine` defines the lane; the chart intentionally does not schedule or reorder tasks. It renders every explicitly dated task in that machine's single row, making serial machine assignment visible without introducing a planning engine.

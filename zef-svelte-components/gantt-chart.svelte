@@ -43,31 +43,45 @@ created = "Time('2026-08-15 16:10:00 +0800')"
     return Math.round((right.getTime() - left.getTime()) / dayMilliseconds);
   }
 
-  function phasesFor(chart) {
-    return (chart?.content_ ?? []).filter(phase => phase?.__type === 'ET.ProjectPhase');
+  function scheduleGroups(chart) {
+    return (chart?.content_ ?? []).filter(group => group?.__type === 'ET.ProjectPhase' || group?.__type === 'ET.MachineType');
+  }
+
+  function validTasks(items) {
+    return (items ?? [])
+      .filter(task => task?.__type === 'ET.GanttTask')
+      .map(task => ({ task, startDate: parseDate(task.start), endDate: parseDate(task.end) }))
+      .filter(entry => entry.startDate && entry.endDate && entry.endDate >= entry.startDate);
   }
 
   function rowsFor(chart) {
-    return phasesFor(chart).flatMap((phase, phaseIndex) =>
-      (phase.content_ ?? [])
-        .filter(task => task?.__type === 'ET.GanttTask')
-        .map((task, taskIndex) => ({
-          phase,
-          phaseIndex,
-          task,
-          firstInPhase: taskIndex === 0,
-          startDate: parseDate(task.start),
-          endDate: parseDate(task.end)
-        }))
-        .filter(row => row.startDate && row.endDate && row.endDate >= row.startDate)
-    );
+    return scheduleGroups(chart).flatMap((group, groupIndex) => {
+      if (group.__type === 'ET.MachineType') {
+        return (group.content_ ?? []).filter(machine => machine?.__type === 'ET.Machine').map((machine, machineIndex) => ({
+          id: machine.id ?? `${group.id}:${machineIndex}`,
+          phase: group,
+          phaseIndex: groupIndex,
+          label: machine.title,
+          tasks: validTasks(machine.content_),
+          firstInPhase: machineIndex === 0
+        })).filter(row => row.tasks.length > 0);
+      }
+      return validTasks(group.content_).map((entry, taskIndex) => ({
+        id: entry.task.id ?? `${group.id}:${taskIndex}`,
+        phase: group,
+        phaseIndex: groupIndex,
+        label: entry.task.title,
+        tasks: [entry],
+        firstInPhase: taskIndex === 0
+      }));
+    });
   }
 
   function boundsFor(chart, rows) {
     const explicitStart = parseDate(chart?.range?.start);
     const explicitEnd = parseDate(chart?.range?.end);
-    const starts = rows.map(row => row.startDate.getTime());
-    const ends = rows.map(row => row.endDate.getTime());
+    const starts = rows.flatMap(row => row.tasks.map(entry => entry.startDate.getTime()));
+    const ends = rows.flatMap(row => row.tasks.map(entry => entry.endDate.getTime()));
     const first = explicitStart ?? (starts.length ? new Date(Math.min(...starts)) : new Date());
     const last = explicitEnd ?? (ends.length ? new Date(Math.max(...ends)) : addDays(first, 14));
     return { start: first, end: last >= first ? last : first };
@@ -82,7 +96,7 @@ created = "Time('2026-08-15 16:10:00 +0800')"
     const context = document.createElement('canvas').getContext('2d');
     if (!context) return minimumLabelWidth;
     context.font = '500 12px Inter, system-ui, sans-serif';
-    const widestLabel = Math.max(0, ...rows.map(row => context.measureText(row.task.title ?? '').width));
+    const widestLabel = Math.max(0, ...rows.map(row => context.measureText(row.label ?? '').width));
     return Math.max(minimumLabelWidth, Math.ceil(widestLabel + 28));
   }
 
@@ -103,12 +117,12 @@ created = "Time('2026-08-15 16:10:00 +0800')"
     return String(date.getUTCDate());
   }
 
-  function durationLabel(row) {
-    const days = dayDifference(row.startDate, row.endDate) + 1;
+  function durationLabel(entry) {
+    const days = dayDifference(entry.startDate, entry.endDate) + 1;
     return `${days} day${days === 1 ? '' : 's'}`;
   }
 
-  function showTooltip(event, row) {
+  function showTooltip(event, row, entry) {
     const surface = event.currentTarget.closest('.schedule-shell');
     const surfaceRect = surface.getBoundingClientRect();
     const barRect = event.currentTarget.getBoundingClientRect();
@@ -116,6 +130,7 @@ created = "Time('2026-08-15 16:10:00 +0800')"
     const above = barRect.top - surfaceRect.top > 190;
     hovered = {
       row,
+      entry,
       x,
       y: above ? barRect.top - surfaceRect.top - 12 : barRect.bottom - surfaceRect.top + 12,
       above
@@ -179,27 +194,29 @@ created = "Time('2026-08-15 16:10:00 +0800')"
             {/each}
           </div>
 
-          {#each rows as row, rowIndex (row.task.id ?? `${row.phase.id}:${row.task.title}`)}
+          {#each rows as row, rowIndex (row.id)}
             <div class:first-in-phase={row.firstInPhase && rowIndex > 0} class="task-label" style={`top: ${40 + rowIndex * 54}px;`}>
               {#if row.firstInPhase}<span class="phase" style={`color: ${accentFor(row)}`}>{row.phase.title}</span>{/if}
-              <span class="task-name">{row.task.title}</span>
+              <span class="task-name">{row.label}</span>
             </div>
             <div class:first-in-phase={row.firstInPhase && rowIndex > 0} class="chart-row" style={`top: ${40 + rowIndex * 54}px;`}>
               <div class="day-grid" style={`background-size: ${dayWidth}px 100%;`}></div>
-              <button
-                class="task-bar"
-                style={`left: ${dayDifference(bounds.start, row.startDate) * dayWidth + 4}px; width: ${Math.max(dayWidth - 8, (dayDifference(row.startDate, row.endDate) + 1) * dayWidth - 8)}px; background: ${accentFor(row)};`}
-                type="button"
-                aria-label={`${row.task.title}, ${dateLabel(row.startDate)} to ${dateLabel(row.endDate)}`}
-                onmouseenter={(event) => showTooltip(event, row)}
-                onfocus={(event) => showTooltip(event, row)}
-                onmouseleave={clearTooltip}
-                onblur={clearTooltip}
-              >
-                {#if clampedProgress(row.task) !== null}<span class="task-progress" style={`width: ${clampedProgress(row.task) * 100}%`}></span>{/if}
-                <span class="bar-label">{row.task.title}</span>
-                {#if clampedProgress(row.task) !== null}<span class="bar-progress">{Math.round(clampedProgress(row.task) * 100)}%</span>{/if}
-              </button>
+              {#each row.tasks as entry (entry.task.id ?? entry.task.title)}
+                <button
+                  class="task-bar"
+                  style={`left: ${dayDifference(bounds.start, entry.startDate) * dayWidth + 4}px; width: ${Math.max(dayWidth - 8, (dayDifference(entry.startDate, entry.endDate) + 1) * dayWidth - 8)}px; background: ${accentFor(row)};`}
+                  type="button"
+                  aria-label={`${entry.task.title}, ${dateLabel(entry.startDate)} to ${dateLabel(entry.endDate)}`}
+                  onmouseenter={(event) => showTooltip(event, row, entry)}
+                  onfocus={(event) => showTooltip(event, row, entry)}
+                  onmouseleave={clearTooltip}
+                  onblur={clearTooltip}
+                >
+                  {#if clampedProgress(entry.task) !== null}<span class="task-progress" style={`width: ${clampedProgress(entry.task) * 100}%`}></span>{/if}
+                  <span class="bar-label">{entry.task.title}</span>
+                  {#if clampedProgress(entry.task) !== null}<span class="bar-progress">{Math.round(clampedProgress(entry.task) * 100)}%</span>{/if}
+                </button>
+              {/each}
             </div>
           {/each}
 
@@ -211,14 +228,15 @@ created = "Time('2026-08-15 16:10:00 +0800')"
 
       {#if hovered}
         {@const row = hovered.row}
+        {@const entry = hovered.entry}
         <aside class:above={hovered.above} class="tooltip" style={`left: ${hovered.x}px; top: ${hovered.y}px;`} role="status">
           <span class="tooltip-phase" style={`color: ${accentFor(row)}`}>{row.phase.title}</span>
-          <strong>{row.task.title}</strong>
-          <div class="tooltip-dates"><span>{dateLabel(row.startDate)} – {dateLabel(row.endDate)}</span><i>{durationLabel(row)}</i></div>
-          {#if row.task.description}<p>{row.task.description}</p>{/if}
-          {#if clampedProgress(row.task) !== null}
-            <div class="tooltip-progress"><span>Completion</span><b>{Math.round(clampedProgress(row.task) * 100)}%</b></div>
-            <div class="progress-track"><i style={`width: ${clampedProgress(row.task) * 100}%; background: ${accentFor(row)}`}></i></div>
+          <strong>{entry.task.title}</strong>
+          <div class="tooltip-dates"><span>{dateLabel(entry.startDate)} – {dateLabel(entry.endDate)}</span><i>{durationLabel(entry)}</i></div>
+          {#if entry.task.description}<p>{entry.task.description}</p>{/if}
+          {#if clampedProgress(entry.task) !== null}
+            <div class="tooltip-progress"><span>Completion</span><b>{Math.round(clampedProgress(entry.task) * 100)}%</b></div>
+            <div class="progress-track"><i style={`width: ${clampedProgress(entry.task) * 100}%; background: ${accentFor(row)}`}></i></div>
           {/if}
         </aside>
       {/if}
