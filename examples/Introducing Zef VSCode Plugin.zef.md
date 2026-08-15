@@ -1277,8 +1277,8 @@ A pipeline describes an ordered transformation. The component derives connectors
 
 ```zef
 ET.PipelineAnimation(
-  title='Everything is data',
-  subtitle='A reproducible path from notes to a connected publication.',
+  title='From shop floor to traceability',
+  subtitle='One stream of production facts drives scheduling, quality, and audit views.',
   playback=ET.PipelinePlayback(
     advanceEvery=2,
     finalHold=3,
@@ -1286,20 +1286,20 @@ ET.PipelineAnimation(
   ),
   content_=[
     ET.PipelineStage(
-      title='Obsidian',
-      description='Your interconnected notes',
-      icon=ET.MaterialSymbol(name='edit_note', style='outlined')
+      title='Machine events',
+      description='Cycles, inspections, and handoffs arrive as recorded facts.',
+      icon=ET.MaterialSymbol(name='cloud_upload', style='outlined')
     ),
     ET.PipelineStage(
-      title='Zef',
-      description='Rust-powered transformation',
-      icon=ET.MaterialSymbol(name='bolt', style='outlined'),
+      title='Typed production graph',
+      description='Facts connect machines, batches, operators, and quality checks.',
+      icon=ET.MaterialSymbol(name='account_tree', style='outlined'),
       activeFor=2.5
     ),
     ET.PipelineStage(
-      title='Beautiful blog',
-      description='Connected, live, yours',
-      icon=ET.MaterialSymbol(name='language', style='outlined')
+      title='Traceable operations',
+      description='Schedules and release decisions update from the same entity data.',
+      icon=ET.MaterialSymbol(name='check_circle', style='outlined')
     )
   ]
 )
