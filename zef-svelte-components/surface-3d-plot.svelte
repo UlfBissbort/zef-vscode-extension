@@ -15,6 +15,7 @@ created = "Time('2026-08-15 19:20:00 +0800')"
   /** A trusted WebGL renderer for a restricted JavaScript mathematical formula. */
   export let data;
   let host;
+  let plot;
   let error = '';
   let isFullWidth = false;
   let renderer;
@@ -119,15 +120,15 @@ created = "Time('2026-08-15 19:20:00 +0800')"
     } catch (caught) { error = caught instanceof Error ? caught.message : String(caught); }
   }
 
-  function toggleFullWidth() { isFullWidth = !isFullWidth; window.parent.postMessage({ type: 'zefEntityToggleFullWidth', entityType: 'ET.Surface3dPlot' }, '*'); }
-  function reportHeight() { if (host) window.parent.postMessage({ type: 'zefEntityResize', height: Math.ceil(host.parentElement.getBoundingClientRect().height) }, '*'); }
+  function toggleFullWidth() { isFullWidth = !isFullWidth; window.parent.postMessage({ type: 'zefEntityToggleFullWidth', entityType: 'ET.Surface3dPlot' }, '*'); requestAnimationFrame(() => requestAnimationFrame(reportHeight)); }
+  function reportHeight() { if (plot) window.parent.postMessage({ type: 'zefEntityResize', height: Math.ceil(plot.getBoundingClientRect().height) }, '*'); }
   onMount(() => { renderSurface(data); reportHeight(); });
   onDestroy(() => disposeScene());
   $: if (host) { renderSurface(data); void tick().then(reportHeight); }
 </script>
 
 {#if data?.__type === 'ET.Surface3dPlot'}
-  <section class:full-width={isFullWidth} class="surface-plot" aria-label={data.title ?? '3D surface plot'}>
+  <section bind:this={plot} class:full-width={isFullWidth} class="surface-plot" aria-label={data.title ?? '3D surface plot'}>
     {#if data.title || data.subtitle}<header><div>{#if data.title}<h2>{data.title}</h2>{/if}{#if data.subtitle}<p>{data.subtitle}</p>{/if}</div></header>{/if}
     <div class="stage"><div bind:this={host} class="canvas" aria-label="Drag to orbit; scroll to zoom"></div><button type="button" title="Toggle full width" aria-label="Toggle full width" onclick={toggleFullWidth}><svg viewBox="0 0 24 24"><path d="M8 3H3v5M16 3h5v5M8 21H3v-5M16 21h5v-5" /></svg></button></div>
     <footer><code>drag to orbit · scroll to zoom</code><span>{data.theme ?? 'deep ocean'} lighting</span></footer>
@@ -136,5 +137,5 @@ created = "Time('2026-08-15 19:20:00 +0800')"
 {:else}<p class="error">Surface3dPlot requires an <code>ET.Surface3dPlot</code> data value.</p>{/if}
 
 <style>
-  :global(html), :global(body) { overflow: hidden; padding: 0 !important; } .surface-plot { color: #e4e4e7; font-family: Inter, ui-sans-serif, system-ui, sans-serif; max-width: 820px; } .surface-plot.full-width { margin-left: auto; margin-right: auto; max-width: 1200px; } header { margin-bottom: 14px; } h2 { font-size: 18px; font-weight: 600; letter-spacing: -0.02em; margin: 0; } header p { color: #8a8a94; font-size: 13px; margin: 6px 0 0; } .stage { position: relative; } button { background: rgb(3 3 5 / 0.78); border: 1px solid #30303a; border-radius: 6px; color: #a1a1aa; cursor: pointer; display: grid; height: 30px; padding: 6px; place-items: center; position: absolute; right: 10px; top: 10px; width: 30px; z-index: 2; } button:hover { border-color: #52525b; color: #e4e4e7; } button svg { fill: none; height: 16px; stroke: currentColor; stroke-linecap: round; stroke-width: 1.5; width: 16px; } .canvas { background: #030305; border: 1px solid #1b1b1e; height: 440px; overflow: hidden; } .canvas :global(canvas) { cursor: grab; display: block; height: 100%; touch-action: none; width: 100%; } .canvas :global(canvas):active { cursor: grabbing; } footer { color: #5c5c65; display: flex; font-size: 11px; justify-content: space-between; padding: 9px 2px; } code { color: #71717a; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; } .error { color: #fda4af; font-family: system-ui, sans-serif; font-size: 12px; margin: 8px 0; }
+  :global(html), :global(body) { overflow: hidden; padding: 0 !important; } .surface-plot { color: #e4e4e7; font-family: Inter, ui-sans-serif, system-ui, sans-serif; max-width: 820px; } .surface-plot.full-width { margin-left: auto; margin-right: auto; max-width: 1200px; } .surface-plot.full-width .canvas { aspect-ratio: 820 / 440; height: auto; } header { margin-bottom: 14px; padding: 0 16px; } h2 { font-size: 18px; font-weight: 600; letter-spacing: -0.02em; margin: 0; } header p { color: #8a8a94; font-size: 13px; margin: 6px 0 0; } .stage { position: relative; } button { background: rgb(3 3 5 / 0.78); border: 1px solid #30303a; border-radius: 6px; color: #a1a1aa; cursor: pointer; display: grid; height: 30px; padding: 6px; place-items: center; position: absolute; right: 10px; top: 10px; width: 30px; z-index: 2; } button:hover { border-color: #52525b; color: #e4e4e7; } button svg { fill: none; height: 16px; stroke: currentColor; stroke-linecap: round; stroke-width: 1.5; width: 16px; } .canvas { background: #030305; border: 1px solid #1b1b1e; height: 440px; overflow: hidden; } .canvas :global(canvas) { cursor: grab; display: block; height: 100%; touch-action: none; width: 100%; } .canvas :global(canvas):active { cursor: grabbing; } footer { color: #5c5c65; display: flex; font-size: 11px; justify-content: space-between; padding: 9px 2px; } code { color: #71717a; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; } .error { color: #fda4af; font-family: system-ui, sans-serif; font-size: 12px; margin: 8px 0; }
 </style>
