@@ -129,7 +129,6 @@ created = "Time('2026-08-15 16:10:00 +0800')"
   <figure class="gantt" aria-labelledby="gantt-title">
     <figcaption class="chart-header">
       <div>
-        <p class="eyebrow">Project schedule</p>
         <h2 id="gantt-title">{data.title}</h2>
         {#if data.subtitle}<p class="subtitle">{data.subtitle}</p>{/if}
       </div>
@@ -204,25 +203,24 @@ created = "Time('2026-08-15 16:10:00 +0800')"
 <style>
   .gantt { color: #e4e4e7; font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; margin: 0; max-width: none; }
   .chart-header { align-items: flex-start; display: flex; justify-content: space-between; margin-bottom: 16px; }
-  .eyebrow { color: #71717a; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 11px; letter-spacing: 0.12em; margin: 0 0 4px; text-transform: uppercase; }
   h2 { color: #e4e4e7; font-size: 18px; font-weight: 600; letter-spacing: -0.02em; line-height: 1.25; margin: 0; }
   .subtitle { color: #8a8a94; font-size: 13px; line-height: 1.5; margin: 7px 0 0; }
   .expand { background: transparent; border: 1px solid #27272a; border-radius: 6px; color: #71717a; cursor: pointer; display: grid; height: 30px; padding: 6px; place-items: center; width: 30px; }
   .expand:hover { border-color: #3f3f46; color: #a1a1aa; } .expand svg { fill: none; height: 16px; stroke: currentColor; stroke-linecap: round; stroke-linejoin: round; stroke-width: 1.5; width: 16px; }
-  .schedule-shell { border-bottom: 1px solid #222; border-top: 1px solid #222; position: relative; }
+  .schedule-shell { border-bottom: 1px solid #1b1b1e; border-top: 1px solid #1b1b1e; position: relative; }
   .schedule-scroll { overflow-x: auto; overflow-y: hidden; scrollbar-color: #3f3f46 transparent; scrollbar-width: thin; }
   .schedule-scroll::-webkit-scrollbar { height: 7px; } .schedule-scroll::-webkit-scrollbar-track { background: transparent; } .schedule-scroll::-webkit-scrollbar-thumb { background: #3f3f46; border: 2px solid transparent; background-clip: padding-box; border-radius: 999px; } .schedule-scroll::-webkit-scrollbar-thumb:hover { background-color: #52525b; }
   .schedule { min-height: 40px; position: relative; width: var(--schedule-width); }
-  .corner { align-items: flex-end; background: #0a0a0a; border-bottom: 1px solid #222; border-right: 1px solid #222; color: #5c5c65; display: flex; font: 10px ui-monospace, SFMono-Regular, Menlo, monospace; height: 40px; left: 0; letter-spacing: 0.1em; padding: 0 14px 10px; position: sticky; text-transform: uppercase; top: 0; width: 190px; z-index: 5; }
-  .timeline-header { border-bottom: 1px solid #222; height: 40px; left: 190px; position: absolute; top: 0; width: var(--timeline-width); }
-  .date-cell { align-items: flex-end; border-right: 1px solid #1c1c1f; color: #5c5c65; display: flex; font: 10px ui-monospace, SFMono-Regular, Menlo, monospace; height: 40px; justify-content: center; padding-bottom: 10px; position: absolute; white-space: nowrap; }
+  .corner { align-items: flex-end; background: #0a0a0a; border-bottom: 1px solid #1b1b1e; border-right: 1px solid #18181a; color: #5c5c65; display: flex; font: 10px ui-monospace, SFMono-Regular, Menlo, monospace; height: 40px; left: 0; letter-spacing: 0.1em; padding: 0 14px 10px; position: sticky; text-transform: uppercase; top: 0; width: 190px; z-index: 5; }
+  .timeline-header { border-bottom: 1px solid #1b1b1e; height: 40px; left: 190px; position: absolute; top: 0; width: var(--timeline-width); }
+  .date-cell { align-items: flex-end; border-right: 1px solid #151517; color: #5c5c65; display: flex; font: 10px ui-monospace, SFMono-Regular, Menlo, monospace; height: 40px; justify-content: center; padding-bottom: 10px; position: absolute; white-space: nowrap; }
   .date-cell.today { color: #ad6cff; font-weight: 600; }
-  .task-label { align-items: center; background: #0a0a0a; border-bottom: 1px solid #222; border-right: 1px solid #222; display: flex; flex-direction: column; height: 54px; justify-content: center; left: 0; padding: 0 14px; position: sticky; width: 190px; z-index: 4; }
-  .task-label.first-in-phase, .chart-row.first-in-phase { border-top: 1px solid #323238; }
+  .task-label { align-items: center; background: #0a0a0a; border-bottom: 1px solid #1b1b1e; border-right: 1px solid #18181a; display: flex; flex-direction: column; height: 54px; justify-content: center; left: 0; padding: 0 14px; position: sticky; width: 190px; z-index: 4; }
+  .task-label.first-in-phase, .chart-row.first-in-phase { border-top: 1px solid #26262b; }
   .phase { align-self: stretch; font: 9px ui-monospace, SFMono-Regular, Menlo, monospace; letter-spacing: 0.09em; margin-bottom: 3px; opacity: 0.8; overflow: hidden; text-overflow: ellipsis; text-transform: uppercase; white-space: nowrap; }
   .task-name { align-self: stretch; color: #a1a1aa; font-size: 12px; font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  .chart-row { border-bottom: 1px solid #222; height: 54px; left: 190px; position: absolute; width: var(--timeline-width); }
-  .day-grid { background-image: linear-gradient(90deg, transparent calc(100% - 1px), #1c1c1f calc(100% - 1px)); inset: 0; position: absolute; }
+  .chart-row { border-bottom: 1px solid #1b1b1e; height: 54px; left: 190px; position: absolute; width: var(--timeline-width); }
+  .day-grid { background-image: linear-gradient(90deg, transparent calc(100% - 1px), #151517 calc(100% - 1px)); inset: 0; position: absolute; }
   .task-bar { border: 0; border-radius: 6px; color: #fff; cursor: crosshair; display: flex; height: 24px; overflow: hidden; padding: 0 8px; position: absolute; top: 15px; transition: filter 160ms ease, transform 160ms ease; }
   .task-bar:hover, .task-bar:focus-visible { filter: brightness(1.08); outline: none; transform: scale(1.01); z-index: 3; }
   .task-progress { background: rgb(255 255 255 / 0.2); border-radius: 6px; inset: 0 auto 0 0; position: absolute; }
