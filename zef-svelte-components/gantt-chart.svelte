@@ -15,7 +15,7 @@ created = "Time('2026-08-15 16:10:00 +0800')"
 
   const dayMilliseconds = 86_400_000;
   const dayWidth = 40;
-  const labelWidth = 190;
+  const minimumLabelWidth = 120;
   const accentColors = {
     violet: '#ad6cff',
     blue: '#5e83ef',
@@ -73,6 +73,15 @@ created = "Time('2026-08-15 16:10:00 +0800')"
     return Array.from({ length: dayDifference(bounds.start, bounds.end) + 1 }, (_, index) => addDays(bounds.start, index));
   }
 
+  function labelWidthFor(rows) {
+    if (typeof document === 'undefined') return minimumLabelWidth;
+    const context = document.createElement('canvas').getContext('2d');
+    if (!context) return minimumLabelWidth;
+    context.font = '500 12px Inter, system-ui, sans-serif';
+    const widestLabel = Math.max(0, ...rows.map(row => context.measureText(row.task.title ?? '').width));
+    return Math.max(minimumLabelWidth, Math.ceil(widestLabel + 28));
+  }
+
   function accentFor(row) {
     return accentColors[row.phase.accent] ?? row.phase.accent ?? accentColors[fallbackAccents[row.phaseIndex % fallbackAccents.length]];
   }
@@ -118,6 +127,7 @@ created = "Time('2026-08-15 16:10:00 +0800')"
   }
 
   $: rows = rowsFor(data);
+  $: labelWidth = labelWidthFor(rows);
   $: bounds = boundsFor(data, rows);
   $: days = daysFor(bounds);
   $: timelineWidth = days.length * dayWidth;
@@ -126,7 +136,7 @@ created = "Time('2026-08-15 16:10:00 +0800')"
 </script>
 
 {#if data?.__type === 'ET.GanttChart'}
-  <figure class="gantt" aria-labelledby="gantt-title">
+  <figure class="gantt" style={`--gantt-required-width: ${labelWidth + timelineWidth}px;`} aria-labelledby="gantt-title">
     <figcaption class="chart-header">
       <div>
         <h2 id="gantt-title">{data.title}</h2>
@@ -139,7 +149,7 @@ created = "Time('2026-08-15 16:10:00 +0800')"
 
     <div class="schedule-shell">
       <div class="schedule-scroll">
-        <div class="schedule" style={`--timeline-width: ${timelineWidth}px; --schedule-width: ${labelWidth + timelineWidth}px; height: ${40 + rows.length * 54}px;`}>
+        <div class="schedule" style={`--label-width: ${labelWidth}px; --timeline-width: ${timelineWidth}px; --schedule-width: ${labelWidth + timelineWidth}px; height: ${40 + rows.length * 54}px;`}>
           <div class="corner">Task</div>
           <div class="timeline-header">
             {#each days as date, index (date.getTime())}
@@ -201,7 +211,7 @@ created = "Time('2026-08-15 16:10:00 +0800')"
 {/if}
 
 <style>
-  .gantt { color: #e4e4e7; font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; margin: 0; max-width: none; }
+  .gantt { color: #e4e4e7; font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; margin: 0 auto; max-width: 100%; width: var(--gantt-required-width); }
   .chart-header { align-items: flex-start; display: flex; justify-content: space-between; margin-bottom: 16px; }
   h2 { color: #e4e4e7; font-size: 18px; font-weight: 600; letter-spacing: -0.02em; line-height: 1.25; margin: 0; }
   .subtitle { color: #8a8a94; font-size: 13px; line-height: 1.5; margin: 7px 0 0; }
@@ -211,22 +221,22 @@ created = "Time('2026-08-15 16:10:00 +0800')"
   .schedule-scroll { overflow-x: auto; overflow-y: hidden; scrollbar-color: #3f3f46 transparent; scrollbar-width: thin; }
   .schedule-scroll::-webkit-scrollbar { height: 7px; } .schedule-scroll::-webkit-scrollbar-track { background: transparent; } .schedule-scroll::-webkit-scrollbar-thumb { background: #3f3f46; border: 2px solid transparent; background-clip: padding-box; border-radius: 999px; } .schedule-scroll::-webkit-scrollbar-thumb:hover { background-color: #52525b; }
   .schedule { min-height: 40px; position: relative; width: var(--schedule-width); }
-  .corner { align-items: flex-end; background: #0a0a0a; border-bottom: 1px solid #1b1b1e; border-right: 1px solid #18181a; color: #5c5c65; display: flex; font: 10px ui-monospace, SFMono-Regular, Menlo, monospace; height: 40px; left: 0; letter-spacing: 0.1em; padding: 0 14px 10px; position: sticky; text-transform: uppercase; top: 0; width: 190px; z-index: 5; }
-  .timeline-header { border-bottom: 1px solid #1b1b1e; height: 40px; left: 190px; position: absolute; top: 0; width: var(--timeline-width); }
+  .corner { align-items: flex-end; background: #0a0a0a; border-bottom: 1px solid #1b1b1e; border-right: 2px solid #303035; color: #5c5c65; display: flex; font: 10px ui-monospace, SFMono-Regular, Menlo, monospace; height: 40px; left: 0; letter-spacing: 0.1em; padding: 0 14px 10px; position: sticky; text-transform: uppercase; top: 0; width: var(--label-width); z-index: 5; }
+  .timeline-header { border-bottom: 1px solid #1b1b1e; height: 40px; left: var(--label-width); position: absolute; top: 0; width: var(--timeline-width); }
   .date-cell { align-items: flex-end; border-right: 1px solid #151517; color: #5c5c65; display: flex; font: 10px ui-monospace, SFMono-Regular, Menlo, monospace; height: 40px; justify-content: center; padding-bottom: 10px; position: absolute; white-space: nowrap; }
-  .date-cell.today { color: #ad6cff; font-weight: 600; }
-  .task-label { align-items: center; background: #0a0a0a; border-bottom: 1px solid #1b1b1e; border-right: 1px solid #18181a; display: flex; flex-direction: column; height: 54px; justify-content: center; left: 0; padding: 0 14px; position: sticky; width: 190px; z-index: 4; }
+  .date-cell.today { color: #c3c3ca; font-weight: 600; }
+  .task-label { align-items: center; background: #0a0a0a; border-bottom: 1px solid #1b1b1e; border-right: 2px solid #303035; display: flex; flex-direction: column; height: 54px; justify-content: center; left: 0; padding: 0 14px; position: sticky; width: var(--label-width); z-index: 4; }
   .task-label.first-in-phase, .chart-row.first-in-phase { border-top: 1px solid #26262b; }
   .phase { align-self: stretch; font: 9px ui-monospace, SFMono-Regular, Menlo, monospace; letter-spacing: 0.09em; margin-bottom: 3px; opacity: 0.8; overflow: hidden; text-overflow: ellipsis; text-transform: uppercase; white-space: nowrap; }
   .task-name { align-self: stretch; color: #a1a1aa; font-size: 12px; font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  .chart-row { border-bottom: 1px solid #1b1b1e; height: 54px; left: 190px; position: absolute; width: var(--timeline-width); }
+  .chart-row { border-bottom: 1px solid #1b1b1e; height: 54px; left: var(--label-width); position: absolute; width: var(--timeline-width); }
   .day-grid { background-image: linear-gradient(90deg, transparent calc(100% - 1px), #151517 calc(100% - 1px)); inset: 0; position: absolute; }
-  .task-bar { border: 0; border-radius: 6px; color: #fff; cursor: crosshair; display: flex; height: 24px; overflow: hidden; padding: 0 8px; position: absolute; top: 15px; transition: filter 160ms ease, transform 160ms ease; }
+  .task-bar { border: 0; border-radius: 6px; color: #fff; cursor: crosshair; display: flex; height: 24px; overflow: hidden; padding: 0 8px; position: absolute; top: 15px; transition: filter 160ms ease, transform 160ms ease; z-index: 2; }
   .task-bar:hover, .task-bar:focus-visible { filter: brightness(1.08); outline: none; transform: scale(1.01); z-index: 3; }
   .task-progress { background: rgb(255 255 255 / 0.2); border-radius: 6px; inset: 0 auto 0 0; position: absolute; }
   .bar-label, .bar-progress { align-items: center; display: flex; font-size: 10px; font-weight: 600; min-width: 0; position: relative; text-shadow: 0 1px 2px rgb(0 0 0 / 0.25); z-index: 1; }
   .bar-label { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; } .bar-progress { margin-left: auto; padding-left: 8px; }
-  .today-line { background: #ad6cff; pointer-events: none; position: absolute; top: 40px; width: 1px; z-index: 3; }
+  .today-line { background: #71717a; pointer-events: none; position: absolute; top: 40px; width: 1px; z-index: 1; }
   .tooltip { background: rgb(24 24 27 / 0.94); border: 1px solid #3f3f46; border-radius: 10px; box-shadow: 0 12px 32px rgb(0 0 0 / 0.42); box-sizing: border-box; padding: 13px; pointer-events: none; position: absolute; transform-origin: top center; width: 240px; z-index: 10; }
   .tooltip.above { transform: translateY(-100%); transform-origin: bottom center; }
   .tooltip-phase { display: block; font: 9px ui-monospace, SFMono-Regular, Menlo, monospace; letter-spacing: 0.1em; margin-bottom: 4px; text-transform: uppercase; }
