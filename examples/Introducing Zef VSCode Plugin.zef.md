@@ -412,9 +412,9 @@ Welcome to reproducible interactive computing. 🚀
 
 ---
 
-## Svelte Components (Coming Soon)
+## Svelte Components
 
-Embed live, interactive Svelte components directly in your documents. Minimal code, maximum impact.
+Embed and run live, interactive Svelte components directly in your documents. Compile a `svelte` fence to render it in Zef View.
 
 ### Live Terminal Demo
 
@@ -821,3 +821,130 @@ An animated terminal that types code with a blinking cursor. Click to restart th
   .insight-icon { font-size: 16px; }
 </style>
 ```
+
+---
+
+## Entity-directed plots
+
+`zef` fences can render a registered Svelte component from either JSON-shaped entity data or a constructor-style Zen expression. The examples below use two developer-workflow visualizations.
+
+### CI strategy frontier
+
+This scatter plot compares CI configurations. Lower and further left means faster feedback with fewer flaky retries.
+
+```zef
+{
+  "__type": "ET.ScatterPlot",
+  "title": "CI strategy frontier",
+  "subtitle": "P95 feedback time against flaky-test retry rate across build configurations",
+  "xAxis": {"__type": "ET.Axis", "label": "P95 CI duration", "unit": "min", "domain": [0, 42]},
+  "yAxis": {"__type": "ET.Axis", "label": "Retry rate", "unit": "%", "domain": [0, 18]},
+  "source": {"__type": "ET.DataSource", "label": "illustrative pull-request runs", "sampleSize": 5},
+  "encoding": "each point is a CI strategy; lower-left means faster feedback with fewer retries",
+  "trendLine": {"from": {"x": 39, "y": 15}, "to": {"x": 8, "y": 2}},
+  "content_": [
+    {
+      "__type": "ET.PointSeries",
+      "label": "Build strategies",
+      "accent": "blue",
+      "hover": {
+        "__type": "ET.HoverAnnotation",
+        "title": "CI strategy frontier",
+        "content": "Compare a strategy's developer feedback time with the operational cost of flaky retries."
+      },
+      "content_": [
+        {"__type": "ET.DataPoint", "x": 39, "y": 15, "label": "Single worker"},
+        {"__type": "ET.DataPoint", "x": 31, "y": 10, "label": "Static shards"},
+        {"__type": "ET.DataPoint", "x": 22, "y": 7},
+        {
+          "__type": "ET.DataPoint",
+          "x": 14,
+          "y": 3.5,
+          "label": "Cache-aware shards",
+          "emphasis": "highlight",
+          "hover": {
+            "__type": "ET.HoverAnnotation",
+            "title": "Cache-aware shards",
+            "content": "The balanced option: stable shard assignment, remote cache warming, and selective retries."
+          }
+        },
+        {"__type": "ET.DataPoint", "x": 8, "y": 2, "label": "Focused test selection"}
+      ]
+    }
+  ],
+  "annotations": [
+    {"label": "Recommended", "value": "cache-aware shards"},
+    {"label": "Trade-off", "value": "setup complexity"}
+  ]
+}
+```
+
+### Cache warming through the workday
+
+This line plot uses constructor-style Zen notation. The extension converts it through `to_json_like | to_json | collect` before dispatching it to the `ET.LinePlot` component.
+
+```zef
+ET.LinePlot(
+  title='CI queue depth after cache prewarming',
+  subtitle='A morning release train with and without remote-cache prewarming',
+  xAxis=ET.Axis(label='Hour of day', unit='h', domain=[8, 18]),
+  yAxis=ET.Axis(label='Waiting pull requests', domain=[0, 48]),
+  source=ET.DataSource(label='illustrative weekday release train', sampleSize=12),
+  encoding='each line is a release workflow; lower queue depth means faster developer feedback',
+  content_=[
+    ET.LineSeries(
+      label='Cold cache',
+      accent='violet',
+      interpolation='linear',
+      showPoints=True,
+      hover=ET.HoverAnnotation(
+        title='Cold cache workflow',
+        content='The queue grows while early jobs repeatedly rebuild shared dependencies.'
+      ),
+      content_=[
+        ET.DataPoint(x=8, y=6),
+        ET.DataPoint(x=9, y=19),
+        ET.DataPoint(x=10, y=37, label='queue peak'),
+        ET.DataPoint(x=12, y=42),
+        ET.DataPoint(x=14, y=28),
+        ET.DataPoint(x=16, y=12),
+        ET.DataPoint(x=18, y=4)
+      ]
+    ),
+    ET.LineSeries(
+      label='Prewarmed cache',
+      accent='blue',
+      interpolation='linear',
+      showPoints=True,
+      hover=ET.HoverAnnotation(
+        title='Prewarmed workflow',
+        content='Scheduled cache warming keeps the early release burst below the review-blocking threshold.'
+      ),
+      content_=[
+        ET.DataPoint(x=8, y=4),
+        ET.DataPoint(x=9, y=9),
+        ET.DataPoint(
+          x=10,
+          y=14,
+          label='stable peak',
+          emphasis='highlight',
+          hover=ET.HoverAnnotation(
+            title='Stable 10:00 peak',
+            content='Prewarming cuts the peak queue from 37 to 14 waiting pull requests.'
+          )
+        ),
+        ET.DataPoint(x=12, y=13),
+        ET.DataPoint(x=14, y=10),
+        ET.DataPoint(x=16, y=6),
+        ET.DataPoint(x=18, y=3)
+      ]
+    )
+  ],
+  annotations=[
+    {'label': 'Peak reduction', 'value': '62%'},
+    {'label': 'Developer outcome', 'value': 'fewer blocked reviews'}
+  ]
+)
+```
+
+Hover a line to read its workflow-level annotation, or hover an annotated point for a more specific observation.

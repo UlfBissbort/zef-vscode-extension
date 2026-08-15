@@ -12,6 +12,8 @@ created = "Time('2026-08-15 09:22:40 +0800')"
   /** A data-in, DOM-out renderer for an ET.ScatterPlot value. */
   export let data;
 
+  let hoveredAnnotation = null;
+
   const width = 720;
   const height = 440;
   const margin = { top: 34, right: 30, bottom: 62, left: 74 };
@@ -55,6 +57,24 @@ created = "Time('2026-08-15 09:22:40 +0800')"
   function format(value, axis) {
     const unit = axis?.unit ? ` ${axis.unit}` : '';
     return `${Number(value.toFixed(2))}${unit}`;
+  }
+
+  function showHover(event, annotation, fallbackTitle) {
+    if (!annotation) return;
+    const svg = event.currentTarget.ownerSVGElement;
+    const rect = svg.getBoundingClientRect();
+    const content = typeof annotation === 'string' ? annotation : annotation.content;
+    if (typeof content !== 'string') return;
+    hoveredAnnotation = {
+      title: typeof annotation === 'object' && typeof annotation.title === 'string' ? annotation.title : fallbackTitle,
+      content,
+      x: Math.min(88, Math.max(12, ((event.clientX - rect.left) / rect.width) * 100)),
+      y: Math.min(82, Math.max(10, ((event.clientY - rect.top) / rect.height) * 100))
+    };
+  }
+
+  function clearHover() {
+    hoveredAnnotation = null;
   }
 </script>
 
@@ -113,10 +133,19 @@ created = "Time('2026-08-15 09:22:40 +0800')"
         {#each series as pointSeries, seriesIndex (pointSeries.label)}
           {@const pointColor = color(pointSeries.accent, seriesIndex)}
           {#each pointSeries.content_ ?? [] as point}
+            {@const annotation = point.hover ?? pointSeries.hover}
             <g class:highlight={point.emphasis === 'highlight'}>
-              <title>{point.label ?? `${pointSeries.label}: ${point.x}, ${point.y}`}</title>
+              {#if !annotation}<title>{point.label ?? `${pointSeries.label}: ${point.x}, ${point.y}`}</title>{/if}
               <circle class="point-halo" cx={x(point.x)} cy={y(point.y)} r={point.emphasis === 'highlight' ? 10 : 0} fill={pointColor} />
-              <circle cx={x(point.x)} cy={y(point.y)} r={point.emphasis === 'highlight' ? 4 : 4.5} fill={pointColor} />
+              <circle
+                class:hoverable={Boolean(annotation)}
+                cx={x(point.x)} cy={y(point.y)}
+                r={point.emphasis === 'highlight' ? 4 : 4.5}
+                fill={pointColor}
+                onmouseenter={(event) => showHover(event, annotation, point.label ?? pointSeries.label)}
+                onmousemove={(event) => showHover(event, annotation, point.label ?? pointSeries.label)}
+                onmouseleave={clearHover}
+              />
               {#if point.label}
                 <text class="point-label" x={x(point.x) + 11} y={y(point.y) - 11}>{point.label}</text>
               {/if}
@@ -124,6 +153,12 @@ created = "Time('2026-08-15 09:22:40 +0800')"
           {/each}
         {/each}
       </svg>
+      {#if hoveredAnnotation}
+        <aside class="hover-annotation" style={`left: ${hoveredAnnotation.x}%; top: ${hoveredAnnotation.y}%;`} role="status">
+          <strong>{hoveredAnnotation.title}</strong>
+          <span>{hoveredAnnotation.content}</span>
+        </aside>
+      {/if}
     </div>
 
     {#if data.encoding}<p class="encoding"><span aria-hidden="true">↙</span>{data.encoding}</p>{/if}
@@ -149,7 +184,7 @@ created = "Time('2026-08-15 09:22:40 +0800')"
   .eyebrow { color: #71717a; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 11px; letter-spacing: 0.12em; margin: 0 0 3px; text-transform: uppercase; }
   h2 { color: #e4e4e7; font-size: 15px; font-weight: 560; letter-spacing: -0.01em; line-height: 1.2; margin: 0; }
   .subtitle { color: #a1a1aa; font-size: 13px; line-height: 1.5; margin: 0 0 16px; }
-  .plot-surface { background: #09090b; border: 1px solid rgb(255 255 255 / 0.07); border-radius: 11px; overflow: hidden; }
+  .plot-surface { background: #09090b; border: 1px solid rgb(255 255 255 / 0.07); border-radius: 11px; overflow: hidden; position: relative; }
   svg { display: block; height: auto; width: 100%; }
   .grid line { stroke: #1a1b1f; stroke-width: 0.55; }
   .grid text { fill: #5c5c65; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 11px; }
@@ -158,9 +193,13 @@ created = "Time('2026-08-15 09:22:40 +0800')"
   .trend-line { stroke: #5f6069; stroke-linecap: round; stroke-width: 1.25; opacity: 0.9; }
   circle:not(.point-halo) { stroke: #09090b; stroke-width: 2; }
   .point-halo { opacity: 0; transition: opacity 150ms ease; }
+  .hoverable { cursor: crosshair; }
   .highlight .point-halo { opacity: 0.15; }
   .highlight circle:not(.point-halo) { filter: drop-shadow(0 0 5px currentColor); stroke-width: 2.5; }
-  .point-label { fill: #d4d4d8; font-size: 11.5px; font-weight: 550; paint-order: stroke; stroke: #09090b; stroke-linejoin: round; stroke-width: 4px; }
+  .point-label { fill: #d4d4d8; font-size: 11.5px; font-weight: 550; paint-order: stroke; pointer-events: none; stroke: #09090b; stroke-linejoin: round; stroke-width: 4px; }
+  .hover-annotation { background: #18181b; border: 1px solid #3f3f46; border-radius: 7px; box-shadow: 0 8px 24px rgb(0 0 0 / 0.45); color: #d4d4d8; display: grid; font-size: 12px; gap: 4px; max-width: 210px; padding: 10px 12px; pointer-events: none; position: absolute; transform: translate(12px, -50%); z-index: 2; }
+  .hover-annotation strong { color: #fafafa; font-size: 12px; font-weight: 600; }
+  .hover-annotation span { color: #a1a1aa; line-height: 1.4; }
   .encoding { align-items: center; color: #a1a1aa; display: flex; font-size: 12px; gap: 7px; line-height: 1.45; margin: 15px 0; }
   .encoding span { color: #a1a1aa; font-size: 15px; }
   .chart-footer { align-items: center; border-top: 1px solid rgb(255 255 255 / 0.07); color: #71717a; display: flex; flex-wrap: wrap; font-size: 12px; gap: 8px 17px; padding-top: 13px; }

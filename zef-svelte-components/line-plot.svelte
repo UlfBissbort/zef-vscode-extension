@@ -135,7 +135,7 @@ created = "Time('2026-08-15 11:18:00 +0800')"
           {#if lineSeries.showPoints !== false}
             {#each lineSeries.content_ ?? [] as point}
               <g class:highlight={point.emphasis === 'highlight'}>
-                <title>{point.label ?? `${lineSeries.label}: ${point.x}, ${point.y}`}</title>
+                {#if !point.hover}<title>{point.label ?? `${lineSeries.label}: ${point.x}, ${point.y}`}</title>{/if}
                 <circle class="point-halo" cx={x(point.x)} cy={y(point.y)} r={point.emphasis === 'highlight' ? 10 : 0} fill={seriesColor} />
                 <circle
                   class:hoverable={Boolean(point.hover)}
