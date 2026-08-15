@@ -40,12 +40,12 @@ function normaliseJsonLiteralsForZen(source: string): string {
 }
 
 /**
- * Convert a constructor-only Zen entity expression into the JSON-shaped value
- * consumed by the component dispatcher. Non-entity Zef source is never run.
+ * Convert a constructor-only Zen entity or Graph expression into the
+ * JSON-shaped value consumed by the component dispatcher. Other Zef source is never run.
  */
 export function evaluateZenEntityToJson(source: string): Promise<Record<string, unknown> | null> {
     const expression = source.trim();
-    if (!expression.startsWith('ET.')) return Promise.resolve(null);
+    if (!expression.startsWith('ET.') && !/^Graph\s*\(/.test(expression)) return Promise.resolve(null);
 
     const cached = evaluationCache.get(expression);
     if (cached) return cached;

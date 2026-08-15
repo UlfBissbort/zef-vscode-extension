@@ -35,8 +35,8 @@ function parseHeader(source, filePath) {
     const dispatchedOn = typeof header.dispatched_on === 'string'
         ? [header.dispatched_on]
         : Array.isArray(header.dispatched_on) ? header.dispatched_on : [];
-    if (dispatchedOn.length === 0 || dispatchedOn.some(type => typeof type !== 'string' || !type.startsWith('ET.'))) {
-        throw new Error(`${filePath}: dispatched_on must be an ET type or list of ET types`);
+    if (dispatchedOn.length === 0 || dispatchedOn.some(type => typeof type !== 'string' || !/^(ET\.[A-Za-z][A-Za-z0-9_]*|Graph)$/.test(type))) {
+        throw new Error(`${filePath}: dispatched_on must be an ET type or supported native value type`);
     }
 
     return { componentId: header.this, dispatchedOn };

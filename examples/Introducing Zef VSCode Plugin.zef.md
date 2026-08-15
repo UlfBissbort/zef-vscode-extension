@@ -1311,9 +1311,26 @@ The initial icon vocabulary includes `edit_note`, `bolt`, `language`, `account_t
 
 ## Graph view
 
-`Graph([])` currently renders a fixed example graph: entity squares, shared literal value nodes, and relation labels. Hover a node to isolate its connected facts, or use the expansion control for a wider view.
+A native graph is exported through `to_json_like` and rendered as entity squares, shared literal value nodes, and relation labels. Hover a node to isolate its connected facts, or use the expansion control for a wider view.
 
 ```zef
-Graph([])
+Graph([
+  ET.Person(
+    'alice',
+    name='Alice',
+    role='engineer',
+    lives_in=ET.City('berlin'),
+    works_at=ET.Company('acme')
+  ),
+  ET.Person(
+    'bob',
+    name='Bob',
+    role='engineer',
+    lives_in=ET.City('berlin'),
+    works_at=ET.Company('acme')
+  ),
+  ET.City('berlin', name='Berlin', country='Germany'),
+  ET.Company('acme', name='Acme', founded=2011)
+])
 ```
 

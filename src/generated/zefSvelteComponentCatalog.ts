@@ -24,7 +24,7 @@ export const registeredZefSvelteComponents: readonly RegisteredZefSvelteComponen
     {
         "componentId": "ET.SvelteComponent('🍃-9f3d4e8a7c6210b5d943')",
         "dispatchedOn": [
-            "ET.Graph"
+            "Graph"
         ],
         "relativePath": "zef-svelte-components/graph.svelte"
     },
