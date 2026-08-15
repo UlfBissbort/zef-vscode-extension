@@ -34,6 +34,7 @@ The current bundled component roots are:
 | `ET.WorkflowTimeline` | `ET.WorkflowStep`, `ET.WorkflowPlayback` |
 | `ET.FAQSection` | `ET.FAQItem` |
 | `ET.GanttChart` | `ET.DateRange`, `ET.ProjectPhase`, `ET.Task`; or `ET.MachineType`, `ET.Machine`, `ET.Task` |
+| `ET.PipelineAnimation` | `ET.PipelinePlayback`, `ET.PipelineStage`, `ET.MaterialSymbol` |
 
 ### Authoring data
 

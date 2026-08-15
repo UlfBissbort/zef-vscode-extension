@@ -1268,3 +1268,40 @@ ET.GanttChart(
 ```
 
 `ET.Machine` defines the lane; the chart intentionally does not schedule or reorder tasks. It renders every explicitly dated task in that machine's single row, making serial machine assignment visible without introducing a planning engine.
+
+---
+
+## Pipeline animation
+
+A pipeline describes an ordered transformation. The component derives connectors and cycles its active stage using second-based playback timing. Material Symbols are bundled SVG paths selected by name; document data never loads an external icon or injects SVG markup.
+
+```zef
+ET.PipelineAnimation(
+  title='Everything is data',
+  subtitle='A reproducible path from notes to a connected publication.',
+  playback=ET.PipelinePlayback(
+    advanceEvery=2,
+    finalHold=3,
+    loop=true
+  ),
+  content_=[
+    ET.PipelineStage(
+      title='Obsidian',
+      description='Your interconnected notes',
+      icon=ET.MaterialSymbol(name='edit_note', style='outlined')
+    ),
+    ET.PipelineStage(
+      title='Zef',
+      description='Rust-powered transformation',
+      icon=ET.MaterialSymbol(name='bolt', style='outlined'),
+      activeFor=2.5
+    ),
+    ET.PipelineStage(
+      title='Beautiful blog',
+      description='Connected, live, yours',
+      icon=ET.MaterialSymbol(name='language', style='outlined')
+    )
+  ]
+)
+```
+

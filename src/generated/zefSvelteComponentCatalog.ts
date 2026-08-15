@@ -29,6 +29,13 @@ export const registeredZefSvelteComponents: readonly RegisteredZefSvelteComponen
         "relativePath": "zef-svelte-components/line-plot.svelte"
     },
     {
+        "componentId": "ET.SvelteComponent('🍃-a61b38d2f94e70c5e813')",
+        "dispatchedOn": [
+            "ET.PipelineAnimation"
+        ],
+        "relativePath": "zef-svelte-components/pipeline-animation.svelte"
+    },
+    {
         "componentId": "ET.SvelteComponent('🍃-03b38e22608c60bc15dc')",
         "dispatchedOn": [
             "ET.ScatterPlot"

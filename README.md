@@ -92,7 +92,7 @@ ET.WorkflowTimeline(
 )
 ```
 
-Nested entities stay data owned by the selected component. This keeps rendering safe and makes document values portable. Current roots include `ET.ScatterPlot`, `ET.LinePlot`, `ET.TerminalAnimation`, `ET.WorkflowTimeline`, `ET.FAQSection`, and `ET.GanttChart`. All authored animation durations use SI seconds, such as `advanceEvery=1.5` or `charDelay=0.05`.
+Nested entities stay data owned by the selected component. This keeps rendering safe and makes document values portable. Current roots include `ET.ScatterPlot`, `ET.LinePlot`, `ET.TerminalAnimation`, `ET.WorkflowTimeline`, `ET.FAQSection`, `ET.GanttChart`, and `ET.PipelineAnimation`. All authored animation durations use SI seconds, such as `advanceEvery=1.5` or `charDelay=0.05`.
 
 To add a component, create a `.svelte` file with a TOML `dispatched_on` header, run `npm run compile`, then build and reinstall the extension. See [`docs/entity-svelte-components.md`](docs/entity-svelte-components.md) for the component model and examples.
 
