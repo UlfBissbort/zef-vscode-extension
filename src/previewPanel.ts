@@ -14,6 +14,7 @@ import { decodeObsidianImageData, obsidianImageEmbedExtension, renderMissingObsi
 import { convertZenSlides } from './slidesConverter';
 import { openSlidesPanel } from './slidesPanel';
 import { compileSvelteComponent } from './svelteExecutor';
+import { loadZefSvelteComponent, resolveZefSvelteComponent } from './componentCatalog';
 import { protectMath, restoreProtectedMath } from './mathProtection';
 
 marked.use({ extensions: [zefImageEmbedExtension, obsidianImageEmbedExtension] });
@@ -980,6 +981,7 @@ export async function updatePreview(document: vscode.TextDocument) {
     
     // Resolve typed Zef embeds before wrapping ordinary images.
     html = await resolveZefSvelteEmbeds(html);
+    html = await resolveZefEntityRenders(html);
     html = await resolveZefImageEmbeds(html);
 
     // Convert relative image paths to webview URIs and add image controls.
@@ -1359,6 +1361,18 @@ function renderMarkdown(markdown: string): string {
         const meta = infoParts.slice(1).join(' ');
         const widthMatch = meta.match(/\bwidth\s*=\s*([^\s]+)/i);
         const widthValue = widthMatch?.[1];
+        if (lang === 'zef') {
+            try {
+                const data = JSON.parse(code) as { __type?: unknown };
+                const entityType = data?.__type;
+                if (typeof entityType === 'string' && resolveZefSvelteComponent(entityType)) {
+                    const encodedData = Buffer.from(code, 'utf8').toString('base64');
+                    return `<div class="zef-entity-render" data-zef-entity-type="${escapeHtml(entityType)}" data-zef-entity-data="${encodedData}"></div>\n`;
+                }
+            } catch {
+                // Ordinary Zef fences may contain Zen expressions rather than JSON.
+            }
+        }
         const widthAttr = widthValue ? ` data-zef-width="${escapeHtml(widthValue)}"` : '';
         const langClass = lang ? ` class="language-${escapeHtml(lang)}"` : '';
         return `<pre${widthAttr}><code${langClass}>${escapeHtml(code)}</code></pre>\n`;
@@ -1523,6 +1537,50 @@ async function resolveZefSvelteEmbeds(html: string): Promise<string> {
     }));
 
     return html.replace(embedTagRegex, (_tag, hash: string) => renderSvelteEmbed(hash, sources.get(hash) || null));
+}
+
+const entityRenderHtmlCache = new Map<string, string>();
+
+/** Resolve typed Markdown fences through the catalogue generated during extension compilation. */
+async function resolveZefEntityRenders(html: string): Promise<string> {
+    const renderTagRegex = /<div class="zef-entity-render" data-zef-entity-type="(ET\.[A-Za-z]\w*(?:\.[A-Za-z]\w*)*)" data-zef-entity-data="([A-Za-z0-9+/=]+)"><\/div>/g;
+    const renderTags = [...html.matchAll(renderTagRegex)];
+    if (renderTags.length === 0) return html;
+
+    const renderedTags = await Promise.all(renderTags.map(async match => {
+        const [tag, fenceType, encodedData] = match;
+        try {
+            const data = JSON.parse(Buffer.from(encodedData, 'base64').toString('utf8')) as unknown;
+            if (!data || typeof data !== 'object' || Array.isArray(data)) {
+                throw new Error('the fence body must be a JSON object');
+            }
+            const entity = data as Record<string, unknown>;
+            if (entity.__type !== fenceType) {
+                throw new Error(`fence type ${fenceType} does not match data.__type ${String(entity.__type)}`);
+            }
+            if (!extensionPath) throw new Error('the extension path is unavailable');
+
+            const component = loadZefSvelteComponent(extensionPath, fenceType);
+            if (!component) throw new Error(`no registered Svelte component dispatches on ${fenceType}`);
+
+            const cacheKey = contentHash(`${component.source}\u0000${JSON.stringify(entity)}`);
+            let renderedHtml = entityRenderHtmlCache.get(cacheKey);
+            if (!renderedHtml) {
+                const result = await compileSvelteComponent(component.source, extensionPath, { data: entity });
+                if (!result.success || !result.html) throw new Error(result.error || 'Svelte compilation failed');
+                renderedHtml = result.html;
+                entityRenderHtmlCache.set(cacheKey, renderedHtml);
+            }
+
+            const encodedHtml = Buffer.from(renderedHtml, 'utf8').toString('base64');
+            return [tag, `<div class="zef-entity-render" data-zef-entity-html="${encodedHtml}"></div>`] as const;
+        } catch (error: any) {
+            return [tag, `<div class="svelte-error-report">Entity render error: ${escapeHtmlForError(error?.message ?? String(error))}</div>`] as const;
+        }
+    }));
+
+    const replacements = new Map(renderedTags);
+    return html.replace(renderTagRegex, tag => replacements.get(tag) ?? tag);
 }
 
 /**
@@ -6017,6 +6075,21 @@ function getWebviewContent(renderedHtml: string, existingOutputs: { [blockId: nu
                 header.appendChild(actions);
                 return { header: header, actions: actions, runButton: runButton };
             }
+
+            document.querySelectorAll('[data-zef-entity-html]').forEach(function(container) {
+                try {
+                    var binaryHtml = atob(container.getAttribute('data-zef-entity-html') || '');
+                    var htmlBytes = Uint8Array.from(binaryHtml, function(character) { return character.charCodeAt(0); });
+                    var entityIframe = document.createElement('iframe');
+                    entityIframe.className = 'svelte-preview-frame';
+                    entityIframe.setAttribute('sandbox', 'allow-scripts');
+                    entityIframe.setAttribute('title', 'Zef entity component');
+                    entityIframe.srcdoc = new TextDecoder().decode(htmlBytes);
+                    container.appendChild(entityIframe);
+                } catch (error) {
+                    container.textContent = 'Unable to display entity component: ' + error;
+                }
+            });
 
             document.querySelectorAll('pre').forEach(function(pre, preIndex) {
                 // This source pane already belongs to a stored-component container.

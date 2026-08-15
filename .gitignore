@@ -23,6 +23,7 @@ resources/bin/
 npm-debug.log*
 
 claude.py.svelte-temp/
+.svelte-temp/
 
 # Local scripts (not for public repo)
 claude.py

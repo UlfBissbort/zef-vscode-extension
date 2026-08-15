@@ -32,10 +32,15 @@ interface CompileResult {
   compileTime: string;
 }
 
+interface CompilerInput {
+  source: string;
+  props: Record<string, unknown>;
+}
+
 /**
  * Compile a Svelte component to a self-contained HTML document with bundled runtime
  */
-async function compileSvelteClient(source: string): Promise<CompileResult> {
+async function compileSvelteClient({ source, props }: CompilerInput): Promise<CompileResult> {
   const compileStart = performance.now();
   
   // Get the extension's root directory (parent of svelte-compiler/)
@@ -64,6 +69,13 @@ async function compileSvelteClient(source: string): Promise<CompileResult> {
     fs.writeFileSync(componentFile, compiled.js.code);
     
     // Step 3: Write entry point that mounts the component
+    // Escape characters that could otherwise terminate the enclosing script tag.
+    const serializedProps = JSON.stringify(props)
+      .replace(/</g, '\\u003c')
+      .replace(/>/g, '\\u003e')
+      .replace(/&/g, '\\u0026')
+      .replace(/\u2028/g, '\\u2028')
+      .replace(/\u2029/g, '\\u2029');
     const entryCode = `
 import { mount } from 'svelte';
 import Component from './${tempId}.js';
@@ -77,7 +89,8 @@ if (document.readyState === 'loading') {
 
 function init() {
   const target = document.getElementById('app') || document.body;
-  mount(Component, { target });
+  const props = ${serializedProps};
+  mount(Component, { target, props });
 }
 `;
     fs.writeFileSync(entryFile, entryCode);
@@ -176,9 +189,17 @@ ${bundledCode}
 
 // Main: read from stdin, compile, output JSON
 async function main() {
-  const source = await Bun.stdin.text();
-  
-  if (!source.trim()) {
+  const rawInput = await Bun.stdin.text();
+  let input: CompilerInput;
+
+  try {
+    input = JSON.parse(rawInput) as CompilerInput;
+  } catch {
+    // Keep direct command-line use compatible with a raw Svelte source input.
+    input = { source: rawInput, props: {} };
+  }
+
+  if (!input.source?.trim()) {
     console.log(JSON.stringify({
       success: false,
       error: 'Empty input',
@@ -186,8 +207,8 @@ async function main() {
     }));
     return;
   }
-  
-  const result = await compileSvelteClient(source);
+
+  const result = await compileSvelteClient(input);
   console.log(JSON.stringify(result));
 }
 

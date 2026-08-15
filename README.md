@@ -186,6 +186,7 @@ After installing, reload VS Code: **Cmd+Shift+P** → **Reload Window**
 - **[Runtime Requirements](docs/RUNTIME_REQUIREMENTS.md)** — Installing Python, Rust, and Bun
 - **[Internal Architecture](notes/INTERNAL_ARCHITECTURE.md)** — How the extension works under the hood
 - **[Architecture Overview](notes/ARCHITECTURE.md)** — High-level design and file structure
+- **[Entity-directed Svelte components](docs/entity-svelte-components.md)** — Component catalogue headers and typed rendering fences
 
 ## Requirements
 

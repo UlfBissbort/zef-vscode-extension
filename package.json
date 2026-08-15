@@ -234,8 +234,9 @@
   },
   "scripts": {
     "vscode:prepublish": "npm run compile",
-    "compile": "tsc -p ./",
-    "watch": "tsc -watch -p ./",
+    "generate:svelte-catalog": "node scripts/generate-zef-svelte-component-catalog.js",
+    "compile": "npm run generate:svelte-catalog && tsc -p ./",
+    "watch": "npm run generate:svelte-catalog && tsc -watch -p ./",
     "lint": "eslint src --ext ts",
     "test:math": "npm run compile && node --test test/mathProtection.test.js",
     "test:obsidian-images": "npx tsx --test test/obsidianImageEmbed.test.ts",

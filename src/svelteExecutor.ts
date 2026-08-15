@@ -103,7 +103,8 @@ async function getBun(): Promise<string> {
  */
 export async function compileSvelteComponent(
     svelteSource: string,
-    extensionPath: string
+    extensionPath: string,
+    props: Record<string, unknown> = {}
 ): Promise<SvelteCompileResult> {
     const compilerPath = path.join(extensionPath, 'svelte-compiler', 'compiler.ts');
     
@@ -173,8 +174,8 @@ export async function compileSvelteComponent(
             });
         });
         
-        // Write source to stdin
-        proc.stdin.write(svelteSource);
+        // The compiler receives an explicit data value rather than ambient state.
+        proc.stdin.write(JSON.stringify({ source: svelteSource, props }));
         proc.stdin.end();
         
         // Timeout after 30 seconds
