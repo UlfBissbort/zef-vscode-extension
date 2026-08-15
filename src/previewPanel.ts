@@ -7,7 +7,7 @@ import { isZefDocument, isZefPythonFile, isZefRustFile } from './zefUtils';
 import { stripFrontmatter, getDocumentSettings, updateDocumentSetting, parseDocumentFrontmatter, renderDocumentFrontmatter, ZefSettings } from './frontmatterParser';
 import { ExcalidrawEditorPanel, generateExcalidrawUid } from './excalidrawEditorPanel';
 import { generateNotebook, parseMarkdownCells, parsePythonCells, parsePythonLegacyCells } from './notebookExport';
-import { detectFeatures, inlineKatexFonts, generateStandaloneHtml, embedRenderedBlocks, SvelteBlockExport, HtmlExportInput } from './htmlExport';
+import { detectFeatures, inlineKatexFonts, generateStandaloneHtml, embedRenderedBlocks, embedRenderedMermaid, SvelteBlockExport, HtmlExportInput } from './htmlExport';
 import { TokoloshService, buildPlaceholderDataUri, debugLog, extractFigureRefs } from './tokoloshService';
 import { imageDimensionAttributes as zefImageDimensionAttributes, zefImageEmbedExtension } from './zefImageEmbed';
 import { decodeObsidianImageData, obsidianImageEmbedExtension, renderMissingObsidianImageEmbed, resolveObsidianImagePath } from './obsidianImageEmbed';
@@ -603,10 +603,16 @@ export function createPreviewPanel(context: vscode.ExtensionContext): vscode.Web
                 let renderedHtml = renderMarkdown(cleanMarkdown);
                 
                 // Post-process: embed Svelte outputs and HTML blocks as iframes
-                renderedHtml = renderDocumentFrontmatter(documentFrontmatter) + embedRenderedBlocks(renderedHtml, svelteExports);
+                renderedHtml = embedRenderedBlocks(renderedHtml, svelteExports);
+
+                // Mermaid is already rendered in the webview. Embed those SVGs so
+                // exported HTML stays self-contained without the 3.3 MB runtime.
+                const mermaidExport = embedRenderedMermaid(renderedHtml, message.mermaidSvgs || []);
+                renderedHtml = renderDocumentFrontmatter(documentFrontmatter) + mermaidExport.html;
                 
                 // Detect which libraries are needed
                 const features = detectFeatures(cleanMarkdown);
+                const needsMermaidRuntime = features.usesMermaid && mermaidExport.renderedCount !== mermaidExport.totalCount;
                 
                 // Read asset files only if needed (side effects at the edge)
                 const widthPercent = vscode.workspace.getConfiguration('zef').get('viewWidthPercent', 100) as number;
@@ -617,14 +623,14 @@ export function createPreviewPanel(context: vscode.ExtensionContext): vscode.Web
                     title: path.basename(document.uri.fsPath),
                     maxWidth,
                     usesLatex: features.usesLatex,
-                    usesMermaid: features.usesMermaid,
+                    usesMermaid: needsMermaidRuntime,
                 };
                 
                 if (extensionPath) {
                     const assetsDir = path.join(extensionPath, 'assets');
                     const fs = require('fs') as typeof import('fs');
                     
-                    if (features.usesMermaid) {
+                    if (needsMermaidRuntime) {
                         input.mermaidJs = fs.readFileSync(path.join(assetsDir, 'mermaid.min.js'), 'utf8');
                     }
                     
@@ -4425,12 +4431,19 @@ function getWebviewContent(renderedHtml: string, existingOutputs: { [blockId: nu
             vscode.postMessage({ type: 'exportToJupyter' });
         }
 
+        function renderedMermaidSvgs() {
+            return Array.from(document.querySelectorAll('.mermaid')).map(function(node) {
+                var svg = node.querySelector('svg');
+                return svg ? svg.outerHTML : null;
+            });
+        }
+
         function exportToHtml() {
             // Check for svelte components in the preview
             var svelteContainers = document.querySelectorAll('.svelte-container');
             if (svelteContainers.length === 0) {
                 // No svelte components → export directly
-                vscode.postMessage({ type: 'exportToHtml', svelteSelections: {} });
+                vscode.postMessage({ type: 'exportToHtml', svelteSelections: {}, mermaidSvgs: renderedMermaidSvgs() });
                 return;
             }
             // Show modal for per-component selection
@@ -4512,7 +4525,7 @@ function getWebviewContent(renderedHtml: string, existingOutputs: { [blockId: nu
                 selections[blockId] = entry;
             });
             closeExportHtmlModal();
-            vscode.postMessage({ type: 'exportToHtml', svelteSelections: selections });
+            vscode.postMessage({ type: 'exportToHtml', svelteSelections: selections, mermaidSvgs: renderedMermaidSvgs() });
         }
 
         function compileUnrenderedForExport() {

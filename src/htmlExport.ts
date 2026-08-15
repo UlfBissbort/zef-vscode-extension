@@ -691,11 +691,39 @@ export function getExportCss(maxWidth: number): string {
  * The live preview does this in the webview DOM; exported HTML must do it before
  * Mermaid runs because it does not include the preview's code-block UI.
  */
+const mermaidCodeBlockPattern = /<pre\b[^>]*>\s*<code\b(?=[^>]*\bclass="[^"]*\blanguage-mermaid\b[^"]*")[^>]*>([\s\S]*?)<\/code>\s*<\/pre>/gi;
+
+/** Replace Mermaid code fences with elements consumed by the Mermaid runtime. */
 export function prepareMermaidForExport(renderedHtml: string): string {
-    return renderedHtml.replace(
-        /<pre\b[^>]*>\s*<code\b(?=[^>]*\bclass="[^"]*\blanguage-mermaid\b[^"]*")[^>]*>([\s\S]*?)<\/code>\s*<\/pre>/gi,
-        '<div class="mermaid">$1</div>'
-    );
+    return renderedHtml.replace(mermaidCodeBlockPattern, '<div class="mermaid">$1</div>');
+}
+
+export interface RenderedMermaidExport {
+    html: string;
+    renderedCount: number;
+    totalCount: number;
+}
+
+/**
+ * Replace Mermaid code fences with SVGs rendered in the live preview.
+ * A partial capture deliberately leaves unmatched fences intact so the caller can
+ * retain the Mermaid runtime as a correctness fallback.
+ */
+export function embedRenderedMermaid(
+    renderedHtml: string,
+    renderedSvgs: readonly (string | null | undefined)[]
+): RenderedMermaidExport {
+    let totalCount = 0;
+    let renderedCount = 0;
+    const html = renderedHtml.replace(mermaidCodeBlockPattern, (match) => {
+        const svg = renderedSvgs[totalCount++];
+        if (!svg || !/^<svg\b/i.test(svg.trim())) {
+            return match;
+        }
+        renderedCount++;
+        return `<div class="mermaid mermaid-static">${svg}</div>`;
+    });
+    return { html, renderedCount, totalCount };
 }
 
 /**
