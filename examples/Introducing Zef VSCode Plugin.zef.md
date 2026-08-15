@@ -1383,6 +1383,22 @@ ET.Calendar(
   upcomingCount=6,
   content_=[
     ET.CalendarEvent(
+      'team_offsite',
+      title='Team offsite',
+      start=Time('2026-08-17 00:00:00 +0200'),
+      duration=86400,
+      allDay=true,
+      accent='green'
+    ),
+    ET.CalendarEvent(
+      'maintenance',
+      title='System maintenance',
+      start=Time('2026-08-19 00:00:00 +0200'),
+      duration=86400,
+      allDay=true,
+      accent='orange'
+    ),
+    ET.CalendarEvent(
       'architecture_review',
       title='Architecture review',
       start=Time('2026-08-17 16:30:00 +0200'),
