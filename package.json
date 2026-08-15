@@ -1,7 +1,7 @@
 {
   "name": "zef",
   "displayName": "Zef",
-  "description": "Executable Markdown \u2014 run Python, Rust, TypeScript with live preview, mermaid diagrams, Svelte components, and LaTeX math",
+  "description": "Executable Markdown — run Python, Rust, TypeScript with live preview, mermaid diagrams, Svelte components, and LaTeX math",
   "version": "0.1.27",
   "publisher": "UlfBissbort",
   "icon": "icon.png",
@@ -249,6 +249,7 @@
     "js-yaml": "^4.3.0",
     "marked": "^11.0.0",
     "svelte": "^5.46.1",
+    "three": "^0.128.0",
     "ws": "^8.19.0"
   },
   "devDependencies": {

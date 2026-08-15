@@ -36,6 +36,7 @@ The current bundled component roots are:
 | `ET.GanttChart` | `ET.DateRange`, `ET.ProjectPhase`, `ET.Task`; or `ET.MachineType`, `ET.Machine`, `ET.Task` |
 | `ET.PipelineAnimation` | `ET.PipelinePlayback`, `ET.PipelineStage`, `ET.MaterialSymbol` |
 | `Graph` | Native graph values, initially rendered as a fixed graph view |
+| `ET.Surface3dPlot` | `ET.SurfaceDomain`, `ET.SurfaceFunction` |
 
 ### Authoring data
 

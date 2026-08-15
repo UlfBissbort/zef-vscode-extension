@@ -50,6 +50,13 @@ export const registeredZefSvelteComponents: readonly RegisteredZefSvelteComponen
         "relativePath": "zef-svelte-components/scatter-plot.svelte"
     },
     {
+        "componentId": "ET.SvelteComponent('🍃-6ac7039e5e8b41c2f94d')",
+        "dispatchedOn": [
+            "ET.Surface3dPlot"
+        ],
+        "relativePath": "zef-svelte-components/surface-3d-plot.svelte"
+    },
+    {
         "componentId": "ET.SvelteComponent('🍃-c31f8c72a6e94bd095d1')",
         "dispatchedOn": [
             "ET.TerminalAnimation"

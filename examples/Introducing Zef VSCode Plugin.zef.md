@@ -1334,3 +1334,36 @@ Graph([
 ])
 ```
 
+
+---
+
+## 3D surface plot
+
+A surface formula is a restricted JavaScript mathematical function body. It supports numeric `const` declarations, a final `return`, arithmetic, `x` and `y`, and approved `Math` functions; it never executes arbitrary JavaScript.
+
+```zef
+ET.Surface3dPlot(
+  title='Interference field',
+  subtitle='Composed radial waves over a two-dimensional domain',
+  domain=ET.SurfaceDomain(x=[-10, 10], y=[-10, 10]),
+  function=ET.SurfaceFunction(
+    body='''
+      const r1 = Math.hypot(x - 3, y - 3);
+      const r2 = Math.hypot(x + 3, y + 3);
+      const r3 = Math.hypot(x + 2, y - 4);
+      const r4 = Math.hypot(x - 4, y + 2);
+      return (
+        3.0 * Math.cos(r1 * 0.7) * Math.exp(-r1 * 0.12) +
+        2.5 * Math.cos(r2 * 0.8) * Math.exp(-r2 * 0.10) -
+        1.8 * Math.cos(r3 * 0.9) * Math.exp(-r3 * 0.14) +
+        2.0 * Math.sin(r4 * 0.6) * Math.exp(-r4 * 0.11) +
+        0.4 * Math.sin(x * 0.5) * Math.cos(y * 0.5)
+      );
+    '''
+  ),
+  samples=80,
+  gridEvery=4,
+  theme='deep_ocean'
+)
+```
+
