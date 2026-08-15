@@ -15,6 +15,7 @@ import { convertZenSlides } from './slidesConverter';
 import { openSlidesPanel } from './slidesPanel';
 import { compileSvelteComponent } from './svelteExecutor';
 import { loadZefSvelteComponent, resolveZefSvelteComponent } from './componentCatalog';
+import { evaluateZenEntityToJson } from './zenEntityRenderer';
 import { protectMath, restoreProtectedMath } from './mathProtection';
 
 marked.use({ extensions: [zefImageEmbedExtension, obsidianImageEmbedExtension] });
@@ -1370,7 +1371,12 @@ function renderMarkdown(markdown: string): string {
                     return `<div class="zef-entity-render" data-zef-entity-type="${escapeHtml(entityType)}" data-zef-entity-data="${encodedData}"></div>\n`;
                 }
             } catch {
-                // Ordinary Zef fences may contain Zen expressions rather than JSON.
+                // Defer constructor-only Zen expressions to the Zef CLI at the
+                // asynchronous preview boundary. Other Zef code stays source.
+                if (code.trim().startsWith('ET.')) {
+                    const encodedSource = Buffer.from(code, 'utf8').toString('base64');
+                    return `<div class="zef-zen-entity" data-zef-zen-source="${encodedSource}"></div>\n`;
+                }
             }
         }
         const widthAttr = widthValue ? ` data-zef-width="${escapeHtml(widthValue)}"` : '';
@@ -1541,46 +1547,67 @@ async function resolveZefSvelteEmbeds(html: string): Promise<string> {
 
 const entityRenderHtmlCache = new Map<string, string>();
 
-/** Resolve typed Markdown fences through the catalogue generated during extension compilation. */
-async function resolveZefEntityRenders(html: string): Promise<string> {
-    const renderTagRegex = /<div class="zef-entity-render" data-zef-entity-type="(ET\.[A-Za-z]\w*(?:\.[A-Za-z]\w*)*)" data-zef-entity-data="([A-Za-z0-9+/=]+)"><\/div>/g;
-    const renderTags = [...html.matchAll(renderTagRegex)];
-    if (renderTags.length === 0) return html;
+function renderZefSource(source: string): string {
+    return `<pre><code class="language-zef">${escapeSvelteEmbedSource(source)}</code></pre>\n`;
+}
 
-    const renderedTags = await Promise.all(renderTags.map(async match => {
+async function renderEntityComponent(entity: Record<string, unknown>): Promise<string> {
+    const entityType = entity.__type;
+    if (typeof entityType !== 'string') throw new Error('entity data has no string __type');
+    if (!extensionPath) throw new Error('the extension path is unavailable');
+
+    const component = loadZefSvelteComponent(extensionPath, entityType);
+    if (!component) throw new Error(`no registered Svelte component dispatches on ${entityType}`);
+
+    const cacheKey = contentHash(`${component.source}\u0000${JSON.stringify(entity)}`);
+    let renderedHtml = entityRenderHtmlCache.get(cacheKey);
+    if (!renderedHtml) {
+        const result = await compileSvelteComponent(component.source, extensionPath, { data: entity });
+        if (!result.success || !result.html) throw new Error(result.error || 'Svelte compilation failed');
+        renderedHtml = result.html;
+        entityRenderHtmlCache.set(cacheKey, renderedHtml);
+    }
+
+    const encodedHtml = Buffer.from(renderedHtml, 'utf8').toString('base64');
+    return `<div class="zef-entity-render" data-zef-entity-html="${encodedHtml}"></div>`;
+}
+
+/** Resolve JSON entity fences and constructor-only Zen entity fences through the component catalogue. */
+async function resolveZefEntityRenders(html: string): Promise<string> {
+    const jsonTagRegex = /<div class="zef-entity-render" data-zef-entity-type="(ET\.[A-Za-z]\w*(?:\.[A-Za-z]\w*)*)" data-zef-entity-data="([A-Za-z0-9+/=]+)"><\/div>/g;
+    const jsonTags = [...html.matchAll(jsonTagRegex)];
+    const jsonReplacements = await Promise.all(jsonTags.map(async match => {
         const [tag, fenceType, encodedData] = match;
         try {
             const data = JSON.parse(Buffer.from(encodedData, 'base64').toString('utf8')) as unknown;
-            if (!data || typeof data !== 'object' || Array.isArray(data)) {
-                throw new Error('the fence body must be a JSON object');
-            }
+            if (!data || typeof data !== 'object' || Array.isArray(data)) throw new Error('the fence body must be a JSON object');
             const entity = data as Record<string, unknown>;
-            if (entity.__type !== fenceType) {
-                throw new Error(`fence type ${fenceType} does not match data.__type ${String(entity.__type)}`);
-            }
-            if (!extensionPath) throw new Error('the extension path is unavailable');
-
-            const component = loadZefSvelteComponent(extensionPath, fenceType);
-            if (!component) throw new Error(`no registered Svelte component dispatches on ${fenceType}`);
-
-            const cacheKey = contentHash(`${component.source}\u0000${JSON.stringify(entity)}`);
-            let renderedHtml = entityRenderHtmlCache.get(cacheKey);
-            if (!renderedHtml) {
-                const result = await compileSvelteComponent(component.source, extensionPath, { data: entity });
-                if (!result.success || !result.html) throw new Error(result.error || 'Svelte compilation failed');
-                renderedHtml = result.html;
-                entityRenderHtmlCache.set(cacheKey, renderedHtml);
-            }
-
-            const encodedHtml = Buffer.from(renderedHtml, 'utf8').toString('base64');
-            return [tag, `<div class="zef-entity-render" data-zef-entity-html="${encodedHtml}"></div>`] as const;
+            if (entity.__type !== fenceType) throw new Error(`data.__type does not match ${fenceType}`);
+            return [tag, await renderEntityComponent(entity)] as const;
         } catch (error: any) {
             return [tag, `<div class="svelte-error-report">Entity render error: ${escapeHtmlForError(error?.message ?? String(error))}</div>`] as const;
         }
     }));
+    const jsonLookup = new Map(jsonReplacements);
+    html = html.replace(jsonTagRegex, tag => jsonLookup.get(tag) ?? tag);
 
-    const replacements = new Map(renderedTags);
-    return html.replace(renderTagRegex, tag => replacements.get(tag) ?? tag);
+    const zenTagRegex = /<div class="zef-zen-entity" data-zef-zen-source="([A-Za-z0-9+/=]+)"><\/div>/g;
+    const zenTags = [...html.matchAll(zenTagRegex)];
+    const zenReplacements = await Promise.all(zenTags.map(async match => {
+        const [tag, encodedSource] = match;
+        const source = Buffer.from(encodedSource, 'base64').toString('utf8');
+        try {
+            const entity = await evaluateZenEntityToJson(source);
+            if (entity && typeof entity.__type === 'string' && resolveZefSvelteComponent(entity.__type)) {
+                return [tag, await renderEntityComponent(entity)] as const;
+            }
+        } catch {
+            // Keep source visible when conversion is unavailable or invalid.
+        }
+        return [tag, renderZefSource(source)] as const;
+    }));
+    const zenLookup = new Map(zenReplacements);
+    return html.replace(zenTagRegex, tag => zenLookup.get(tag) ?? tag);
 }
 
 /**

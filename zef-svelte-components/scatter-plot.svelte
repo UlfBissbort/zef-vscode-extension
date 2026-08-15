@@ -9,24 +9,19 @@ created = "Time('2026-08-15 09:22:40 +0800')"
 +++ -->
 
 <script>
-  /**
-   * A data-in, DOM-out scatter plot. Use it as:
-   *
-   * <ScatterPlot data={plot} />
-   *
-   * `data` is the ET.ScatterPlot-shaped value supplied by the caller.
-   */
+  /** A data-in, DOM-out renderer for an ET.ScatterPlot value. */
   export let data;
 
   const width = 720;
   const height = 440;
-  const margin = { top: 34, right: 28, bottom: 62, left: 72 };
+  const margin = { top: 34, right: 30, bottom: 62, left: 74 };
+  const seriesColors = ['#3b82f6', '#10b981', '#8b5cf6', '#f59e0b', '#ec4899'];
   const accentColors = {
-    emerald: '#059669',
-    blue: '#2563eb',
-    violet: '#7c3aed',
-    amber: '#d97706',
-    rose: '#e11d48'
+    emerald: '#10b981',
+    blue: '#3b82f6',
+    violet: '#8b5cf6',
+    amber: '#f59e0b',
+    rose: '#ec4899'
   };
 
   $: xDomain = data?.xAxis?.domain ?? [0, 1];
@@ -53,8 +48,8 @@ created = "Time('2026-08-15 09:22:40 +0800')"
     return margin.top + plotHeight - ((value - yDomain[0]) / ySpan) * plotHeight;
   }
 
-  function color(accent) {
-    return accentColors[accent] ?? accent ?? '#2563eb';
+  function color(accent, seriesIndex) {
+    return accentColors[accent] ?? accent ?? seriesColors[seriesIndex % seriesColors.length];
   }
 
   function format(value, axis) {
@@ -65,68 +60,81 @@ created = "Time('2026-08-15 09:22:40 +0800')"
 
 {#if data?.__type === 'ET.ScatterPlot'}
   <figure class="scatter-plot" aria-labelledby="plot-title">
-    <figcaption>
-      <h2 id="plot-title">{data.title}</h2>
-      {#if data.subtitle}<p class="subtitle">{data.subtitle}</p>{/if}
-      {#if data.encoding}<p class="encoding">{data.encoding}</p>{/if}
+    <figcaption class="chart-header">
+      <div class="heading">
+        <span class="chart-mark" aria-hidden="true">▦</span>
+        <div>
+          <p class="eyebrow">Scatter plot</p>
+          <h2 id="plot-title">{data.title}</h2>
+        </div>
+      </div>
     </figcaption>
 
-    <svg
-      viewBox={`0 0 ${width} ${height}`}
-      role="img"
-      aria-label={`${data.title}: ${data.xAxis?.label} against ${data.yAxis?.label}`}
-    >
-      <g class="grid">
-        {#each xTicks as tick}
-          <line x1={x(tick)} x2={x(tick)} y1={margin.top} y2={margin.top + plotHeight} />
-          <text x={x(tick)} y={margin.top + plotHeight + 24} text-anchor="middle">
-            {format(tick, data.xAxis)}
-          </text>
+    {#if data.subtitle}<p class="subtitle">{data.subtitle}</p>{/if}
+
+    <div class="plot-surface">
+      <svg
+        viewBox={`0 0 ${width} ${height}`}
+        role="img"
+        aria-label={`${data.title}: ${data.xAxis?.label} against ${data.yAxis?.label}`}
+      >
+        <g class="grid">
+          {#each xTicks as tick}
+            <line x1={x(tick)} x2={x(tick)} y1={margin.top} y2={margin.top + plotHeight} />
+            <text x={x(tick)} y={margin.top + plotHeight + 23} text-anchor="middle">
+              {format(tick, data.xAxis)}
+            </text>
+          {/each}
+          {#each yTicks as tick}
+            <line x1={margin.left} x2={margin.left + plotWidth} y1={y(tick)} y2={y(tick)} />
+            <text x={margin.left - 13} y={y(tick) + 4} text-anchor="end">
+              {format(tick, data.yAxis)}
+            </text>
+          {/each}
+        </g>
+
+        <line class="axis" x1={margin.left} x2={margin.left + plotWidth} y1={margin.top + plotHeight} y2={margin.top + plotHeight} />
+        <line class="axis" x1={margin.left} x2={margin.left} y1={margin.top} y2={margin.top + plotHeight} />
+        <text class="axis-label" x={margin.left + plotWidth / 2} y={height - 12} text-anchor="middle">
+          {data.xAxis?.label}
+        </text>
+        <text class="axis-label" transform={`translate(19 ${margin.top + plotHeight / 2}) rotate(-90)`} text-anchor="middle">
+          {data.yAxis?.label}
+        </text>
+
+        {#if data.trendLine}
+          <line
+            class="trend-line"
+            x1={x(data.trendLine.from.x)} y1={y(data.trendLine.from.y)}
+            x2={x(data.trendLine.to.x)} y2={y(data.trendLine.to.y)}
+          />
+        {/if}
+
+        {#each series as pointSeries, seriesIndex (pointSeries.label)}
+          {@const pointColor = color(pointSeries.accent, seriesIndex)}
+          {#each pointSeries.content_ ?? [] as point}
+            <g class:highlight={point.emphasis === 'highlight'}>
+              <title>{point.label ?? `${pointSeries.label}: ${point.x}, ${point.y}`}</title>
+              <circle class="point-halo" cx={x(point.x)} cy={y(point.y)} r={point.emphasis === 'highlight' ? 10 : 0} fill={pointColor} />
+              <circle cx={x(point.x)} cy={y(point.y)} r={point.emphasis === 'highlight' ? 4 : 4.5} fill={pointColor} />
+              {#if point.label}
+                <text class="point-label" x={x(point.x) + 11} y={y(point.y) - 11}>{point.label}</text>
+              {/if}
+            </g>
+          {/each}
         {/each}
-        {#each yTicks as tick}
-          <line x1={margin.left} x2={margin.left + plotWidth} y1={y(tick)} y2={y(tick)} />
-          <text x={margin.left - 12} y={y(tick) + 4} text-anchor="end">
-            {format(tick, data.yAxis)}
-          </text>
+      </svg>
+    </div>
+
+    {#if data.encoding}<p class="encoding"><span aria-hidden="true">↙</span>{data.encoding}</p>{/if}
+
+    <footer class="chart-footer">
+      {#if data.source}<span class="source"><span class="source-dot"></span>{data.source.label} <b>n={data.source.sampleSize}</b></span>{/if}
+      <div class="annotations">
+        {#each annotations as annotation}
+          <span class="annotation"><b>{annotation.label}</b> {annotation.value}</span>
         {/each}
-      </g>
-
-      <line class="axis" x1={margin.left} x2={margin.left + plotWidth} y1={margin.top + plotHeight} y2={margin.top + plotHeight} />
-      <line class="axis" x1={margin.left} x2={margin.left} y1={margin.top} y2={margin.top + plotHeight} />
-      <text class="axis-label" x={margin.left + plotWidth / 2} y={height - 12} text-anchor="middle">
-        {data.xAxis?.label}
-      </text>
-      <text class="axis-label" transform={`translate(18 ${margin.top + plotHeight / 2}) rotate(-90)`} text-anchor="middle">
-        {data.yAxis?.label}
-      </text>
-
-      {#if data.trendLine}
-        <line
-          class="trend-line"
-          x1={x(data.trendLine.from.x)} y1={y(data.trendLine.from.y)}
-          x2={x(data.trendLine.to.x)} y2={y(data.trendLine.to.y)}
-        />
-      {/if}
-
-      {#each series as pointSeries (pointSeries.label)}
-        {@const pointColor = color(pointSeries.accent)}
-        {#each pointSeries.content_ ?? [] as point}
-          <g class:highlight={point.emphasis === 'highlight'}>
-            <title>{point.label ?? `${pointSeries.label}: ${point.x}, ${point.y}`}</title>
-            <circle cx={x(point.x)} cy={y(point.y)} r={point.emphasis === 'highlight' ? 7 : 5} fill={pointColor} />
-            {#if point.label}
-              <text class="point-label" x={x(point.x) + 10} y={y(point.y) - 10}>{point.label}</text>
-            {/if}
-          </g>
-        {/each}
-      {/each}
-    </svg>
-
-    <footer>
-      {#if data.source}<span>{data.source.label} · n={data.source.sampleSize}</span>{/if}
-      {#each annotations as annotation}
-        <span><strong>{annotation.label}:</strong> {annotation.value}</span>
-      {/each}
+      </div>
     </footer>
   </figure>
 {:else}
@@ -134,20 +142,34 @@ created = "Time('2026-08-15 09:22:40 +0800')"
 {/if}
 
 <style>
-  .scatter-plot { color: #172033; font-family: system-ui, sans-serif; margin: 0; max-width: 720px; }
-  h2 { font-size: 1.125rem; margin: 0; }
-  p { margin: 0.25rem 0; }
-  .subtitle { color: #526079; }
-  .encoding { color: #6b7280; font-size: 0.875rem; }
-  svg { display: block; height: auto; margin-top: 1rem; overflow: visible; width: 100%; }
-  .grid line { stroke: #e4e9f2; stroke-width: 1; }
-  .grid text { fill: #667085; font-size: 12px; }
-  .axis { stroke: #94a3b8; stroke-width: 1.25; }
-  .axis-label { fill: #475569; font-size: 13px; font-weight: 600; }
-  .trend-line { stroke: #64748b; stroke-dasharray: 6 5; stroke-width: 2; }
-  circle { stroke: white; stroke-width: 2; }
-  .highlight circle { filter: drop-shadow(0 1px 2px rgb(15 23 42 / 0.3)); }
-  .point-label { fill: #334155; font-size: 12px; }
-  footer { color: #526079; display: flex; flex-wrap: wrap; font-size: 0.8125rem; gap: 0.5rem 1rem; margin-top: 0.5rem; }
-  .error { color: #b91c1c; }
+  .scatter-plot { color: #e4e4e7; font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; margin: 0; max-width: 720px; }
+  .chart-header { margin: 0 0 12px; }
+  .heading { align-items: center; display: flex; gap: 10px; min-width: 0; }
+  .chart-mark { color: #a1a1aa; font-size: 19px; line-height: 1; }
+  .eyebrow { color: #71717a; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 11px; letter-spacing: 0.12em; margin: 0 0 3px; text-transform: uppercase; }
+  h2 { color: #e4e4e7; font-size: 15px; font-weight: 560; letter-spacing: -0.01em; line-height: 1.2; margin: 0; }
+  .subtitle { color: #a1a1aa; font-size: 13px; line-height: 1.5; margin: 0 0 16px; }
+  .plot-surface { background: #09090b; border: 1px solid rgb(255 255 255 / 0.07); border-radius: 11px; overflow: hidden; }
+  svg { display: block; height: auto; width: 100%; }
+  .grid line { stroke: #1a1b1f; stroke-width: 0.55; }
+  .grid text { fill: #5c5c65; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 11px; }
+  .axis { stroke: #383840; stroke-width: 1; }
+  .axis-label { fill: #a1a1aa; font-size: 13.5px; font-weight: 560; }
+  .trend-line { stroke: #5f6069; stroke-linecap: round; stroke-width: 1.25; opacity: 0.9; }
+  circle:not(.point-halo) { stroke: #09090b; stroke-width: 2; }
+  .point-halo { opacity: 0; transition: opacity 150ms ease; }
+  .highlight .point-halo { opacity: 0.15; }
+  .highlight circle:not(.point-halo) { filter: drop-shadow(0 0 5px currentColor); stroke-width: 2.5; }
+  .point-label { fill: #d4d4d8; font-size: 11.5px; font-weight: 550; paint-order: stroke; stroke: #09090b; stroke-linejoin: round; stroke-width: 4px; }
+  .encoding { align-items: center; color: #a1a1aa; display: flex; font-size: 12px; gap: 7px; line-height: 1.45; margin: 15px 0; }
+  .encoding span { color: #a1a1aa; font-size: 15px; }
+  .chart-footer { align-items: center; border-top: 1px solid rgb(255 255 255 / 0.07); color: #71717a; display: flex; flex-wrap: wrap; font-size: 12px; gap: 8px 17px; padding-top: 13px; }
+  .source { align-items: center; display: inline-flex; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; gap: 6px; }
+  .source-dot { background: #a1a1aa; border-radius: 999px; height: 6px; width: 6px; }
+  .source b { color: #a1a1aa; font-weight: 600; }
+  .annotations { display: flex; flex-wrap: wrap; gap: 12px; }
+  .annotation { color: #8a8a94; }
+  .annotation b { color: #c3c3ca; font-weight: 600; }
+  .error { color: #fda4af; font-family: system-ui, sans-serif; }
+  @media (max-width: 480px) { .chart-footer { align-items: flex-start; flex-direction: column; } }
 </style>
