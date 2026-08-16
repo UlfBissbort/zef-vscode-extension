@@ -1371,7 +1371,7 @@ ET.Surface3dPlot(
 
 ## Weekly calendar
 
-A calendar is one plain collection of time-based events. The weekly grid and the upcoming-event rail are both derived from `ET.CalendarEvent` values; `referenceTime` makes the static document's upcoming ordering deterministic. Each event uses a native Zef `Time` instant and an SI-second duration.
+A calendar is one plain collection of time-based events. Each event uses a native Zef `Time` instant and an SI-second duration. Optional `earliest` and `latest` `CivilTime` values define the displayed daily range; the defaults are `CivilTime('08:00')` and `CivilTime('21:00')`.
 
 ```zef
 ET.Calendar(
@@ -1380,24 +1380,9 @@ ET.Calendar(
   timeZone='Europe/Berlin',
   weekOf=Time('2026-08-17 00:00:00 +0200'),
   referenceTime=Time('2026-08-17 08:00:00 +0200'),
-  upcomingCount=6,
+  earliest=CivilTime('08:00'),
+  latest=CivilTime('21:00'),
   content_=[
-    ET.CalendarEvent(
-      'team_offsite',
-      title='Team offsite',
-      start=Time('2026-08-17 00:00:00 +0200'),
-      duration=86400,
-      allDay=true,
-      accent='green'
-    ),
-    ET.CalendarEvent(
-      'maintenance',
-      title='System maintenance',
-      start=Time('2026-08-19 00:00:00 +0200'),
-      duration=3600,
-      allDay=true,
-      accent='orange'
-    ),
     ET.CalendarEvent(
       'architecture_review',
       title='Architecture review',
