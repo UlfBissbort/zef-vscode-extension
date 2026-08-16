@@ -184,9 +184,17 @@ class CodeBlockFoldingRangeProvider implements vscode.FoldingRangeProvider {
     }
 }
 
-// Auto-fold large code blocks (40+ lines) and all excalidraw blocks
+// A document should only be auto-folded once during its open lifetime. Re-folding
+// whenever its editor regains focus overrides the user's manual fold state.
+const autoFoldedDocuments = new WeakSet<vscode.TextDocument>();
+
+// Auto-fold large code blocks (40+ lines) and all excalidraw blocks once on open.
 async function autoFoldCodeBlocks(editor: vscode.TextEditor): Promise<void> {
     const document = editor.document;
+    if (autoFoldedDocuments.has(document) || vscode.window.activeTextEditor !== editor) {
+        return;
+    }
+
     const text = document.getText();
 
     const codeBlockRegex = /```(\w+)[^\n]*\n[\s\S]*?```/g;
@@ -205,12 +213,17 @@ async function autoFoldCodeBlocks(editor: vscode.TextEditor): Promise<void> {
         }
     }
 
-    // Fold each line
-    for (const line of linesToFold) {
-        const position = new vscode.Position(line, 0);
-        editor.selection = new vscode.Selection(position, position);
+    // editor.fold operates on the active editor, so verify focus again after parsing.
+    // Mark before the command so the document-open and extension-activation timers cannot
+    // both fold the same document. Do not alter editor.selection: folding does not need it.
+    if (vscode.window.activeTextEditor !== editor) {
+        return;
+    }
+
+    autoFoldedDocuments.add(document);
+    if (linesToFold.length > 0) {
         await vscode.commands.executeCommand('editor.fold', {
-            selectionLines: [line],
+            selectionLines: linesToFold,
             levels: 1
         });
     }
@@ -327,19 +340,18 @@ export function activate(context: vscode.ExtensionContext) {
         )
     );
 
-    // Auto-fold large code blocks (40+ lines) and excalidraw blocks when opening a zef document
-    context.subscriptions.push(
-        vscode.window.onDidChangeActiveTextEditor(async (editor) => {
-            if (editor && isZefDocument(editor.document)) {
-                // Small delay to let the editor fully initialize
-                setTimeout(() => {
-                    autoFoldCodeBlocks(editor);
-                }, 100);
-            }
-        })
-    );
+    // Fold the document that caused extension activation, if any. Do not use
+    // onDidChangeActiveTextEditor here: returning from a preview/webview is a focus
+    // change, not a document-open event, and must preserve the user's fold state.
+    const initialEditor = vscode.window.activeTextEditor;
+    if (initialEditor && isZefDocument(initialEditor.document)) {
+        setTimeout(() => {
+            autoFoldCodeBlocks(initialEditor);
+        }, 100);
+    }
 
-    // Also fold when document is first opened
+    // Fold documents opened after activation. The per-document guard deduplicates
+    // this against the initial activation path.
     context.subscriptions.push(
         vscode.workspace.onDidOpenTextDocument(async (document) => {
             if (isZefDocument(document)) {
