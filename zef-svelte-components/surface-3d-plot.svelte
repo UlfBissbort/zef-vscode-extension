@@ -76,13 +76,15 @@ created = "Time('2026-08-15 19:20:00 +0800')"
       const [y0, y1] = Array.isArray(domain.y) ? domain.y : [-10, 10];
       const segments = Math.max(12, Math.min(120, Math.round(plot.samples ?? 80)));
       const scene = new THREE.Scene();
-      scene.background = new THREE.Color(0x030305);
+      // Leave the WebGL clear area transparent so the plot inherits the host page background.
+      scene.background = null;
       const camera = new THREE.PerspectiveCamera(45, 1, 0.1, 1000);
       const spherical = { theta: Math.PI / 4, phi: Math.PI / 3.1, radius: 34 };
       const target = new THREE.Vector3(0, -1, 0);
       const updateCamera = () => { camera.position.set(target.x + spherical.radius * Math.sin(spherical.phi) * Math.cos(spherical.theta), target.y + spherical.radius * Math.cos(spherical.phi), target.z + spherical.radius * Math.sin(spherical.phi) * Math.sin(spherical.theta)); camera.lookAt(target); };
       updateCamera();
       renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+      renderer.setClearColor(0x000000, 0);
       renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
       renderer.toneMapping = THREE.ACESFilmicToneMapping;
       renderer.toneMappingExposure = 1.1;
@@ -137,5 +139,5 @@ created = "Time('2026-08-15 19:20:00 +0800')"
 {:else}<p class="error">Surface3dPlot requires an <code>ET.Surface3dPlot</code> data value.</p>{/if}
 
 <style>
-  :global(html), :global(body) { overflow: hidden; padding: 0 !important; } .surface-plot { color: #e4e4e7; font-family: Inter, ui-sans-serif, system-ui, sans-serif; max-width: 820px; } .surface-plot.full-width { margin-left: auto; margin-right: auto; max-width: 1200px; } .surface-plot.full-width .canvas { aspect-ratio: 820 / 440; height: auto; } header { margin-bottom: 14px; padding: 0 16px; } h2 { font-size: 18px; font-weight: 600; letter-spacing: -0.02em; margin: 0; } header p { color: #8a8a94; font-size: 13px; margin: 6px 0 0; } .stage { position: relative; } button { background: rgb(3 3 5 / 0.78); border: 1px solid #30303a; border-radius: 6px; color: #a1a1aa; cursor: pointer; display: grid; height: 30px; padding: 6px; place-items: center; position: absolute; right: 10px; top: 10px; width: 30px; z-index: 2; } button:hover { border-color: #52525b; color: #e4e4e7; } button svg { fill: none; height: 16px; stroke: currentColor; stroke-linecap: round; stroke-width: 1.5; width: 16px; } .canvas { background: #030305; border: 1px solid #1b1b1e; height: 440px; overflow: hidden; } .canvas :global(canvas) { cursor: grab; display: block; height: 100%; touch-action: none; width: 100%; } .canvas :global(canvas):active { cursor: grabbing; } footer { color: #5c5c65; display: flex; font-size: 11px; justify-content: space-between; padding: 9px 2px; } code { color: #71717a; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; } .error { color: #fda4af; font-family: system-ui, sans-serif; font-size: 12px; margin: 8px 0; }
+  :global(html), :global(body) { overflow: hidden; padding: 0 !important; } .surface-plot { color: #e4e4e7; font-family: Inter, ui-sans-serif, system-ui, sans-serif; max-width: 820px; } .surface-plot.full-width { margin-left: auto; margin-right: auto; max-width: 1200px; } .surface-plot.full-width .canvas { aspect-ratio: 820 / 440; height: auto; } header { margin-bottom: 14px; padding: 0 16px; } h2 { font-size: 18px; font-weight: 600; letter-spacing: -0.02em; margin: 0; } header p { color: #8a8a94; font-size: 13px; margin: 6px 0 0; } .stage { position: relative; } button { background: transparent; border: 1px solid #30303a; border-radius: 6px; color: #a1a1aa; cursor: pointer; display: grid; height: 30px; padding: 6px; place-items: center; position: absolute; right: 10px; top: 10px; width: 30px; z-index: 2; } button:hover { border-color: #52525b; color: #e4e4e7; } button svg { fill: none; height: 16px; stroke: currentColor; stroke-linecap: round; stroke-width: 1.5; width: 16px; } .canvas { background: transparent; border: 1px solid #1b1b1e; height: 440px; overflow: hidden; } .canvas :global(canvas) { cursor: grab; display: block; height: 100%; touch-action: none; width: 100%; } .canvas :global(canvas):active { cursor: grabbing; } footer { color: #5c5c65; display: flex; font-size: 11px; justify-content: space-between; padding: 9px 2px; } code { color: #71717a; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; } .error { color: #fda4af; font-family: system-ui, sans-serif; font-size: 12px; margin: 8px 0; }
 </style>

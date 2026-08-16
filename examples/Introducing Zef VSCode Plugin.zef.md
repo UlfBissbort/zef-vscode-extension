@@ -412,6 +412,10 @@ Welcome to reproducible interactive computing. 🚀
 
 ---
 
+## Images can be included via a stable content hash
+![[PngImage('🗿-d7ed545e030e0ccd9380afc950d3890df46f6b21b5cc84e5f5dbfcae3a04d7ca')]]
+
+
 ## Svelte Components
 
 Embed and run live, interactive Svelte components directly in your documents. Compile a `svelte` fence to render it in Zef View.
@@ -1059,21 +1063,113 @@ Each `ET.WorkflowStep` is a real stage in the process, rather than a visual card
 
 ## Zef Slides
 
-A slide deck is a separate typed runtime. It owns ordered slides, and each slide owns a structured tree of layout and content entities. Use **Zef: Open Slides** to open this deck in the presentation panel.
+A slide deck is a typed runtime rendered directly in this document’s Zef View. It owns ordered slides, and each slide owns a structured tree of layout and content entities. Switch the block to **Rendered** to navigate the deck in place, use its full-width control for more room, or use **Zef: Open Slides** for the dedicated presentation panel.
 
 ```zef
 ET.ZefSlides(
   brand='Zef',
+  title='Zef Slides in place',
   content_=[
     ET.Slide(
+      id='slides-intro',
       frame='plain-readable',
       content_=[
         ET.VStack(
           role='readable-layout',
+          alignment='leading',
+          spacing='lg',
           content_=[
-            ET.Eyebrow(value='Zef Slides'),
-            ET.Title(value='One entity tree, one slide', level=2),
-            ET.Paragraph(value='The trusted runtime turns typed data into a navigable presentation.')
+            ET.Eyebrow(value='Zef Slides', accent='cyan'),
+            ET.Title(value='One entity tree, a complete deck', level=2),
+            ET.Paragraph(value='The deck lives beside prose, executable blocks, and reusable visual components in the same Markdown document.'),
+            ET.QuotePanel(
+              quote='Presentation structure should be as reviewable as the system it explains.',
+              attribution='Zef Slides'
+            )
+          ]
+        )
+      ]
+    ),
+    ET.Slide(
+      id='slides-code',
+      frame='plain-readable',
+      content_=[
+        ET.HStack(
+          role='code-showcase-layout',
+          alignment='center',
+          distribution='split',
+          content_=[
+            ET.VStack(
+              role='code-showcase-copy',
+              alignment='leading',
+              spacing='lg',
+              content_=[
+                ET.Eyebrow(value='Source stays visible', accent='emerald'),
+                ET.Title(value='Code is a typed presentation node', level=2),
+                ET.Paragraph(value='The renderer owns the code treatment while the deck carries the filename, language, source, and highlighted lines.'),
+                ET.BulletList(
+                  marker='check',
+                  content_=[
+                    ET.BulletItem(value='No screenshot or hand-positioned snippet'),
+                    ET.BulletItem(value='Readable in a diff and reusable in another renderer')
+                  ]
+                )
+              ]
+            ),
+            ET.CodeBlock(
+              filename='calendar.zef',
+              language='zef',
+              content="ET.Calendar(\n  now=Time('2026-08-17 11:05 +0800'),\n  earliest=CivilTime('08:00'),\n  latest=CivilTime('21:00')\n)",
+              highlightLines=[2, 3, 4],
+              caption='The data is the presentation input.'
+            )
+          ]
+        )
+      ]
+    ),
+    ET.Slide(
+      id='slides-metrics',
+      frame='plain-readable',
+      content_=[
+        ET.VStack(
+          role='metrics-layout',
+          alignment='center',
+          spacing='xl',
+          content_=[
+            ET.Eyebrow(value='Authoring loop', accent='emerald'),
+            ET.Title(value='One source file, several useful surfaces', level=2),
+            ET.MetricGrid(
+              content_=[
+                ET.MetricCard(value='01', label='Write', description='Declare the presentation in a zef fence.', accent='purple'),
+                ET.MetricCard(value='02', label='Render', description='Inspect the interactive deck in place.', accent='cyan'),
+                ET.MetricCard(value='03', label='Present', description='Open the same data in the slide panel.', accent='emerald')
+              ]
+            )
+          ]
+        )
+      ]
+    ),
+    ET.Slide(
+      id='slides-reveal',
+      frame='plain-readable',
+      steps_=[{'id': 'source'}, {'id': 'render'}, {'id': 'share'}],
+      content_=[
+        ET.VStack(
+          role='readable-layout',
+          alignment='leading',
+          spacing='lg',
+          content_=[
+            ET.Eyebrow(value='Progressive argument', accent='cyan'),
+            ET.Title(value='Slides can reveal an idea in stages', level=2),
+            ET.StagedBulletList(
+              marker='number',
+              content_=[
+                ET.BulletItem(value='Write a portable entity tree in Markdown.', revealAt='source'),
+                ET.BulletItem(value='Render its structured content directly beside the source.', revealAt='render'),
+                ET.BulletItem(value='Navigate or present the same deck without copying it elsewhere.', revealAt='share')
+              ]
+            ),
+            ET.StageHint(value='Press Space to reveal each point, then advance.')
           ]
         )
       ]
@@ -1082,7 +1178,7 @@ ET.ZefSlides(
 )
 ```
 
-Use arrow keys, space, or click navigation in the slide panel.
+Use arrow keys, space, or click navigation in the inline renderer or slide panel.
 
 ---
 
