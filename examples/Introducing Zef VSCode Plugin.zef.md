@@ -1394,7 +1394,7 @@ ET.Calendar(
       'maintenance',
       title='System maintenance',
       start=Time('2026-08-19 00:00:00 +0200'),
-      duration=86400,
+      duration=3600,
       allDay=true,
       accent='orange'
     ),
