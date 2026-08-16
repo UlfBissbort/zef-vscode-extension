@@ -1378,7 +1378,7 @@ ET.Calendar(
   title='Engineering week',
   timeZone='Singapore',
   weekOf=Time('2026-08-17 00:00:00 +0800'),
-  now=Time('2026-08-17 11:05:00 +0800'),
+  now=Time('2026-08-18 11:15:00 +0800'),
   earliest=CivilTime('08:00'),
   latest=CivilTime('21:00'),
   content_=[
