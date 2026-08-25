@@ -168,9 +168,45 @@ tag_ = ["bug", "markdown"]
     assertEqual(result?.fields.tag_, ['bug', 'markdown']);
 });
 
-test('stripFrontmatter: removes YAML and TOML blocks', () => {
+test('parseDocumentFrontmatter: parses Zen Zef Header entity metadata', () => {
+    const text = `+++
+ET.MarkdownDocument('🍃-7d2a91c4e8f053b76a1d',
+  title='Zef Service Subscription Lifecycle - Final Implementation Design',
+  importance=1,
+  tag_=['zef', 'zefnet', 'service-subscription', 'lease', 'protocol', 'implementation-design'],
+  created=Time('2026-08-25 12:00:00 +0800')
+)
++++
+# Hello`;
+    const result = parseDocumentFrontmatter(text);
+    assertEqual(result?.format, 'zen');
+    assertEqual(result?.fields.this, "ET.MarkdownDocument('🍃-7d2a91c4e8f053b76a1d')");
+    assertEqual(result?.fields.title, 'Zef Service Subscription Lifecycle - Final Implementation Design');
+    assertEqual(result?.fields.importance, 1);
+    assertEqual(result?.fields.tag_, ['zef', 'zefnet', 'service-subscription', 'lease', 'protocol', 'implementation-design']);
+    assertEqual(result?.fields.created, 'Time("2026-08-25 12:00:00 +0800")');
+    assertEqual(stripFrontmatter(text), '# Hello');
+    const html = renderDocumentFrontmatter(result);
+    if (html.includes('frontmatter-error') || !html.includes('document-identity') || !html.includes('implementation-design') || !html.includes('25 Aug 2026 · 12:00:00')) {
+        throw new Error('Zen metadata was not rendered as document properties');
+    }
+});
+
+test('parseDocumentFrontmatter: reports malformed claimed Zen headers as Zen errors', () => {
+    const result = parseDocumentFrontmatter(`+++
+ET.MarkdownDocument('not-a-leaf-uid', title='Broken')
++++
+`);
+    assertEqual(result?.format, 'zen');
+    if (!result?.error?.includes('requires a leaf')) {
+        throw new Error(`unexpected Zen error: ${result?.error}`);
+    }
+});
+
+test('stripFrontmatter: removes YAML, TOML, and Zen blocks', () => {
     assertEqual(stripFrontmatter('---\na: 1\n---\n# YAML'), '# YAML');
     assertEqual(stripFrontmatter('+++\na = 1\n+++\n# TOML'), '# TOML');
+    assertEqual(stripFrontmatter("+++\nET.MarkdownDocument('🍃-7d2a91c4e8f053b76a1d')\n+++\n# Zen"), '# Zen');
 });
 
 test('renderDocumentFrontmatter: renders quality and importance values from 0 to 5 as ratings', () => {

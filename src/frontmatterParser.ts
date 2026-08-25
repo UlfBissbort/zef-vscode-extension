@@ -57,7 +57,7 @@ export interface ZefSettings {
 }
 
 export interface DocumentFrontmatter {
-    format: 'yaml' | 'toml';
+    format: 'yaml' | 'toml' | 'zen';
     fields: Record<string, unknown>;
     error?: string;
 }
@@ -95,29 +95,188 @@ function extractDocumentFrontmatter(text: string): ExtractedFrontmatter | null {
     };
 }
 
-/** Parse standard YAML (`---`) or TOML (`+++`) document metadata. */
-export function parseDocumentFrontmatter(text: string): DocumentFrontmatter | null {
-    const extracted = extractDocumentFrontmatter(text);
-    if (!extracted) {
-        return null;
+class ZenHeaderParser {
+    private offset = 0;
+
+    constructor(private readonly source: string) {}
+
+    parseHeader(): Record<string, unknown> {
+        this.skipIgnored();
+        const type = this.parseName();
+        if (!/^ET\.[A-Za-z_]\w*$/.test(type)) {
+            this.fail('a Zen Zef Header must start with an ET.* entity constructor');
+        }
+        this.expect('(');
+        this.skipIgnored();
+        const uid = this.parseValue();
+        if (typeof uid !== 'string' || !/^🍃-[0-9a-fA-F]{20}$/.test(uid)) {
+            this.fail('a Zen Zef Header requires a leaf 🍃- UID as its first argument');
+        }
+
+        const fields: Record<string, unknown> = { this: `${type}('${uid}')` };
+        while (true) {
+            this.skipIgnored();
+            if (this.consume(')')) break;
+            this.expect(',');
+            this.skipIgnored();
+            if (this.consume(')')) break;
+            const name = this.parseName();
+            this.skipIgnored();
+            this.expect('=');
+            if (Object.prototype.hasOwnProperty.call(fields, name)) this.fail(`duplicate field ${name}`);
+            fields[name] = this.parseValue();
+        }
+        this.skipIgnored();
+        if (this.offset !== this.source.length) this.fail('unexpected trailing content');
+        return fields;
     }
 
+    private parseValue(): unknown {
+        this.skipIgnored();
+        const character = this.source[this.offset];
+        if (character === "'" || character === '"') return this.parseString();
+        if (character === '[' || character === '(') return this.parseSequence(character, character === '[' ? ']' : ')');
+        if (character === '{') return this.parseDictionary();
+        if (character === '-' || /\d/.test(character || '')) return this.parseNumber();
+
+        const name = this.parseName();
+        if (name === 'True') return true;
+        if (name === 'False') return false;
+        if (name === 'None') return null;
+        this.skipIgnored();
+        if (!this.consume('(')) return name;
+        const values: unknown[] = [];
+        this.skipIgnored();
+        if (!this.consume(')')) {
+            do {
+                values.push(this.parseValue());
+                this.skipIgnored();
+            } while (this.consume(','));
+            this.expect(')');
+        }
+        if (name === 'Time' && values.length === 1 && typeof values[0] === 'string') {
+            return `Time(${JSON.stringify(values[0])})`;
+        }
+        return `${name}(…)`;
+    }
+
+    private parseSequence(open: string, close: string): unknown[] {
+        this.expect(open);
+        const values: unknown[] = [];
+        this.skipIgnored();
+        if (this.consume(close)) return values;
+        do {
+            values.push(this.parseValue());
+            this.skipIgnored();
+        } while (this.consume(','));
+        this.expect(close);
+        return values;
+    }
+
+    private parseDictionary(): Record<string, unknown> {
+        this.expect('{');
+        const result: Record<string, unknown> = {};
+        this.skipIgnored();
+        if (this.consume('}')) return result;
+        do {
+            const key = this.parseValue();
+            if (typeof key !== 'string') this.fail('Zen dictionary keys must be strings');
+            this.expect(':');
+            result[key] = this.parseValue();
+            this.skipIgnored();
+        } while (this.consume(','));
+        this.expect('}');
+        return result;
+    }
+
+    private parseNumber(): number {
+        const match = this.source.slice(this.offset).match(/^-?(?:\d+\.\d*|\d*\.\d+|\d+)(?:[eE][+-]?\d+)?/);
+        if (!match) this.fail('invalid number');
+        this.offset += match![0].length;
+        const value = Number(match![0]);
+        if (!Number.isFinite(value)) this.fail('number must be finite');
+        return value;
+    }
+
+    private parseString(): string {
+        const quote = this.source[this.offset++];
+        let result = '';
+        while (this.offset < this.source.length) {
+            const character = this.source[this.offset++];
+            if (character === quote) return result;
+            if (character !== '\\') {
+                result += character;
+                continue;
+            }
+            const escaped = this.source[this.offset++];
+            const escapes: Record<string, string> = { n: '\n', r: '\r', t: '\t', '\\': '\\', "'": "'", '"': '"' };
+            if (escaped in escapes) result += escapes[escaped];
+            else if (escaped === 'x' || escaped === 'u') {
+                const length = escaped === 'x' ? 2 : 4;
+                const hex = this.source.slice(this.offset, this.offset + length);
+                if (!new RegExp(`^[0-9a-fA-F]{${length}}$`).test(hex)) this.fail('invalid string escape');
+                result += String.fromCharCode(Number.parseInt(hex, 16));
+                this.offset += length;
+            } else this.fail(`unsupported string escape \\${escaped}`);
+        }
+        this.fail('unterminated string');
+    }
+
+    private parseName(): string {
+        this.skipIgnored();
+        const match = this.source.slice(this.offset).match(/^[A-Za-z_]\w*(?:\.[A-Za-z_]\w*)*/);
+        if (!match) this.fail('expected a name');
+        this.offset += match![0].length;
+        return match![0];
+    }
+
+    private skipIgnored(): void {
+        while (true) {
+            while (/\s/.test(this.source[this.offset] || '')) this.offset += 1;
+            if (this.source[this.offset] !== '#') return;
+            while (this.offset < this.source.length && this.source[this.offset] !== '\n') this.offset += 1;
+        }
+    }
+
+    private consume(character: string): boolean {
+        this.skipIgnored();
+        if (this.source[this.offset] !== character) return false;
+        this.offset += 1;
+        return true;
+    }
+
+    private expect(character: string): void {
+        if (!this.consume(character)) this.fail(`expected ${character}`);
+    }
+
+    private fail(message: string): never {
+        throw new Error(`${message} at character ${this.offset + 1}`);
+    }
+}
+
+/** Parse standard YAML (`---`), TOML (`+++`), or Zen entity (`+++`) document metadata. */
+export function parseDocumentFrontmatter(text: string): DocumentFrontmatter | null {
+    const extracted = extractDocumentFrontmatter(text);
+    if (!extracted) return null;
+
     const format = extracted.delimiter === '---' ? 'yaml' : 'toml';
-
     try {
-        const parsed = format === 'yaml'
-            ? parseYaml(extracted.source)
-            : TOML.parse(extracted.source);
-
-        if (parsed === undefined || parsed === null || extracted.source.trim() === '') {
-            return { format, fields: {} };
-        }
-        if (typeof parsed !== 'object' || Array.isArray(parsed)) {
-            return { format, fields: {}, error: 'Frontmatter must contain named fields.' };
-        }
-
+        const parsed = format === 'yaml' ? parseYaml(extracted.source) : TOML.parse(extracted.source);
+        if (parsed === undefined || parsed === null || extracted.source.trim() === '') return { format, fields: {} };
+        if (typeof parsed !== 'object' || Array.isArray(parsed)) return { format, fields: {}, error: 'Frontmatter must contain named fields.' };
         return { format, fields: parsed as Record<string, unknown> };
     } catch (error) {
+        // Zen is deliberately a fallback only for `+++` headers whose first value
+        // claims to be an entity. This preserves TOML diagnostics for ordinary
+        // malformed TOML frontmatter.
+        if (extracted.delimiter === '+++' && /^\s*(?:#.*\r?\n\s*)*ET\./.test(extracted.source)) {
+            try {
+                return { format: 'zen', fields: new ZenHeaderParser(extracted.source).parseHeader() };
+            } catch (zenError) {
+                const message = zenError instanceof Error ? zenError.message : String(zenError);
+                return { format: 'zen', fields: {}, error: message };
+            }
+        }
         const message = error instanceof Error ? error.message.split('\n')[0] : String(error);
         return { format, fields: {}, error: message };
     }
