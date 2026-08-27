@@ -240,6 +240,8 @@
     "lint": "eslint src --ext ts",
     "test:math": "npm run compile && node --test test/mathProtection.test.js",
     "test:obsidian-images": "npx tsx --test test/obsidianImageEmbed.test.ts",
+    "test:zefnet-wire": "npx tsx --test test/zefnetWire.test.ts",
+    "test:tokolosh": "npx tsx test/test_tokolosh.ts",
     "test:html-export": "npm run compile && node --test test/htmlExport.test.js"
   },
   "dependencies": {
