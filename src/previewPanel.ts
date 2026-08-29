@@ -2154,14 +2154,36 @@ function getWebviewContent(renderedHtml: string, existingOutputs: { [blockId: nu
         }
 
         /* Full-width breakout for diagrams and wide entity components */
-        .code-block-container.full-width,
-        .zef-entity-render.full-width {
+        .code-block-container.full-width {
             width: 100vw;
             max-width: 100vw;
             margin-left: calc(-50vw + 50%);
             border-radius: 0;
             border-left: none;
             border-right: none;
+        }
+        .zef-entity-render {
+            position: relative;
+            left: 50%;
+            width: 100%;
+            max-width: 100%;
+            transform: translateX(-50%);
+            transition: width 250ms cubic-bezier(0.4, 0, 0.2, 1), max-width 250ms cubic-bezier(0.4, 0, 0.2, 1);
+            will-change: width, max-width;
+        }
+        .zef-entity-render.full-width {
+            width: 100vw;
+            max-width: 100vw;
+            border-radius: 0;
+            border-left: none;
+            border-right: none;
+        }
+        .zef-entity-render iframe.svelte-preview-frame {
+            transition: height 250ms cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        @media (prefers-reduced-motion: reduce) {
+            .zef-entity-render,
+            .zef-entity-render iframe.svelte-preview-frame { transition: none; }
         }
 
 

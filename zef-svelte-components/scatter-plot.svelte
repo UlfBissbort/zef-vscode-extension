@@ -9,10 +9,15 @@ created = "Time('2026-08-15 09:22:40 +0800')"
 +++ -->
 
 <script>
+  import { tick } from 'svelte';
+
   /** A data-in, DOM-out renderer for an ET.ScatterPlot value. */
   export let data;
 
   let hoveredAnnotation = null;
+  let hoverAnnotationElement;
+  let plotSurface;
+  let placementToken = 0;
 
   const width = 720;
   const height = 440;
@@ -59,21 +64,50 @@ created = "Time('2026-08-15 09:22:40 +0800')"
     return `${Number(value.toFixed(2))}${unit}`;
   }
 
-  function showHover(event, annotation, fallbackTitle) {
-    if (!annotation) return;
-    const svg = event.currentTarget.ownerSVGElement;
-    const rect = svg.getBoundingClientRect();
-    const content = typeof annotation === 'string' ? annotation : annotation.content;
-    if (typeof content !== 'string') return;
-    hoveredAnnotation = {
-      title: typeof annotation === 'object' && typeof annotation.title === 'string' ? annotation.title : fallbackTitle,
-      content,
-      x: Math.min(88, Math.max(12, ((event.clientX - rect.left) / rect.width) * 100)),
-      y: Math.min(82, Math.max(10, ((event.clientY - rect.top) / rect.height) * 100))
+  function clamp(value, minimum, maximum) {
+    return Math.min(maximum, Math.max(minimum, value));
+  }
+
+  function placeTooltip(anchorX, anchorY, tooltipWidth, tooltipHeight, surfaceWidth, surfaceHeight) {
+    const gap = 12;
+    const inset = 8;
+    const right = anchorX + gap;
+    const preferredLeft = right + tooltipWidth <= surfaceWidth - inset
+      ? right
+      : anchorX - gap - tooltipWidth;
+    return {
+      left: clamp(preferredLeft, inset, Math.max(inset, surfaceWidth - tooltipWidth - inset)),
+      top: clamp(anchorY - tooltipHeight / 2, inset, Math.max(inset, surfaceHeight - tooltipHeight - inset))
     };
   }
 
+  async function showHover(event, annotation, fallbackTitle) {
+    if (!annotation || !plotSurface) return;
+    const content = typeof annotation === 'string' ? annotation : annotation.content;
+    if (typeof content !== 'string') return;
+    const title = typeof annotation === 'object' && typeof annotation.title === 'string' ? annotation.title : fallbackTitle;
+    const surfaceRect = plotSurface.getBoundingClientRect();
+    const anchorX = event.clientX - surfaceRect.left;
+    const anchorY = event.clientY - surfaceRect.top;
+    const previous = hoveredAnnotation;
+    const sameAnnotation = previous?.title === title && previous?.content === content;
+    const token = ++placementToken;
+    hoveredAnnotation = {
+      title,
+      content,
+      left: sameAnnotation ? previous.left : anchorX + 12,
+      top: sameAnnotation ? previous.top : anchorY,
+      positioned: sameAnnotation && previous.positioned === true
+    };
+    await tick();
+    if (token !== placementToken || !hoveredAnnotation || !hoverAnnotationElement) return;
+    const tooltipRect = hoverAnnotationElement.getBoundingClientRect();
+    const placement = placeTooltip(anchorX, anchorY, tooltipRect.width, tooltipRect.height, surfaceRect.width, surfaceRect.height);
+    hoveredAnnotation = { ...hoveredAnnotation, ...placement, positioned: true };
+  }
+
   function clearHover() {
+    placementToken += 1;
     hoveredAnnotation = null;
   }
 </script>
@@ -92,7 +126,7 @@ created = "Time('2026-08-15 09:22:40 +0800')"
 
     {#if data.subtitle}<p class="subtitle">{data.subtitle}</p>{/if}
 
-    <div class="plot-surface">
+    <div class="plot-surface" bind:this={plotSurface}>
       <svg
         viewBox={`0 0 ${width} ${height}`}
         role="img"
@@ -155,7 +189,7 @@ created = "Time('2026-08-15 09:22:40 +0800')"
         {/each}
       </svg>
       {#if hoveredAnnotation}
-        <aside class="hover-annotation" style={`left: ${hoveredAnnotation.x}%; top: ${hoveredAnnotation.y}%;`} role="status">
+        <aside bind:this={hoverAnnotationElement} class:positioned={hoveredAnnotation.positioned} class="hover-annotation" style={`left: ${hoveredAnnotation.left}px; top: ${hoveredAnnotation.top}px;`} role="status">
           <strong>{hoveredAnnotation.title}</strong>
           <span>{hoveredAnnotation.content}</span>
         </aside>
@@ -199,7 +233,8 @@ created = "Time('2026-08-15 09:22:40 +0800')"
   .highlight circle:not(.point-halo) { filter: drop-shadow(0 0 5px currentColor); stroke-width: 2.5; }
   .point-leader { stroke: #3f3f46; stroke-width: 0.8; }
   .point-label { fill: #a1a1aa; font-family: ui-sans-serif, system-ui, sans-serif; font-size: 10.5px; font-weight: 500; paint-order: stroke; pointer-events: none; stroke: #09090b; stroke-linejoin: round; stroke-width: 3px; }
-  .hover-annotation { background: #18181b; border: 1px solid #3f3f46; border-radius: 7px; box-shadow: 0 8px 24px rgb(0 0 0 / 0.45); color: #d4d4d8; display: grid; font-size: 12px; gap: 4px; max-width: 210px; padding: 10px 12px; pointer-events: none; position: absolute; transform: translate(12px, -50%); z-index: 2; }
+  .hover-annotation { background: #18181b; border: 1px solid #3f3f46; border-radius: 7px; box-shadow: 0 8px 24px rgb(0 0 0 / 0.45); color: #d4d4d8; display: grid; font-size: 12px; gap: 4px; opacity: 0; padding: 10px 12px; pointer-events: none; position: absolute; visibility: hidden; width: min(210px, calc(100% - 24px)); z-index: 2; }
+  .hover-annotation.positioned { opacity: 1; visibility: visible; }
   .hover-annotation strong { color: #fafafa; font-size: 12px; font-weight: 600; }
   .hover-annotation span { color: #a1a1aa; line-height: 1.4; }
   .encoding { align-items: center; color: #a1a1aa; display: flex; font-size: 12px; gap: 7px; line-height: 1.45; margin: 15px 0; }
