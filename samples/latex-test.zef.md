@@ -1,3 +1,12 @@
++++
+ET.MarkdownDocument('🍃-bc5ad7bd46c6e5ab471f',
+  title='latex-test.zef',
+  importance=1,
+  tag_=[],
+  created=Time('2026-01-27 19:32:35 +0800')
+)
++++
+
 # LaTeX Math Test
 
 This document tests LaTeX equation rendering in Zef.

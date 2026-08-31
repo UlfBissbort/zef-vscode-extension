@@ -1,3 +1,12 @@
++++
+ET.MarkdownDocument('🍃-326d13d667ff3c21b66b',
+  title='ARCHITECTURE',
+  importance=1,
+  tag_=[],
+  created=Time('2026-01-12 11:50:31 +0800')
+)
++++
+
 # Zef VS Code Extension - Architecture
 
 ## Goal

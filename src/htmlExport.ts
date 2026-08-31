@@ -1,3 +1,10 @@
+/* +++
+ET.TypeScriptFile('🍃-1f4b891a32a1b694a155',
+  tag_=[],
+  created=Time('2026-08-29 11:15:33 +0800')
+)
++++ */
+
 /**
  * htmlExport.ts — Pure functions for exporting the Zef preview to a self-contained HTML file.
  *

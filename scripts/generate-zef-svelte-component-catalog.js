@@ -1,3 +1,10 @@
+/* +++
+ET.JavaScriptFile('🍃-e03217528d488105dac8',
+  tag_=[],
+  created=Time('2026-08-15 10:21:38 +0800')
+)
++++ */
+
 #!/usr/bin/env node
 
 const fs = require('fs');

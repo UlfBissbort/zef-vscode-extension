@@ -1,3 +1,10 @@
+/* +++
+ET.TypeScriptFile('🍃-555633e2ff2afe32c1e8',
+  tag_=[],
+  created=Time('2026-07-21 17:07:55 +0800')
+)
++++ */
+
 import type { TokenizerAndRendererExtension, Tokens } from 'marked';
 
 export interface ZefEmbedReference {

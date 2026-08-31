@@ -1,3 +1,10 @@
+/* +++
+ET.TypeScriptFile('🍃-f8d721e798ddce533ff6',
+  tag_=[],
+  created=Time('2026-01-23 08:21:48 +0800')
+)
++++ */
+
 import * as vscode from 'vscode';
 import { detectPythons, normalizeVenvPath, PythonInfo } from './pythonDetector';
 import { isRustAvailable } from './rustExecutor';

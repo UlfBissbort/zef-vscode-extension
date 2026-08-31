@@ -1,3 +1,12 @@
++++
+ET.MarkdownDocument('🍃-b53af6248d9cab387359',
+  title='vscode-installer-integration',
+  importance=1,
+  tag_=[],
+  created=Time('2026-02-13 15:52:29 +0800')
+)
++++
+
 # VSCode Extension → zef-installer Integration
 
 How to use the `zef-installer` Rust binary to install the Zef Tokolosh daemon from within the VSCode extension — without reimplementing any installer logic in TypeScript.

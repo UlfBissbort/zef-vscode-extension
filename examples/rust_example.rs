@@ -1,3 +1,10 @@
+/* +++
+ET.RustFile('🍃-886673df807192d65ceb',
+  tag_=[],
+  created=Time('2026-01-28 17:55:54 +0800')
+)
++++ */
+
 /*md
 # Polymorphism in Rust: Enums vs Traits
 

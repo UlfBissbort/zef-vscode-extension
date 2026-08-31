@@ -1,3 +1,12 @@
++++
+ET.MarkdownDocument('🍃-62731eb8fdf6f9ee083a',
+  title='zef-rendered-view-design',
+  importance=1,
+  tag_=[],
+  created=Time('2026-01-11 10:55:05 +0800')
+)
++++
+
 # Rendered View for .zef.md Files - Design Exploration
 
 ## Goal

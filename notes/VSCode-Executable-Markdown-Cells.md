@@ -1,3 +1,12 @@
++++
+ET.MarkdownDocument('🍃-4a9f0911a3497d947265',
+  title='VSCode-Executable-Markdown-Cells',
+  importance=1,
+  tag_=[],
+  created=Time('2026-01-11 10:06:17 +0800')
+)
++++
+
 # Executable Code Blocks in Markdown: Building Your Own "Run Cell" Feature
 
 

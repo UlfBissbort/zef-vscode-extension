@@ -1,3 +1,12 @@
++++
+ET.MarkdownDocument('🍃-4176b5fdc4acd371f259',
+  title='svelte-compiler-integration-design',
+  importance=1,
+  tag_=[],
+  created=Time('2026-01-12 13:02:02 +0800')
+)
++++
+
 # Svelte Compiler Integration - Final Design
 
 ## Overview

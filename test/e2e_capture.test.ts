@@ -1,3 +1,10 @@
+/* +++
+ET.TypeScriptFile('🍃-34b2b7c1091d1c516df6',
+  tag_=[],
+  created=Time('2026-03-09 14:23:51 +0800')
+)
++++ */
+
 /**
  * End-to-end test: run JS/TS code through the actual Bun executors
  * and verify variable capture works in the generated scripts.

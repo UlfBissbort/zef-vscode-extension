@@ -1,3 +1,10 @@
+/* +++
+ET.TypeScriptFile('🍃-6f41a4594cb0ebc257ea',
+  tag_=[],
+  created=Time('2026-03-09 14:24:13 +0800')
+)
++++ */
+
 /**
  * End-to-end test: inject JS-captured variables into the Python kernel
  * and verify they're accessible in Python code.

@@ -1,3 +1,12 @@
++++
+ET.MarkdownDocument('🍃-aef85698dec05d5163dd',
+  title='vscode-markdown-code-execution',
+  importance=1,
+  tag_=[],
+  created=Time('2026-01-23 08:21:48 +0800')
+)
++++
+
 # 🧪 Running Python Code Blocks from Markdown in VS Code
 
 

@@ -1,3 +1,12 @@
++++
+ET.MarkdownDocument('🍃-9364d61ca2b3bf766ede',
+  title='AUTO_INSTALL_FEATURE',
+  importance=1,
+  tag_=[],
+  created=Time('2026-01-22 12:16:09 +0800')
+)
++++
+
 # Auto-Installation Feature
 
 ## Implementation Date: January 2026

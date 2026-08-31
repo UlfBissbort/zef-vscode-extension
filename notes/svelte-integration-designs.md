@@ -1,3 +1,12 @@
++++
+ET.MarkdownDocument('🍃-4393717d09265fda2d91',
+  title='svelte-integration-designs',
+  importance=1,
+  tag_=[],
+  created=Time('2026-01-12 12:53:05 +0800')
+)
++++
+
 # Svelte Component Integration - Design Options
 
 ## Goal

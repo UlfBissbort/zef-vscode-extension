@@ -1,3 +1,10 @@
+/* +++
+ET.JavaScriptFile('🍃-a0426b01be74a55be78c',
+  tag_=[],
+  created=Time('2026-08-29 11:15:33 +0800')
+)
++++ */
+
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const { embedRenderedMermaid, generateStandaloneHtml, getExportCss, prepareMermaidForExport } = require('../out/htmlExport.js');

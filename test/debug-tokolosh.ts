@@ -1,3 +1,10 @@
+/* +++
+ET.TypeScriptFile('🍃-46db1bf734611fc498c4',
+  tag_=[],
+  created=Time('2026-08-12 21:17:08 +0800')
+)
++++ */
+
 // Debug test: connect to tokolosh on port 27029, log everything
 const PORT = 27029;
 const ws = new WebSocket(`ws://localhost:${PORT}`);

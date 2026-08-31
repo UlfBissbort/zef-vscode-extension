@@ -1,3 +1,12 @@
++++
+ET.MarkdownDocument('🍃-0bfbc48584cbf37e4684',
+  title='INTERNAL_ARCHITECTURE',
+  importance=1,
+  tag_=[],
+  created=Time('2026-01-23 08:21:48 +0800')
+)
++++
+
 # Zef VS Code Extension - Internal Architecture
 
 A concise guide for developers to understand how the Zef extension works internally.

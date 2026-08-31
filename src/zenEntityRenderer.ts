@@ -1,3 +1,10 @@
+/* +++
+ET.TypeScriptFile('🍃-e191320a149ba6cf7b84',
+  tag_=[],
+  created=Time('2026-08-15 11:09:48 +0800')
+)
++++ */
+
 import { spawn } from 'child_process';
 
 const evaluationCache = new Map<string, Promise<Record<string, unknown> | null>>();

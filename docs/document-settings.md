@@ -1,3 +1,12 @@
++++
+ET.MarkdownDocument('🍃-5eac5bca0db21f75fed8',
+  title='document-settings',
+  importance=1,
+  tag_=[],
+  created=Time('2026-01-23 08:32:10 +0800')
+)
++++
+
 # Document-Level Settings in Zef
 
 Zef supports per-document settings via a `---zef` frontmatter block at the top of your `.zef.md` files. Settings use TOML syntax.

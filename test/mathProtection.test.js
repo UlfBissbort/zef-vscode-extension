@@ -1,3 +1,10 @@
+/* +++
+ET.JavaScriptFile('🍃-1f612c9560c251ba8bbc',
+  tag_=[],
+  created=Time('2026-07-23 08:53:20 +0800')
+)
++++ */
+
 const assert = require('node:assert/strict');
 const test = require('node:test');
 const { marked } = require('marked');

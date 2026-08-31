@@ -1,3 +1,10 @@
+/* +++
+ET.TypeScriptFile('🍃-879343a9b744e36f3ef8',
+  tag_=[],
+  created=Time('2026-03-09 14:33:50 +0800')
+)
++++ */
+
 /**
  * Pure function: evaluate a JS/TS code string and capture all declared variables.
  * Separates JSON-serializable variables from non-serializable ones.

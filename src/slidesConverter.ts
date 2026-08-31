@@ -1,3 +1,10 @@
+/* +++
+ET.TypeScriptFile('🍃-a8c6e2e1ab33ffc90b59',
+  tag_=[],
+  created=Time('2026-07-21 12:34:10 +0800')
+)
++++ */
+
 import { spawn } from 'child_process';
 import * as fs from 'fs/promises';
 import * as os from 'os';

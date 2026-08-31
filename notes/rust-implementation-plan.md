@@ -1,3 +1,12 @@
++++
+ET.MarkdownDocument('🍃-2e7702def42bb6e03b1e',
+  title='rust-implementation-plan',
+  importance=1,
+  tag_=[],
+  created=Time('2026-01-11 21:28:51 +0800')
+)
++++
+
 # Rust Execution Implementation Plan
 
 ## Design Iterations

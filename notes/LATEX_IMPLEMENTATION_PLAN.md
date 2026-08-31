@@ -1,3 +1,12 @@
++++
+ET.MarkdownDocument('🍃-aa251c2315d2a1474e92',
+  title='LATEX_IMPLEMENTATION_PLAN',
+  importance=1,
+  tag_=[],
+  created=Time('2026-01-27 19:25:02 +0800')
+)
++++
+
 # LaTeX/Math Equation Rendering Implementation Plan
 
 ## Overview

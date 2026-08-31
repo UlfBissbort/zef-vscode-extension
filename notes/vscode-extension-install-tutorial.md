@@ -1,3 +1,12 @@
++++
+ET.MarkdownDocument('🍃-1582cd5c45e9b4926fa6',
+  title='vscode-extension-install-tutorial',
+  importance=1,
+  tag_=[],
+  created=Time('2026-02-12 23:58:36 +0800')
+)
++++
+
 # Installing Python + Zef During VSCode Extension Activation
 
 A technical tutorial on bootstrapping a complete Python environment (Python, UV, venv, Zef wheel) when the Zef VSCode extension is first installed or activated — without requiring any CLI or manual steps from the user.

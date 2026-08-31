@@ -1,3 +1,10 @@
+/* +++
+ET.TypeScriptFile('🍃-5b453bf6a24fe65b852a',
+  tag_=[],
+  created=Time('2026-03-05 10:54:05 +0800')
+)
++++ */
+
 import * as vscode from 'vscode';
 import * as path from 'path';
 import * as fs from 'fs';

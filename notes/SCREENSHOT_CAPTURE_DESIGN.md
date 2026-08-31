@@ -1,3 +1,12 @@
++++
+ET.MarkdownDocument('🍃-a0f00c66d6310e05c54d',
+  title='SCREENSHOT_CAPTURE_DESIGN',
+  importance=1,
+  tag_=[],
+  created=Time('2026-01-12 17:49:53 +0800')
+)
++++
+
 # Screenshot Capture Design for Svelte Components
 
 > Design document exploring approaches for capturing screenshots of Svelte components rendered in iframes within VS Code webviews.

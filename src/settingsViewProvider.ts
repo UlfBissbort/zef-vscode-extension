@@ -1,3 +1,10 @@
+/* +++
+ET.TypeScriptFile('🍃-297bf5504c1d67499729',
+  tag_=[],
+  created=Time('2026-01-23 08:21:48 +0800')
+)
++++ */
+
 import * as vscode from 'vscode';
 import { isRustAvailable } from './rustExecutor';
 import { isBunAvailable } from './jsExecutor';

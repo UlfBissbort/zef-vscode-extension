@@ -1,3 +1,10 @@
+/* +++
+ET.TypeScriptFile('🍃-95e741d58a8bd1258575',
+  tag_=[],
+  created=Time('2026-08-27 14:30:14 +0800')
+)
++++ */
+
 import * as crypto from 'crypto';
 
 /** Narrow, dependency-free implementation of ZefNet/Zef Messaging protocol v1.

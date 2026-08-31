@@ -1,3 +1,10 @@
+/* +++
+ET.TypeScriptFile('🍃-337b084d2f0697e60da1',
+  tag_=[],
+  created=Time('2026-08-27 14:30:45 +0800')
+)
++++ */
+
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';

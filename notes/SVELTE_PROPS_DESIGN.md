@@ -1,3 +1,12 @@
++++
+ET.MarkdownDocument('🍃-5c82c03b5d5acfd3be18',
+  title='SVELTE_PROPS_DESIGN',
+  importance=1,
+  tag_=[],
+  created=Time('2026-01-13 00:19:25 +0800')
+)
++++
+
 # Svelte Component Props Design
 
 > **Status: historical proposal.** This note describes an unimplemented `props`-fence design for ad hoc `svelte` fences. The current reusable component system instead dispatches typed `zef` entity data to trusted components in `zef-svelte-components/`, mounting the selected component with `{ data }`. See [`../docs/entity-svelte-components.md`](../docs/entity-svelte-components.md) and [`ARCHITECTURE.md`](ARCHITECTURE.md) for the active design. Zef Slides is a separate typed deck runtime.

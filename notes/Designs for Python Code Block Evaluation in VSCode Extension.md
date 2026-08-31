@@ -1,3 +1,12 @@
++++
+ET.MarkdownDocument('🍃-d85354682621d7d06697',
+  title='Designs for Python Code Block Evaluation in VSCode Extension',
+  importance=1,
+  tag_=[],
+  created=Time('2026-01-11 13:07:10 +0800')
+)
++++
+
 # Designs for Python Code Block Evaluation in VSCode Extension
 
 This document presents three design approaches for implementing Python code block evaluation in the Zef VSCode extension, inspired by the zef-radar-desktop implementation.

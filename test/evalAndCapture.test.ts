@@ -1,3 +1,10 @@
+/* +++
+ET.TypeScriptFile('🍃-5e30e441e5370bc3e6c8',
+  tag_=[],
+  created=Time('2026-03-09 14:34:52 +0800')
+)
++++ */
+
 import { describe, test, expect } from 'bun:test';
 import { evalAndCapture, extractDeclaredVariables } from '../src/evalAndCapture';
 

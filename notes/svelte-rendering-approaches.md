@@ -1,3 +1,12 @@
++++
+ET.MarkdownDocument('🍃-857c08d408e1a7627bb8',
+  title='svelte-rendering-approaches',
+  importance=1,
+  tag_=[],
+  created=Time('2026-01-12 13:47:49 +0800')
+)
++++
+
 # Svelte Component Rendering Approaches for Zef
 
 ## Problem Statement

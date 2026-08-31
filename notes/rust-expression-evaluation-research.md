@@ -1,3 +1,12 @@
++++
+ET.MarkdownDocument('🍃-a13bc271d66deae6dc2b',
+  title='rust-expression-evaluation-research',
+  importance=1,
+  tag_=[],
+  created=Time('2026-01-11 21:22:38 +0800')
+)
++++
+
 # Rust Expression Evaluation Research
 
 ## Summary

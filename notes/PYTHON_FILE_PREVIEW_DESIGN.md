@@ -1,3 +1,12 @@
++++
+ET.MarkdownDocument('🍃-1226d7d1bdba15844091',
+  title='PYTHON_FILE_PREVIEW_DESIGN',
+  importance=1,
+  tag_=[],
+  created=Time('2026-01-28 16:32:00 +0800')
+)
++++
+
 # Python File Preview Support Design
 
 ## Overview

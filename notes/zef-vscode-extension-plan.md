@@ -1,3 +1,12 @@
++++
+ET.MarkdownDocument('🍃-928ce5f2d7f6e6e08b92',
+  title='zef-vscode-extension-plan',
+  importance=1,
+  tag_=[],
+  created=Time('2026-01-11 10:19:59 +0800')
+)
++++
+
 # Zef Markdown Code Runner - VS Code Extension Plan
 
 ## Project Setup

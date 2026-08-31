@@ -1,4 +1,11 @@
 #!/usr/bin/env python3
+# +++
+# ET.PythonFile('🍃-da75b796b6283ccd2e39',
+#   tag_=[],
+#   created=Time('2026-01-28 15:03:57 +0800')
+# )
+# +++
+
 """
 Zef VS Code Extension Build Tool
 =================================

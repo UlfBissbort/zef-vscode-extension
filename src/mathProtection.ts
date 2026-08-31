@@ -1,3 +1,10 @@
+/* +++
+ET.TypeScriptFile('🍃-2731a34d6d12ba3bd812',
+  tag_=[],
+  created=Time('2026-07-23 08:51:38 +0800')
+)
++++ */
+
 /**
  * Preserve math delimiters while markdown is parsed.
  *

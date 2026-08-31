@@ -1,3 +1,10 @@
+/* +++
+ET.TypeScriptFile('🍃-ef9db4155e8757f127c4',
+  tag_=[],
+  created=Time('2026-08-06 10:30:23 +0800')
+)
++++ */
+
 import * as path from 'path';
 import type { TokenizerAndRendererExtension, Tokens } from 'marked';
 

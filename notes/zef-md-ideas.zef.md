@@ -1,3 +1,12 @@
++++
+ET.MarkdownDocument('🍃-f115d6f25965b8374831',
+  title='zef-md-ideas.zef',
+  importance=1,
+  tag_=[],
+  created=Time('2026-01-13 11:28:33 +0800')
+)
++++
+
 - main goal: simple ADN easy way to deal with code, versioning sharing, the zef DHS
 - allow using ZefValueHashes instead of actual values for e.g. return vals, within side effects etc.
 - execute zef code in env with logging: log all effects

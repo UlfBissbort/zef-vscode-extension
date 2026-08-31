@@ -1,3 +1,10 @@
+/* +++
+ET.TypeScriptFile('🍃-fa3567a00212cc8f60d1',
+  tag_=[],
+  created=Time('2026-08-15 10:21:46 +0800')
+)
++++ */
+
 import * as fs from 'fs';
 import * as path from 'path';
 import { RegisteredZefSvelteComponent, registeredZefSvelteComponents } from './generated/zefSvelteComponentCatalog';

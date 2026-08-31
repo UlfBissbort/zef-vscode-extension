@@ -1,3 +1,10 @@
+/* +++
+ET.TypeScriptFile('🍃-5061727a5b645574796b',
+  tag_=[],
+  created=Time('2026-01-23 08:21:48 +0800')
+)
++++ */
+
 import * as vscode from 'vscode';
 
 const WS_URL = 'wss://zef.app/ws-events';

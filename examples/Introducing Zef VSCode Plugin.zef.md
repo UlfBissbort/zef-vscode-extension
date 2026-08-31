@@ -1,3 +1,12 @@
++++
+ET.MarkdownDocument('🍃-974a2c1eaf9feaa09c79',
+  title='Introducing Zef VSCode Plugin.zef',
+  importance=1,
+  tag_=[],
+  created=Time('2026-08-29 16:11:41 +0800')
+)
++++
+
 # Introducing the Zef VSCode Plugin
 
 **Jupyter notebooks, evolved. Write Markdown. Run Python and Rust. Render LaTeX math. Sketch with Excalidraw. Reproduce anything.**

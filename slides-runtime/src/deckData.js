@@ -1,3 +1,10 @@
+/* +++
+ET.JavaScriptFile('🍃-0619f410dc916a2011cb',
+  tag_=[],
+  created=Time('2026-07-21 12:30:45 +0800')
+)
++++ */
+
 // @ts-nocheck
 // Plain deck-data transformations. No browser, Svelte, or VS Code dependencies.
 

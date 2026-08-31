@@ -1,3 +1,12 @@
++++
+ET.MarkdownDocument('🍃-c4412b0bb175e2dc84a0',
+  title='cli-bundling-design',
+  importance=1,
+  tag_=[],
+  created=Time('2026-02-13 16:59:23 +0800')
+)
++++
+
 # Bundling the Zef CLI in the VSCode Extension
 
 How to build, bundle, and install the `zef` CLI tool from the VSCode extension so it's available system-wide in the user's terminal.

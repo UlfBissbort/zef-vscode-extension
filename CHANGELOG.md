@@ -1,3 +1,12 @@
++++
+ET.MarkdownDocument('🍃-561c62441dd365aa844c',
+  title='CHANGELOG',
+  importance=1,
+  tag_=[],
+  created=Time('2026-03-05 10:55:50 +0800')
+)
++++
+
 # Changelog
 
 All notable changes to the Zef extension will be documented in this file.

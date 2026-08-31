@@ -1,3 +1,12 @@
++++
+ET.MarkdownDocument('🍃-67f9faacf4cfbe30e74f',
+  title='RUNTIME_REQUIREMENTS',
+  importance=1,
+  tag_=[],
+  created=Time('2026-01-22 11:40:54 +0800')
+)
++++
+
 # Runtime Requirements Guide
 
 This guide explains the runtime dependencies required to execute different types of code blocks in Zef.

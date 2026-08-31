@@ -1,3 +1,12 @@
++++
+ET.MarkdownDocument('🍃-5a00102d3299b3cec377',
+  title='cross-language-variable-sharing',
+  importance=1,
+  tag_=[],
+  created=Time('2026-03-09 17:26:55 +0800')
+)
++++
+
 # Cross-Language Variable Sharing
 
 > **Status**: Implemented

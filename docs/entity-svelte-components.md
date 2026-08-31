@@ -1,3 +1,12 @@
++++
+ET.MarkdownDocument('🍃-280d24d2bb51b2076303',
+  title='entity-svelte-components',
+  importance=1,
+  tag_=[],
+  created=Time('2026-08-15 10:24:29 +0800')
+)
++++
+
 # Entity-directed Svelte components and Zef Slides
 
 ## Entity-directed components

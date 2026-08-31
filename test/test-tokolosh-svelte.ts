@@ -1,3 +1,10 @@
+/* +++
+ET.TypeScriptFile('🍃-efc1d3b389d1b9439c40',
+  tag_=[],
+  created=Time('2026-08-12 21:17:08 +0800')
+)
++++ */
+
 // Minimal Bun test: save ET.SvelteComponent to tokolosh hash store
 const PORT = 27021;
 

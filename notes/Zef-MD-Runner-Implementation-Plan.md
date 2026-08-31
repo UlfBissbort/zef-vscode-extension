@@ -1,3 +1,12 @@
++++
+ET.MarkdownDocument('🍃-2e5e5fa3497b6596b3c2',
+  title='Zef-MD-Runner-Implementation-Plan',
+  importance=1,
+  tag_=[],
+  created=Time('2026-01-11 10:19:57 +0800')
+)
++++
+
 # Zef Markdown Runner: Implementation Plan
 
 A minimal VS Code extension to run Python code blocks in `.zef.md` files.

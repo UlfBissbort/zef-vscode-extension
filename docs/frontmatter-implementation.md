@@ -1,3 +1,12 @@
++++
+ET.MarkdownDocument('🍃-8b330ffc40b5940c79f4',
+  title='frontmatter-implementation',
+  importance=1,
+  tag_=[],
+  created=Time('2026-01-23 08:32:10 +0800')
+)
++++
+
 # Zef Frontmatter Implementation Plan
 
 ## Feature: Document-Level Settings via `---zef` Frontmatter

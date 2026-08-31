@@ -1,3 +1,10 @@
+/* +++
+ET.TypeScriptFile('🍃-280082f024216827dc3f',
+  tag_=[],
+  created=Time('2026-01-23 08:21:48 +0800')
+)
++++ */
+
 import * as vscode from 'vscode';
 import { isZefDocument } from './zefUtils';
 

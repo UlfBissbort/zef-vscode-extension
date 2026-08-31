@@ -1,3 +1,10 @@
+/* +++
+ET.TypeScriptFile('🍃-910d1a147ba725a7f18b',
+  tag_=[],
+  created=Time('2026-07-21 12:33:50 +0800')
+)
++++ */
+
 export interface SlideFence {
     source: string;
     startLine: number;

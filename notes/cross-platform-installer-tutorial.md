@@ -1,3 +1,12 @@
++++
+ET.MarkdownDocument('🍃-b11f6dcdbce750f68dc0',
+  title='cross-platform-installer-tutorial',
+  importance=1,
+  tag_=[],
+  created=Time('2026-02-13 00:06:35 +0800')
+)
++++
+
 # Cross-Platform Zef VSCode Extension Installer
 
 How to cleanly separate installation logic per platform — and how to install the Zef wheel inside WSL from a Windows-hosted VSCode extension.

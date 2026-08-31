@@ -1,3 +1,12 @@
++++
+ET.MarkdownDocument('🍃-f93bb60638d539e15b27',
+  title='README',
+  importance=1,
+  tag_=[],
+  created=Time('2026-01-23 08:21:48 +0800')
+)
++++
+
 # Zef
 
 Lightweight Jupyter-style notebooks in Markdown. Write executable documents with code, results, and visualizations — all in plain `.zef.md` files.

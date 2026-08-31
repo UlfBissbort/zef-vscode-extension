@@ -1,3 +1,10 @@
+/* +++
+ET.TypeScriptFile('🍃-9d51bb80e6cb87135636',
+  tag_=[],
+  created=Time('2026-07-21 12:35:59 +0800')
+)
++++ */
+
 import * as vscode from 'vscode';
 import * as fs from 'fs/promises';
 import * as path from 'path';

@@ -1,3 +1,10 @@
+/* +++
+ET.TypeScriptFile('🍃-359bf26f66ff7630c99d',
+  tag_=[],
+  created=Time('2026-08-06 10:30:45 +0800')
+)
++++ */
+
 import { Marked } from 'marked';
 import { strict as assert } from 'node:assert';
 import test from 'node:test';

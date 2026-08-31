@@ -1,3 +1,12 @@
++++
+ET.MarkdownDocument('🍃-1e38b826382d3caaa5df',
+  title='mermaid-design',
+  importance=1,
+  tag_=[],
+  created=Time('2026-01-12 11:59:28 +0800')
+)
++++
+
 # Mermaid Diagram Rendering in Zef View
 
 ## Goal

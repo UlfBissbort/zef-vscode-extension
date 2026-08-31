@@ -1,3 +1,10 @@
+/* +++
+ET.TypeScriptFile('🍃-aae1d9511d136d86d323',
+  tag_=[],
+  created=Time('2026-03-10 14:12:13 +0800')
+)
++++ */
+
 /**
  * Standalone tests for content-addressed Zef images.
  * Run: cd /Users/ulf/dev/zef-vscode-extension && npx tsx test/test_tokolosh.ts

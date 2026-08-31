@@ -1,3 +1,12 @@
++++
+ET.MarkdownDocument('🍃-c40bc4669c515665e001',
+  title='README',
+  importance=1,
+  tag_=[],
+  created=Time('2026-08-27 14:33:09 +0800')
+)
++++
+
 # ZefNet protocol-v1 oracle fixtures
 
 These binary files are copied byte-for-byte from `/Users/ulf/dev/zef/crates/zefnet_message_encoding/fixtures/` on 2026-08-27.

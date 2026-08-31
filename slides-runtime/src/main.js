@@ -1,3 +1,10 @@
+/* +++
+ET.JavaScriptFile('🍃-e621c8bbc3bea0084fb1',
+  tag_=[],
+  created=Time('2026-05-15 16:37:37 +0800')
+)
++++ */
+
 // @ts-nocheck
 import { mount } from 'svelte';
 import SlideApp from './SlideApp.svelte';

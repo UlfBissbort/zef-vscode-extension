@@ -1,3 +1,10 @@
+/* +++
+ET.TypeScriptFile('🍃-cdf346f585d23ded13d1',
+  tag_=[],
+  created=Time('2026-07-21 12:34:18 +0800')
+)
++++ */
+
 import * as assert from 'assert';
 import { findSlideFences, selectSlideFence } from './slidesParser';
 
