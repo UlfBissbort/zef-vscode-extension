@@ -183,11 +183,6 @@
           "default": true,
           "description": "Allow pasting images into zef MD sections in any .md, .py, .rs, .ts, .js file (uploads to hash store and inserts a Zef image embed)."
         },
-        "zef.wsConnectionEnabled": {
-          "type": "boolean",
-          "default": false,
-          "description": "Enable WebSocket connection to Zef Cloud (wss://zef.app/ws-test2). Connection persists across VS Code restarts when enabled."
-        },
         "zef.viewWidthPercent": {
           "type": "number",
           "default": 100,

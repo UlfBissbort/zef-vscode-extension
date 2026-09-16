@@ -11,12 +11,14 @@ import { join } from 'node:path';
 import test from 'node:test';
 import {
     decodeDataMessageJsonLike,
+    decodeDeliveryError,
     decodeSessionAccepted,
     decodeSessionRejected,
     encodeClientHello,
     encodeDataMessageJsonLike,
     encodeDisconnect,
     isDisconnectAccepted,
+    messageIdFromUid,
     nodeIdentifierFromUid,
     ZefNetWireError,
 } from '../src/zefnetWire';
@@ -87,6 +89,13 @@ test('canonical None return context and payload framing are enforced', () => {
     assert.throws(() => decodeDataMessageJsonLike(trailing), /does not consume/);
 });
 
+test('DeliveryError fixtures identify the failed request and preserve a typed reason', () => {
+    const decoded = decodeDeliveryError(deliveryError);
+    sameBytes(decoded.failedId, deliveryError.slice(128, 138));
+    assert.equal(decoded.reason, 'no-route');
+    assert.throws(() => decodeDeliveryError(data), ZefNetWireError);
+});
+
 test('malformed frame claims fail closed without decoding payload JSON', () => {
     for (const mutation of [
         (value: Uint8Array) => value[0] = 0,
@@ -111,9 +120,12 @@ test('session rejection and disconnect correlation are strict', () => {
 });
 
 test('UID conversion rejects malformed identities and preserves the complete 16-byte identity', () => {
-    sameBytes(nodeIdentifierFromUid('🍃-e4908128a369b2d9df34'), ORIGIN);
+    const uid = '🍃-e4908128a369b2d9df34';
+    sameBytes(nodeIdentifierFromUid(uid), ORIGIN);
+    sameBytes(messageIdFromUid(uid), ORIGIN.slice(6));
     for (const invalid of ['e4908128a369b2d9df34', '🍃-short', '🍃-e4908128a369b2d9df3z']) {
         assert.throws(() => nodeIdentifierFromUid(invalid), ZefNetWireError);
+        assert.throws(() => messageIdFromUid(invalid), ZefNetWireError);
     }
 });
 

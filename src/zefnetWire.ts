@@ -28,6 +28,7 @@ const DATA_PAYLOAD_OFFSET = COMMON_PREFIX_SIZE + RETURN_CONTEXT_SIZE;
 const SESSION_FRAME_SIZE = 45;
 const ZEF_PROCESS_TYPE = Uint8Array.from([226, 230, 195, 22, 20]);
 const DATA_JSON_LIKE_TYPE = Uint8Array.from([31, 35, 64, 72, 89]);
+const DELIVERY_ERROR_TYPE = Uint8Array.from([186, 194, 62, 7, 134]);
 const CLIENT_HELLO_TYPE = Uint8Array.from([12, 112, 33, 116, 136]);
 const SESSION_ACCEPTED_TYPE = Uint8Array.from([254, 184, 126, 6, 137]);
 const SESSION_REJECTED_TYPE = Uint8Array.from([212, 162, 32, 29, 252]);
@@ -227,6 +228,11 @@ export function nodeIdentifierFromUid(uid: string, entityType: Uint8Array = ZEF_
     return Uint8Array.from([ENTITY_UID, ...entityType, ...id]);
 }
 
+/** Extract the 10-byte wire message ID carried by a canonical Zef UID. */
+export function messageIdFromUid(uid: string): MessageId {
+    return nodeIdentifierFromUid(uid).slice(6);
+}
+
 export function encodeClientHello(id: MessageId, client: NodeIdentifier): Uint8Array {
     validateMessageId(id);
     requireBytes(client, 16, 'client identity');
@@ -303,7 +309,37 @@ export interface DecodedDataMessageJsonLike {
     payload: string;
 }
 
+export interface DecodedDeliveryError {
+    origin: NodeIdentifier;
+    target: NodeIdentifier;
+    id: MessageId;
+    failedId: MessageId;
+    reason: 'no-route' | 'hop-limit-exceeded' | 'next-hop-unavailable' | 'local-dispatch-rejected' | 'unsupported-payload-encoding' | 'return-capability-unavailable';
+}
+
 export function decodeDataMessageJsonLike(bytes: Uint8Array): DecodedDataMessageJsonLike {
+    const { origin, target, id } = decodeRoutedPrefix(bytes, DATA_JSON_LIKE_TYPE, 'DataMessageJsonLike');
+    validateReturnContext(bytes, origin, id);
+    return { origin, target, id, payload: decodeText(bytes, DATA_PAYLOAD_OFFSET) };
+}
+
+/** Decode the fixed-size failure record emitted instead of an undeliverable routed request. */
+export function decodeDeliveryError(bytes: Uint8Array): DecodedDeliveryError {
+    if (bytes.length !== 140) { throw new ZefNetWireError(`DeliveryError has invalid size ${bytes.length}`); }
+    const { origin, target, id } = decodeRoutedPrefix(bytes, DELIVERY_ERROR_TYPE, 'DeliveryError');
+    validateReturnContext(bytes, origin, id);
+    requireHeader(bytes, 104, 0x28, 'DeliveryError body');
+    requireHeader(bytes, 105, 0x22, 'DeliveryError body size');
+    validateNodeIdentifier(bytes, 106, 'DeliveryError failed target');
+    requireHeader(bytes, 122, ENTITY_UID, 'DeliveryError failed message UID');
+    requireHeader(bytes, 138, UINT8, 'DeliveryError reason');
+    const reasons = ['no-route', 'hop-limit-exceeded', 'next-hop-unavailable', 'local-dispatch-rejected', 'unsupported-payload-encoding', 'return-capability-unavailable'] as const;
+    const reason = reasons[bytes[139] - 1];
+    if (!reason) { throw new ZefNetWireError(`DeliveryError has unknown reason ${bytes[139]}`); }
+    return { origin, target, id, failedId: bytes.slice(128, 138), reason };
+}
+
+function decodeRoutedPrefix(bytes: Uint8Array, expectedType: Uint8Array, name: string): { origin: NodeIdentifier; target: NodeIdentifier; id: MessageId } {
     if (bytes.length < DATA_PAYLOAD_OFFSET) { throw new ZefNetWireError(`routed record is too short: ${bytes.length}`); }
     validateArray2(bytes);
     requireHeader(bytes, 9, UINT8, 'routed version');
@@ -312,8 +348,6 @@ export function decodeDataMessageJsonLike(bytes: Uint8Array): DecodedDataMessage
     const origin = validateNodeIdentifier(bytes, 13, 'origin');
     const target = validateNodeIdentifier(bytes, 29, 'target');
     requireHeader(bytes, 45, ENTITY_UID, 'routed message UID');
-    if (!equalBytes(bytes.slice(46, 51), DATA_JSON_LIKE_TYPE)) { throw new ZefNetWireError('routed record is not DataMessageJsonLike'); }
-    const id = bytes.slice(51, 61);
-    validateReturnContext(bytes, origin, id);
-    return { origin, target, id, payload: decodeText(bytes, DATA_PAYLOAD_OFFSET) };
+    if (!equalBytes(bytes.slice(46, 51), expectedType)) { throw new ZefNetWireError(`routed record is not ${name}`); }
+    return { origin, target, id: bytes.slice(51, 61) };
 }

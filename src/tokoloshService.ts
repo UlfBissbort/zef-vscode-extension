@@ -14,10 +14,12 @@ import {
     DecodedDataMessageJsonLike,
     NodeIdentifier,
     decodeDataMessageJsonLike,
+    decodeDeliveryError,
     decodeSessionAccepted,
     decodeSessionRejected,
     encodeClientHello,
     encodeDataMessageJsonLike,
+    messageIdFromUid,
     nodeIdentifierFromUid,
     randomMessageId,
 } from './zefnetWire';
@@ -27,7 +29,8 @@ const PORT_MIN = 27021;
 const PORT_MAX = 27040;
 const ZEFNET_PATH = '/zefnet';
 const CONNECT_TIMEOUT = 2000;
-const REQUEST_TIMEOUT = 5000;
+// A cache miss may need one Tokolosh → ZefHub service round trip.
+const REQUEST_TIMEOUT = 40000;
 
 export function debugLog(msg: string): void {
     const line = `[${new Date().toISOString()}] ${msg}\n`;
@@ -98,6 +101,15 @@ export function extractFigureRefs(sideEffectsText: string): Array<{ type: string
 interface PendingRequest { resolve: (result: any) => void; reject: (reason: Error) => void; timer: NodeJS.Timeout; }
 interface ConnectedSocket { ws: WebSocket; port: number; server: NodeIdentifier; }
 
+export type TokoloshConnectionPhase = 'idle' | 'discovering' | 'opening' | 'registered' | 'unavailable' | 'closed';
+
+export interface TokoloshConnectionSnapshot {
+    phase: TokoloshConnectionPhase;
+    port: number | null;
+    endpoint: string | null;
+    error: string | null;
+}
+
 function equalBytes(left: Uint8Array, right: Uint8Array): boolean {
     return left.length === right.length && left.every((value, index) => value === right[index]);
 }
@@ -122,6 +134,8 @@ export class TokoloshService {
     private textCache = new Map<string, string>();
     private pendingRequests = new Map<string, PendingRequest>();
     private connecting: Promise<boolean> | null = null;
+    private phase: TokoloshConnectionPhase = 'idle';
+    private lastError: string | null = null;
     private statusCallback: (() => void) | null = null;
 
     private constructor() {}
@@ -131,14 +145,28 @@ export class TokoloshService {
     }
     public get isConnected(): boolean { return this.connected && this.ws?.readyState === WebSocket.OPEN; }
     public get port(): number | null { return this.connectedPort; }
+    public get snapshot(): TokoloshConnectionSnapshot {
+        return {
+            phase: this.phase,
+            port: this.connectedPort,
+            endpoint: this.connectedPort === null ? null : `ws://127.0.0.1:${this.connectedPort}${ZEFNET_PATH}`,
+            error: this.lastError,
+        };
+    }
     public setStatusCallback(callback: () => void): void { this.statusCallback = callback; }
     private notifyStatusChange(): void { this.statusCallback?.(); }
 
     public async ensureConnected(): Promise<boolean> {
         if (this.isConnected) { return true; }
         if (this.connecting) { return this.connecting; }
+        this.phase = 'discovering';
+        this.lastError = null;
+        this.notifyStatusChange();
         this.connecting = this.connect();
-        try { return await this.connecting; } finally { this.connecting = null; }
+        try { return await this.connecting; } finally {
+            this.connecting = null;
+            this.notifyStatusChange();
+        }
     }
 
     private candidateUrls(): Array<{ url: string; port: number }> {
@@ -154,15 +182,20 @@ export class TokoloshService {
     }
 
     private async connect(): Promise<boolean> {
+        let lastFailure = 'No Tokolosh ZefNet endpoint responded.';
+        this.phase = 'opening';
         for (const candidate of this.candidateUrls()) {
             try {
                 const connection = await this.openSession(candidate.url, candidate.port);
                 this.installConnectedSocket(connection);
                 return true;
             } catch (error: any) {
-                debugLog(`ZefNet connection failed at ${candidate.url}: ${error.message}`);
+                lastFailure = error.message;
+                debugLog(`ZefNet connection failed at ${candidate.url}: ${lastFailure}`);
             }
         }
+        this.phase = 'unavailable';
+        this.lastError = lastFailure;
         return false;
     }
 
@@ -207,6 +240,8 @@ export class TokoloshService {
         this.connectedPort = connection.port;
         this.serverIdentity = connection.server;
         this.connected = true;
+        this.phase = 'registered';
+        this.lastError = null;
         connection.ws.on('message', (data, isBinary) => this.handleWireMessage(data, isBinary));
         connection.ws.on('error', error => debugLog(`ZefNet WebSocket error: ${error.message}`));
         connection.ws.on('close', () => this.handleDisconnect('connection closed'));
@@ -215,8 +250,13 @@ export class TokoloshService {
     }
 
     private handleWireMessage(data: WebSocket.RawData, isBinary: boolean): void {
+        let bytes: Uint8Array;
+        try { bytes = websocketBytes(data, isBinary); } catch (error: any) {
+            debugLog(`Rejected non-binary ZefNet record: ${error.message}`);
+            return;
+        }
         try {
-            const message: DecodedDataMessageJsonLike = decodeDataMessageJsonLike(websocketBytes(data, isBinary));
+            const message: DecodedDataMessageJsonLike = decodeDataMessageJsonLike(bytes);
             if (!equalBytes(message.target, this.clientIdentity)) { return; }
             const response = JSON.parse(message.payload);
             if (response?.__type !== 'ET.ZefServiceResponse' || !response.request?.__uid) { return; }
@@ -229,8 +269,20 @@ export class TokoloshService {
             } else {
                 pending.resolve(response.result);
             }
+            return;
+        } catch {
+            // A non-data routed record may be a correlated DeliveryError.
+        }
+        try {
+            const failure = decodeDeliveryError(bytes);
+            if (!equalBytes(failure.target, this.clientIdentity)) { return; }
+            const requestUid = `🍃-${Buffer.from(failure.failedId).toString('hex')}`;
+            const pending = this.pendingRequests.get(requestUid);
+            if (!pending) { return; }
+            this.pendingRequests.delete(requestUid);
+            clearTimeout(pending.timer);
+            pending.reject(new Error(`Tokolosh could not deliver request: ${failure.reason}`));
         } catch (error: any) {
-            // Ignore unrelated routed records, but preserve evidence for protocol failures.
             debugLog(`Ignored invalid or unrelated ZefNet record: ${error.message}`);
         }
     }
@@ -241,6 +293,10 @@ export class TokoloshService {
         this.connected = false;
         this.connectedPort = null;
         this.serverIdentity = null;
+        if (this.phase !== 'closed') {
+            this.phase = 'unavailable';
+            this.lastError = `Tokolosh ${reason}`;
+        }
         for (const pending of this.pendingRequests.values()) {
             clearTimeout(pending.timer);
             pending.reject(new Error(`Tokolosh ${reason}`));
@@ -255,7 +311,8 @@ export class TokoloshService {
         }
         const requestUid = request.__uid;
         if (typeof requestUid !== 'string' || !requestUid) { throw new Error('Zef service request has no UID'); }
-        const frame = encodeDataMessageJsonLike(this.clientIdentity, this.serverIdentity, randomMessageId(), JSON.stringify(request));
+        // Tokolosh correlates a service request with its routed-record ID.
+        const frame = encodeDataMessageJsonLike(this.clientIdentity, this.serverIdentity, messageIdFromUid(requestUid), JSON.stringify(request));
         return new Promise((resolve, reject) => {
             const pending: PendingRequest = {
                 resolve, reject,
@@ -314,6 +371,8 @@ export class TokoloshService {
     public clearCache(): void { this.cache.clear(); this.textCache.clear(); }
     public dispose(): void {
         const ws = this.ws;
+        this.phase = 'closed';
+        this.lastError = null;
         this.handleDisconnect('service disposed');
         try { ws?.close(); } catch {}
         this.clearCache();

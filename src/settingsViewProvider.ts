@@ -9,8 +9,11 @@ import * as vscode from 'vscode';
 import { isRustAvailable } from './rustExecutor';
 import { isBunAvailable } from './jsExecutor';
 import { getPythonPath, getNotebookVenv } from './configManager';
-import { ZefWebSocketService } from './wsService';
 import { TokoloshService } from './tokoloshService';
+
+function escapeHtml(value: string): string {
+    return value.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+}
 
 /**
  * Provider for the Zef sidebar webview with Status and Settings tabs
@@ -21,18 +24,11 @@ export class ZefSettingsViewProvider implements vscode.WebviewViewProvider {
     private _view?: vscode.WebviewView;
     private _extensionUri: vscode.Uri;
     private _activeTab: 'status' | 'settings' = 'status';
-    private _wsService: ZefWebSocketService;
     private _tokoloshService: TokoloshService;
 
     constructor(extensionUri: vscode.Uri) {
         this._extensionUri = extensionUri;
-        this._wsService = ZefWebSocketService.getInstance();
         this._tokoloshService = TokoloshService.getInstance();
-        
-        // Set up status change callbacks
-        this._wsService.setStatusCallback(() => {
-            this._refreshView();
-        });
         this._tokoloshService.setStatusCallback(() => {
             this._refreshView();
         });
@@ -59,8 +55,9 @@ export class ZefSettingsViewProvider implements vscode.WebviewViewProvider {
                     this._activeTab = message.tab;
                     this._refreshView();
                     break;
-                case 'toggleWsConnection':
-                    await this._toggleWsConnection();
+                case 'checkTokolosh':
+                    await this._tokoloshService.ensureConnected();
+                    this._refreshView();
                     break;
                 case 'selectPython':
                     await vscode.commands.executeCommand('zef.selectPython');
@@ -121,29 +118,8 @@ export class ZefSettingsViewProvider implements vscode.WebviewViewProvider {
             }
         });
 
-        // Check initial WebSocket connection state
-        const config = vscode.workspace.getConfiguration('zef');
-        const wsEnabled = config.get<boolean>('wsConnectionEnabled', false);
-        if (wsEnabled) {
-            // Auto-reconnect on startup if enabled
-            this._wsService.connect();
-        }
-    }
-
-    private async _toggleWsConnection() {
-        const config = vscode.workspace.getConfiguration('zef');
-        const currentEnabled = config.get<boolean>('wsConnectionEnabled', false);
-        const newEnabled = !currentEnabled;
-        
-        await config.update('wsConnectionEnabled', newEnabled, vscode.ConfigurationTarget.Global);
-        
-        if (newEnabled) {
-            await this._wsService.connect();
-        } else {
-            this._wsService.disconnect();
-        }
-        
-        this._refreshView();
+        // Probe asynchronously so opening the sidebar stays responsive.
+        void this._tokoloshService.ensureConnected();
     }
 
     private async _refreshView() {
@@ -166,7 +142,6 @@ export class ZefSettingsViewProvider implements vscode.WebviewViewProvider {
         const allowImagePaste = config.get<boolean>('allowImagePasteInAllFiles', true);
         const rustcPath = config.get<string>('rustcPath', '');
         const bunPath = config.get<string>('bunPath', '');
-        const wsEnabled = config.get<boolean>('wsConnectionEnabled', false);
         const viewWidthPercent = config.get<number>('viewWidthPercent', 100);
 
         // Format Python display
@@ -460,7 +435,7 @@ export class ZefSettingsViewProvider implements vscode.WebviewViewProvider {
     </div>
     
     <div class="content">
-        ${statusTab ? this._getStatusContent(wsEnabled) : ''}
+        ${statusTab ? this._getStatusContent() : ''}
         ${settingsTab ? this._getSettingsContent(pythonPath ?? undefined, pythonDisplay, rustAvailable, bunAvailable, rustcPath, bunPath, treatAllMd, allowImagePaste, viewWidthPercent) : ''}
     </div>
 
@@ -487,42 +462,31 @@ export class ZefSettingsViewProvider implements vscode.WebviewViewProvider {
 </html>`;
     }
 
-    private _getStatusContent(wsEnabled: boolean): string {
-        const wsConnected = this._wsService.isConnected;
-        const wsError = this._wsService.connectionError;
-        const statusClass = wsEnabled ? (wsConnected ? 'connected' : 'error') : 'disconnected';
-        const statusText = wsEnabled 
-            ? (wsConnected ? 'Connected' : (wsError || 'Connecting...'))
-            : 'Disconnected';
-
-        // Tokolosh (local) connection status
-        const tokoloshConnected = this._tokoloshService.isConnected;
-        const tokoloshPort = this._tokoloshService.port;
-        const tokoloshStatusClass = tokoloshConnected ? 'connected' : 'disconnected';
-        const tokoloshStatusText = tokoloshConnected ? 'Connected' : 'Not running';
-        const tokoloshUrl = tokoloshConnected ? `ws://127.0.0.1:${tokoloshPort}/zef-messaging` : 'Scans ports 27021–27040 for Zef Messaging';
+    private _getStatusContent(): string {
+        const snapshot = this._tokoloshService.snapshot;
+        const connected = snapshot.phase === 'registered';
+        const checking = snapshot.phase === 'discovering' || snapshot.phase === 'opening';
+        const statusClass = connected ? 'connected' : checking ? 'disconnected' : 'error';
+        const statusText = connected
+            ? 'Connected — hash-store uploads and retrieval are available'
+            : checking
+                ? 'Checking local Tokolosh…'
+                : snapshot.error
+                    ? `Unavailable — ${escapeHtml(snapshot.error)}`
+                    : 'Not connected';
+        const url = snapshot.endpoint ?? 'Scans localhost ports 27021–27040 at /zefnet';
 
         return `
-            <h2>Connection</h2>
+            <h2>Local service</h2>
             <div class="connection-card">
                 <div class="connection-header">
-                    <span class="connection-title">Zef Cloud</span>
-                    <div class="toggle-switch ${wsEnabled ? 'on' : ''}" onclick="send('toggleWsConnection')"></div>
+                    <span class="connection-title">Tokolosh</span>
+                    <button onclick="send('checkTokolosh')">Check</button>
                 </div>
-                <div class="connection-url">wss://zef.app/ws-events</div>
+                <div class="connection-url">${url}</div>
                 <div class="connection-status">
                     <span class="status-dot ${statusClass}"></span>
                     <span>${statusText}</span>
-                </div>
-            </div>
-            <div class="connection-card" style="margin-top: 8px;">
-                <div class="connection-header">
-                    <span class="connection-title">Tokolosh (local)</span>
-                </div>
-                <div class="connection-url">${tokoloshUrl}</div>
-                <div class="connection-status">
-                    <span class="status-dot ${tokoloshStatusClass}"></span>
-                    <span>${tokoloshStatusText}</span>
                 </div>
             </div>
         `;

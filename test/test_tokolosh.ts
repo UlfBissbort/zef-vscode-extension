@@ -96,6 +96,9 @@ async function testTokoloshRoundTrip() {
         return;
     }
 
+    check(service.snapshot.phase === 'registered', 'successful handshake must publish a registered connection snapshot');
+    check(service.snapshot.endpoint?.endsWith('/zefnet'), 'registered snapshot must identify the ZefNet endpoint');
+
     const samplePng = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVQIHWP4z8DwHwAFgAI/ScL9YQAAAABJRU5ErkJggg==', 'base64');
     const hash = await service.uploadZefValue('PngImage', samplePng);
     if (!hash) {
@@ -106,6 +109,7 @@ async function testTokoloshRoundTrip() {
     check(dataUri?.startsWith('data:image/png;base64,'), 'uploaded image should resolve as a PNG data URI');
     check(buildZefImageEmbed('PngImage', hash).includes(hash), 'uploaded hash should format as an embed');
     service.dispose();
+    check(service.snapshot.phase === 'closed', 'disposed client must publish a closed connection snapshot');
     console.log('✓ live hash-store upload/retrieve round trip');
 }
 
