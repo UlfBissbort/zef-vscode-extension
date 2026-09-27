@@ -140,14 +140,14 @@ graph LR
 
 | Command | Keybinding | Description |
 |---------|------------|-------------|
-| Zef: Open Graph Entity by UID | Cmd+Shift+P → command name | Paste a typed `ET.Type('🍃-...')` identity to open its tracked file |
+| Zef: Open Graph Entity by UID | Cmd+Shift+P → command name | Paste a typed `ET.Type('🍃-...')` identity to open its tracked file; code definitions jump to their annotation |
 | Zef: Run Code Block | — | Run the code block (via CodeLens) |
 | Zef: Run Code Block at Cursor | Shift+Enter | Run block at cursor |
 | Zef: Open Preview | Cmd+Shift+V | Open rendered preview panel |
 | Zef: Select Python Interpreter | — | Choose Python environment |
 | Zef: Restart Kernel | — | Restart the execution kernel |
 
-Graph entity navigation reads the last committed `zef graph` snapshot and maps its root UID through `zef graph tracking`; it does not sync or modify source files. Run `zef graph! sync` if a file has moved since the last commit. Set `zef.cliPath` if the `zef` executable is not on VS Code's PATH. VS Code's built-in Cmd+P file picker does not accept custom entity-ID providers; use the command palette or assign a shortcut to this command.
+Graph entity navigation reads the last committed `zef graph` snapshot and maps its root UID through `zef graph tracking`. Code entities use the graph's `defines` relationship to find their containing file, then locate their exact `⚓️ ET.Type('🍃-...')` annotation and show five preceding lines above the cursor. It does not sync or modify source files. Run `zef graph! sync` if a file has moved since the last commit. Set `zef.cliPath` if the `zef` executable is not on VS Code's PATH. VS Code's built-in Cmd+P file picker does not accept custom entity-ID providers; use the command palette or assign a shortcut to this command.
 
 ## Building from Source
 
