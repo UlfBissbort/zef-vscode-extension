@@ -85,6 +85,10 @@
     ],
     "commands": [
       {
+        "command": "zef.openGraphEntity",
+        "title": "Zef: Open Graph Entity by UID"
+      },
+      {
         "command": "zef.runBlock",
         "title": "Zef: Run Code Block"
       },
@@ -153,6 +157,11 @@
     "configuration": {
       "title": "Zef",
       "properties": {
+        "zef.cliPath": {
+          "type": "string",
+          "default": "zef",
+          "description": "Path to the Zef CLI for opening graph entities by typed UID."
+        },
         "zef.defaultPython": {
           "type": "string",
           "default": "",

@@ -25,6 +25,7 @@ import { shouldPersistSvelteOutput, shouldPersistOutput, shouldPersistSideEffect
 import { TokoloshService, mimeToZefType } from './tokoloshService';
 import { buildZefImageEmbed } from './zefImageEmbed';
 import { disposeSlidesPanels, openSlidesPanel, updateSlidesForDocument } from './slidesPanel';
+import { openGraphEntity } from './openGraphEntity';
 
 let statusBarItem: vscode.StatusBarItem;
 
@@ -434,6 +435,8 @@ export function activate(context: vscode.ExtensionContext) {
     );
 
     console.log('Zef extension: Registering commands...');
+
+    context.subscriptions.push(vscode.commands.registerCommand('zef.openGraphEntity', openGraphEntity));
 
     // Register command to run a specific code block
     context.subscriptions.push(
