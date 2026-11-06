@@ -7265,12 +7265,15 @@ function getWebviewContent(renderedHtml: string, existingOutputs: { [blockId: nu
                                 '<div class="side-effects-separator"><div class="effects-label" onclick="toggleSideEffects(this)"><span class="effects-toggle">&#9660;</span> Side Effects</div></div>' +
                                 '<div class="side-effects-body">';
                             
+                            var renderedFigures = new Set();
                             if (hasEffects) {
                                 var figIdx = 0;
                                 result.side_effects.forEach(function(effect) {
                                     if (effect.what === 'matplotlib_figure') {
                                         // Render as Image/Data View tabbed figure
-                                        var fig = (result.figures && result.figures[figIdx]) ? result.figures[figIdx] : null;
+                                        var figureIndex = Number.isInteger(effect.figure_index) ? effect.figure_index : figIdx;
+                                        var fig = (result.figures && result.figures[figureIndex]) ? result.figures[figureIndex] : null;
+                                        if (fig) { renderedFigures.add(figureIndex); }
                                         figIdx++;
                                         var dataText = 'ET.MatplotlibFigurePrinted(' + effect.content + ')';
                                         if (fig) {
@@ -7306,9 +7309,12 @@ function getWebviewContent(renderedHtml: string, existingOutputs: { [blockId: nu
                                         seHtml += '<div class="side-effect-item"><pre style="margin: 0; background: transparent;"><code>' + highlightCode(entryText, 'python') + '</code></pre></div>';
                                     }
                                 });
-                            } else if (hasFigures) {
-                                // Figures without side_effects array (legacy fallback)
-                                result.figures.forEach(function(fig) {
+                            }
+                            if (hasFigures) {
+                                // Local images must survive missing/partial hash-store uploads,
+                                // including results that also contain stdout or stderr.
+                                result.figures.forEach(function(fig, index) {
+                                    if (renderedFigures.has(index)) { return; }
                                     seHtml += '<div class="figure-tabbed">' +
                                         '<div class="figure-tab-bar">' +
                                         '<button class="figure-tab active" onclick="switchFigureTab(this, &#39;image&#39;)">Image</button>' +

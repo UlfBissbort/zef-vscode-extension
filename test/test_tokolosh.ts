@@ -77,27 +77,26 @@ function testPureFunctions() {
     check(buildPlaceholderDataUri('PngImage', SAMPLE_HASH, 'Not found').startsWith('data:image/svg+xml,'), 'placeholder');
     check(generateUid().startsWith('🍃-'), 'request UID');
     const retrieve = buildRetrieveMessage('PngImage', SAMPLE_HASH, '🍃-test') as any;
-    check(retrieve.__type === 'ET.ZefServiceRequest', 'retrieve uses a Zef Service request');
-    check(retrieve.command.__type === 'FX.HashStoreGet', 'retrieve uses the new Hash Store command');
-    check(retrieve.command.hash === `PngImage('${SAMPLE_HASH}')`, 'retrieve preserves the DictDatabase hash token');
+    check(retrieve.operation === 'execute', 'retrieve uses the native-runtime bridge');
+    check(retrieve.command.__type === 'FX.RetrieveFromHashStore', 'retrieve uses the current Store FX');
+    check(retrieve.command.hash.__type === 'MerkleHash' && retrieve.command.hash.hash === SAMPLE_HASH, 'retrieve carries a typed Merkle hash');
     const save = buildSaveMessage('PngImage', 'aGVsbG8=', '🍃-test') as any;
-    check(save.__type === 'ET.ZefServiceRequest', 'save uses a Zef Service request');
-    check(save.command.__type === 'FX.HashStorePut', 'save uses the new Hash Store command');
+    check(save.operation === 'execute', 'save uses the native-runtime bridge');
+    check(save.command.__type === 'FX.SaveToHashStore', 'save uses the current Store FX');
     check(save.command.value.__type === 'PngImage', 'save carries a typed JSON-like value');
-    check(parseRetrieveResponse({ __type: 'ET.HashStoreNotFound' }).status === 'not-found', 'not-found response');
-    check(parseSaveResponse({ __type: 'ET.HashStoreResponse', hash: `PngImage('${SAMPLE_HASH}')` }).status === 'saved', 'save response');
+    check(parseRetrieveResponse({ __type: 'PngImage', data: 'aGVsbG8=' }).status === 'found', 'retrieve returns the value directly');
+    check(parseSaveResponse({ hash: { __type: 'MerkleHash', data_type: 'PngImage', hash: SAMPLE_HASH }, receipt: { status: 'merged', guarantee: 'physical_records' } }).status === 'saved', 'save returns hash and receipt');
     console.log('✓ ZefNet Hash Store request shapes');
 }
 
 async function testTokoloshRoundTrip() {
     const service = TokoloshService.getInstance();
     if (!await service.ensureConnected()) {
-        console.log('⚠ Tokolosh not running — skipping live round trip');
-        return;
+        throw new Error(`Local Tokolosh unavailable: ${service.snapshot.error}`);
     }
 
     check(service.snapshot.phase === 'registered', 'successful handshake must publish a registered connection snapshot');
-    check(service.snapshot.endpoint?.endsWith('/zefnet'), 'registered snapshot must identify the ZefNet endpoint');
+    check(service.snapshot.endpoint?.endsWith('.sock'), 'registered snapshot must identify the local socket');
 
     const samplePng = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVQIHWP4z8DwHwAFgAI/ScL9YQAAAABJRU5ErkJggg==', 'base64');
     const hash = await service.uploadZefValue('PngImage', samplePng);
@@ -106,7 +105,12 @@ async function testTokoloshRoundTrip() {
     }
     service.clearCache();
     const dataUri = await service.resolveImage('PngImage', hash);
-    check(dataUri?.startsWith('data:image/png;base64,'), 'uploaded image should resolve as a PNG data URI');
+    check(dataUri === `data:image/png;base64,${samplePng.toString('base64')}`, 'PNG bytes must round-trip exactly');
+    const svg = Buffer.from('<svg xmlns="http://www.w3.org/2000/svg"><text>λ</text></svg>');
+    const svgHash = await service.uploadZefValue('SvgImage', svg);
+    check(svgHash, 'SVG upload returns a hash');
+    service.clearCache();
+    check(await service.resolveImage('SvgImage', svgHash) === `data:image/svg+xml;base64,${svg.toString('base64')}`, 'SVG UTF-8 must round-trip exactly');
     check(buildZefImageEmbed('PngImage', hash).includes(hash), 'uploaded hash should format as an embed');
     service.dispose();
     check(service.snapshot.phase === 'closed', 'disposed client must publish a closed connection snapshot');
@@ -115,7 +119,8 @@ async function testTokoloshRoundTrip() {
 
 async function main() {
     testPureFunctions();
-    await testTokoloshRoundTrip();
+    if (process.env.ZEF_STORE_LIVE_TEST === '1') { await testTokoloshRoundTrip(); }
+    else { console.log('Live test disabled; set ZEF_STORE_LIVE_TEST=1 to require a real Store round trip.'); }
     console.log('\nAll tests passed.');
 }
 

@@ -246,6 +246,7 @@
     "test:obsidian-images": "npx tsx --test test/obsidianImageEmbed.test.ts",
     "test:zefnet-wire": "npx tsx --test test/zefnetWire.test.ts",
     "test:tokolosh": "npx tsx test/test_tokolosh.ts",
+    "test:store": "npm run compile && node --test test/storeBridge.test.js test/figureRendering.test.js",
     "test:html-export": "npm run compile && node --test test/htmlExport.test.js"
   },
   "dependencies": {

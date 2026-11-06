@@ -879,7 +879,7 @@ async function runCodeInKernel(context: vscode.ExtensionContext, code: string, b
         // Upload matplotlib figures to hash store and add as side effects
         if (result.figures && result.figures.length > 0) {
             const service = TokoloshService.getInstance();
-            for (const fig of result.figures) {
+            for (const [figureIndex, fig] of result.figures.entries()) {
                 try {
                     const buffer = Buffer.from(fig.data, 'base64');
                     const zefType = mimeToZefType(fig.mime);
@@ -887,7 +887,8 @@ async function runCodeInKernel(context: vscode.ExtensionContext, code: string, b
                     if (hash) {
                         result.side_effects.push({
                             what: 'matplotlib_figure',
-                            content: `${zefType}('${hash}')`
+                            content: `${zefType}('${hash}')`,
+                            figure_index: figureIndex
                         });
                     }
                 } catch (_e) {

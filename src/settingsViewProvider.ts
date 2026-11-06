@@ -468,13 +468,13 @@ export class ZefSettingsViewProvider implements vscode.WebviewViewProvider {
         const checking = snapshot.phase === 'discovering' || snapshot.phase === 'opening';
         const statusClass = connected ? 'connected' : checking ? 'disconnected' : 'error';
         const statusText = connected
-            ? 'Connected — hash-store uploads and retrieval are available'
+            ? 'Local runtime connected — Store requests use native Tokolosh transport'
             : checking
                 ? 'Checking local Tokolosh…'
                 : snapshot.error
                     ? `Unavailable — ${escapeHtml(snapshot.error)}`
                     : 'Not connected';
-        const url = snapshot.endpoint ?? 'Scans localhost ports 27021–27040 at /zefnet';
+        const url = escapeHtml(snapshot.endpoint ?? 'Managed Zef runtime → local Tokolosh socket');
 
         return `
             <h2>Local service</h2>

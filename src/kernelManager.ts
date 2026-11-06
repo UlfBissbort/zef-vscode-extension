@@ -13,6 +13,7 @@ import { spawn, ChildProcess } from 'child_process';
 export interface SideEffect {
     what: string;      // e.g., 'stdout', 'stderr', 'file_write', etc.
     content: string;   // The content of the side effect
+    figure_index?: number; // Index into figures; uploads may succeed only partially
 }
 
 export interface FigureData {
