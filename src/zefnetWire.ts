@@ -7,24 +7,26 @@ ET.TypeScriptFile('🍃-95e741d58a8bd1258575',
 
 import * as crypto from 'crypto';
 
-/** Narrow, dependency-free implementation of ZefNet/Zef Messaging protocol v1.
+/** Narrow, dependency-free implementation of the Zef Messaging session (version 1)
+ * and the ZefNet v2 routed envelope ([[wire-format]]).
  *
- * Source of truth: zef/crates/zefnet_message_encoding/docs/wire-format.md.
- * This module intentionally supports only the binary session and JSON-like data
- * frames needed by the extension's local Tokolosh service client.
+ * Source of truth: zef/crates/zefnet_message_encoding. This module intentionally
+ * supports only the binary session and JSON-like data records needed by the
+ * extension's local Tokolosh service client.
  */
+const ARRAY1 = 0x28;
 const ARRAY2 = 0x29;
+const NIL = 0x07;
 const UINT8 = 0x4f;
 const ENTITY_UID = 0x21;
 const STRING_SHORT = 0x11;
 const STRING_MEDIUM = 0x12;
 const STRING_LONG = 0x13;
-const TIME = 0x43;
 const VERSION = 1;
+const ROUTED_VERSION = 2;
 const JSON_LIKE = 1;
-const COMMON_PREFIX_SIZE = 61;
-const RETURN_CONTEXT_SIZE = 43;
-const DATA_PAYLOAD_OFFSET = COMMON_PREFIX_SIZE + RETURN_CONTEXT_SIZE;
+const TARGET_OFFSET = 31;
+const MAX_PATH_ELEMENTS = 9;
 const SESSION_FRAME_SIZE = 45;
 const ZEF_PROCESS_TYPE = Uint8Array.from([226, 230, 195, 22, 20]);
 const DATA_JSON_LIKE_TYPE = Uint8Array.from([31, 35, 64, 72, 89]);
@@ -34,7 +36,6 @@ const SESSION_ACCEPTED_TYPE = Uint8Array.from([254, 184, 126, 6, 137]);
 const SESSION_REJECTED_TYPE = Uint8Array.from([212, 162, 32, 29, 252]);
 const DISCONNECT_TYPE = Uint8Array.from([219, 28, 244, 24, 36]);
 const DISCONNECT_ACCEPTED_TYPE = Uint8Array.from([188, 118, 0, 40, 164]);
-const RETURN_CAPABILITY_TYPE = Uint8Array.from([51, 16, 64, 183, 28]);
 
 export type NodeIdentifier = Uint8Array;
 export type MessageId = Uint8Array;
@@ -173,36 +174,6 @@ function decodeText(bytes: Uint8Array, offset: number): string {
     }
 }
 
-function validateReturnContext(bytes: Uint8Array, origin: NodeIdentifier, id: MessageId): void {
-    requireRange(bytes, COMMON_PREFIX_SIZE, RETURN_CONTEXT_SIZE, 'return context');
-    requireHeader(bytes, 61, UINT8, 'return disposition');
-    const disposition = bytes[62];
-    const gateway = validateNodeIdentifier(bytes, 63, 'return gateway');
-    const token = validateNodeIdentifier(bytes, 79, 'return capability');
-    requireHeader(bytes, 95, TIME, 'return expiry');
-    const coefficient = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength).getBigInt64(96, true);
-    if (disposition === 0) {
-        if (!equalBytes(gateway, origin) || !equalBytes(token, typedUid(RETURN_CAPABILITY_TYPE, id)) || coefficient !== 0n) {
-            throw new ZefNetWireError('None return context is not canonical');
-        }
-        return;
-    }
-    if (disposition < 1 || disposition > 3) { throw new ZefNetWireError(`unknown return disposition ${disposition}`); }
-    if (!equalBytes(token.slice(1, 6), RETURN_CAPABILITY_TYPE)) { throw new ZefNetWireError('return capability has an unexpected entity type'); }
-    if (coefficient <= 0n || coefficient % 100000000n !== 0n) {
-        throw new ZefNetWireError('return expiry must be a positive whole-second Time');
-    }
-}
-
-function encodeNoneReturnContext(origin: NodeIdentifier, id: MessageId): Uint8Array {
-    const output = new Uint8Array(RETURN_CONTEXT_SIZE);
-    output.set([UINT8, 0], 0);
-    output.set(origin, 2);
-    output.set(typedUid(RETURN_CAPABILITY_TYPE, id), 18);
-    output[34] = TIME;
-    return output;
-}
-
 function validateSessionFrame(bytes: Uint8Array, expectedType: Uint8Array, name: string): { id: MessageId; identity: NodeIdentifier; encoding: number } {
     if (bytes.length !== SESSION_FRAME_SIZE) { throw new ZefNetWireError(`${name} has invalid size ${bytes.length}`); }
     validateArray2(bytes);
@@ -283,71 +254,134 @@ export function isDisconnectAccepted(bytes: Uint8Array, expectedId: MessageId): 
     }
 }
 
-export function encodeDataMessageJsonLike(origin: NodeIdentifier, target: NodeIdentifier, id: MessageId, payload: string, hops: number = 0): Uint8Array {
-    requireBytes(origin, 16, 'origin');
-    requireBytes(target, 16, 'target');
-    validateNodeIdentifier(origin, 0, 'origin');
-    validateNodeIdentifier(target, 0, 'target');
+/** A ZefNet address: one entity, or `[domain…, destination]` ([[wire-format]] §3.3). */
+export type Path = NodeIdentifier[];
+
+function encodePath(path: Path, name: string): number[] {
+    if (path.length < 1 || path.length > MAX_PATH_ELEMENTS) { throw new ZefNetWireError(`${name} must contain 1 to ${MAX_PATH_ELEMENTS} entities`); }
+    path.forEach((element, index) => {
+        requireBytes(element, 16, `${name}[${index}]`);
+        validateNodeIdentifier(element, 0, `${name}[${index}]`);
+    });
+    // One element is written as a bare EntityUid, as the Rust encoder does.
+    return path.length === 1 ? [...path[0]] : [ARRAY1, 16 * path.length, ...path.flatMap((element) => [...element])];
+}
+
+function decodePath(bytes: Uint8Array, offset: number, name: string): { path: Path; end: number } {
+    requireRange(bytes, offset, 1, name);
+    let start: number;
+    let content: number;
+    if (bytes[offset] === ENTITY_UID) {
+        start = offset;
+        content = 16;
+    } else if (bytes[offset] === ARRAY1) {
+        requireRange(bytes, offset, 2, name);
+        start = offset + 2;
+        content = bytes[offset + 1];
+    } else if (bytes[offset] === ARRAY2) {
+        const length = readU64LE(bytes, offset + 1);
+        if (length > BigInt(16 * MAX_PATH_ELEMENTS)) { throw new ZefNetWireError(`${name} is too long`); }
+        start = offset + 9;
+        content = Number(length);
+    } else {
+        throw new ZefNetWireError(`${name} has header 0x${bytes[offset].toString(16)}, expected an EntityUid or Array of them`);
+    }
+    if (content % 16 !== 0 || content === 0 || content > 16 * MAX_PATH_ELEMENTS) { throw new ZefNetWireError(`${name} has invalid length ${content}`); }
+    requireRange(bytes, start, content, name);
+    const path: Path = [];
+    for (let index = 0; index < content / 16; index++) {
+        path.push(validateNodeIdentifier(bytes, start + 16 * index, `${name}[${index}]`));
+    }
+    return { path, end: start + content };
+}
+
+function requireCounter(value: number, name: string): void {
+    if (!Number.isInteger(value) || value < 0 || value > 255) { throw new ZefNetWireError(`${name} must be an unsigned byte`); }
+}
+
+/** Encode a v2 JSON-like data record. `origin` null means no replies are possible. */
+export function encodeDataMessageJsonLike(origin: Path | null, target: Path, id: MessageId, payload: string, hops: number = 0, attempts: number = 0): Uint8Array {
     validateMessageId(id);
-    if (!Number.isInteger(hops) || hops < 0 || hops > 255) { throw new ZefNetWireError('hops must be an unsigned byte'); }
-    const text = encodeText(payload);
+    requireCounter(hops, 'hops');
+    requireCounter(attempts, 'attempts');
     return encodeArray2(Uint8Array.from([
-        UINT8, VERSION,
+        UINT8, ROUTED_VERSION,
         UINT8, hops,
-        ...origin,
-        ...target,
+        UINT8, attempts,
         ...typedUid(DATA_JSON_LIKE_TYPE, id),
-        ...encodeNoneReturnContext(origin, id),
-        ...text,
+        ...encodePath(target, 'target'),
+        ...(origin === null ? [NIL, 0] : encodePath(origin, 'origin')),
+        ...encodeText(payload),
     ]));
 }
 
-export interface DecodedDataMessageJsonLike {
-    origin: NodeIdentifier;
-    target: NodeIdentifier;
+export interface DecodedRoutedRecord {
+    kind: Uint8Array;
     id: MessageId;
+    hops: number;
+    attempts: number;
+    target: Path;
+    origin: Path | null;
+    payloadOffset: number;
+}
+
+export interface DecodedDataMessageJsonLike {
+    origin: Path | null;
+    target: Path;
+    id: MessageId;
+    hops: number;
+    attempts: number;
     payload: string;
 }
 
 export interface DecodedDeliveryError {
-    origin: NodeIdentifier;
-    target: NodeIdentifier;
+    origin: Path | null;
+    target: Path;
     id: MessageId;
+    /** The id of the message that could not be delivered, as zef_core derives it. */
     failedId: MessageId;
-    reason: 'no-route' | 'hop-limit-exceeded' | 'next-hop-unavailable' | 'local-dispatch-rejected' | 'unsupported-payload-encoding' | 'return-capability-unavailable';
+}
+
+/** Decode the v2 envelope shared by every routed record ([[wire-format]] §3.2). */
+export function decodeRoutedRecord(bytes: Uint8Array): DecodedRoutedRecord {
+    validateArray2(bytes);
+    requireRange(bytes, 0, TARGET_OFFSET + 1, 'routed record');
+    requireHeader(bytes, 9, UINT8, 'routed version');
+    if (bytes[10] !== ROUTED_VERSION) { throw new ZefNetWireError(`unsupported routed version ${bytes[10]}`); }
+    requireHeader(bytes, 11, UINT8, 'hops');
+    requireHeader(bytes, 13, UINT8, 'attempts');
+    requireHeader(bytes, 15, ENTITY_UID, 'routed message UID');
+    const target = decodePath(bytes, TARGET_OFFSET, 'target');
+    let origin: Path | null = null;
+    let payloadOffset: number;
+    requireRange(bytes, target.end, 1, 'origin');
+    if (bytes[target.end] === NIL) {
+        requireRange(bytes, target.end, 2, 'nil origin');
+        if (bytes[target.end + 1] !== 0) { throw new ZefNetWireError('nil origin is not canonical'); }
+        payloadOffset = target.end + 2;
+    } else {
+        const decoded = decodePath(bytes, target.end, 'origin');
+        origin = decoded.path;
+        payloadOffset = decoded.end;
+    }
+    if (payloadOffset >= bytes.length) { throw new ZefNetWireError('routed record has no payload'); }
+    return { kind: bytes.slice(16, 21), id: bytes.slice(21, 31), hops: bytes[12], attempts: bytes[14], target: target.path, origin, payloadOffset };
 }
 
 export function decodeDataMessageJsonLike(bytes: Uint8Array): DecodedDataMessageJsonLike {
-    const { origin, target, id } = decodeRoutedPrefix(bytes, DATA_JSON_LIKE_TYPE, 'DataMessageJsonLike');
-    validateReturnContext(bytes, origin, id);
-    return { origin, target, id, payload: decodeText(bytes, DATA_PAYLOAD_OFFSET) };
+    const record = decodeRoutedRecord(bytes);
+    if (!equalBytes(record.kind, DATA_JSON_LIKE_TYPE)) { throw new ZefNetWireError('routed record is not DataMessageJsonLike'); }
+    return { origin: record.origin, target: record.target, id: record.id, hops: record.hops, attempts: record.attempts,
+             payload: decodeText(bytes, record.payloadOffset) };
 }
 
-/** Decode the fixed-size failure record emitted instead of an undeliverable routed request. */
+/** Recognize a delivery error. Its payload is a Zef-binary ET.ZefNetDeliveryError
+ * that this client does not decode; zef_core gives the error the failed message's
+ * id with the top bit of its first byte flipped, which is enough to fail the call. */
 export function decodeDeliveryError(bytes: Uint8Array): DecodedDeliveryError {
-    if (bytes.length !== 140) { throw new ZefNetWireError(`DeliveryError has invalid size ${bytes.length}`); }
-    const { origin, target, id } = decodeRoutedPrefix(bytes, DELIVERY_ERROR_TYPE, 'DeliveryError');
-    validateReturnContext(bytes, origin, id);
-    requireHeader(bytes, 104, 0x28, 'DeliveryError body');
-    requireHeader(bytes, 105, 0x22, 'DeliveryError body size');
-    validateNodeIdentifier(bytes, 106, 'DeliveryError failed target');
-    requireHeader(bytes, 122, ENTITY_UID, 'DeliveryError failed message UID');
-    requireHeader(bytes, 138, UINT8, 'DeliveryError reason');
-    const reasons = ['no-route', 'hop-limit-exceeded', 'next-hop-unavailable', 'local-dispatch-rejected', 'unsupported-payload-encoding', 'return-capability-unavailable'] as const;
-    const reason = reasons[bytes[139] - 1];
-    if (!reason) { throw new ZefNetWireError(`DeliveryError has unknown reason ${bytes[139]}`); }
-    return { origin, target, id, failedId: bytes.slice(128, 138), reason };
-}
-
-function decodeRoutedPrefix(bytes: Uint8Array, expectedType: Uint8Array, name: string): { origin: NodeIdentifier; target: NodeIdentifier; id: MessageId } {
-    if (bytes.length < DATA_PAYLOAD_OFFSET) { throw new ZefNetWireError(`routed record is too short: ${bytes.length}`); }
-    validateArray2(bytes);
-    requireHeader(bytes, 9, UINT8, 'routed version');
-    if (bytes[10] !== VERSION) { throw new ZefNetWireError(`unsupported routed version ${bytes[10]}`); }
-    requireHeader(bytes, 11, UINT8, 'hop count');
-    const origin = validateNodeIdentifier(bytes, 13, 'origin');
-    const target = validateNodeIdentifier(bytes, 29, 'target');
-    requireHeader(bytes, 45, ENTITY_UID, 'routed message UID');
-    if (!equalBytes(bytes.slice(46, 51), expectedType)) { throw new ZefNetWireError(`routed record is not ${name}`); }
-    return { origin, target, id: bytes.slice(51, 61) };
+    const record = decodeRoutedRecord(bytes);
+    if (!equalBytes(record.kind, DELIVERY_ERROR_TYPE)) { throw new ZefNetWireError('routed record is not DeliveryError'); }
+    const failedId = record.id.slice();
+    failedId[0] ^= 0x80;
+    return { origin: record.origin, target: record.target, id: record.id, failedId };
 }
